@@ -44,7 +44,7 @@ struct ether_frame {
 };
 
 struct ipv4 {
-    struct ether_frame *ether;
+    const struct ether_frame *ether;
     uint8_t version;
     // unit: byte
     uint8_t header_len;
@@ -72,20 +72,24 @@ struct icmp {
     const u_char *payload;
 };
 
+struct payload {
+    const u_char *ptr;
+    uint16_t len;
+    const struct payload *next;
+};
+
 int send_ether_ex(
     struct lan_play *arg,
     void *dst,
     void *src,
     uint16_t type,
-    const u_char *payload,
-    uint16_t length
+    const struct payload *payload
 );
 int send_ether(
     struct lan_play *arg,
     void *dst,
     uint16_t type,
-    const u_char *payload,
-    uint16_t length
+    const struct payload *payload
 );
 
 #endif // _PACKET_H_

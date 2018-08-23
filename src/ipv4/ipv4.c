@@ -1,40 +1,60 @@
 #include "ipv4.h"
 
-uint16_t calc_checksum(const u_char *packet, int len);
-
-int send_ipv4_ex(
+int send_ipv4(
     struct lan_play *arg,
-    void *src,
-    void *dst,
+    const void *dst,
     uint8_t protocol,
-    const u_char *payload,
-    uint16_t length
+    const struct payload *payload
 )
 {
-    send_ether(
+    return send_ipv4_ex(
         arg,
-        
-    )
-    const void *dst_mac = packet + ETHER_OFF_SRC;
-    void *buf = arg->buffer;
-    memcpy(buf + ETHER_OFF_DST, dst_mac, 6);
-    memcpy(buf + ETHER_OFF_SRC, arg->mac, 6);
-    WRITE_NET16(buf, ETHER_OFF_TYPE, ETHER_TYPE_IPV4);
+        arg->ip,
+        dst,
+        protocol,
+        payload
+    );
+}
+int send_ipv4_ex(
+    struct lan_play *arg,
+    const void *src,
+    const void *dst,
+    uint8_t protocol,
+    const struct payload *payload
+)
+{
+    struct payload part;
+    uint8_t dst_mac[6];
+    uint8_t buffer[IPV4_HEADER_LEN];
+    void *buf = buffer;
+    uint8_t t;
+    uint16_t tt;
 
     WRITE_NET8(buf, IPV4_OFF_VER_LEN, 0x45);
-    WRITE_NET8(buf, IPV4_OFF_DSF, 0x00);
-    WRITE_NET16(buf, IPV4_OFF_TOTAL_LEN, ipv4->total_len);
-    WRITE_NET16(buf, IPV4_OFF_ID, ipv4->identification);
-    WRITE_NET16(buf, IPV4_OFF_FLAGS, ipv4->flags);
-    WRITE_NET8(buf, IPV4_OFF_TTL, ipv4->ttl);
-    WRITE_NET8(buf, IPV4_OFF_PROTOCOL, ipv4->protocol);
+    WRITE_NET8(buf, IPV4_OFF_DSCP_ECN, 0x00);
+    WRITE_NET16(buf, IPV4_OFF_TOTAL_LEN, IPV4_HEADER_LEN + payload->len);
+    WRITE_NET16(buf, IPV4_OFF_ID, arg->identification++);
+    WRITE_NET16(buf, IPV4_OFF_FLAGS_FRAG_OFFSET, 0);
+    WRITE_NET8(buf, IPV4_OFF_TTL, 128);
+    WRITE_NET8(buf, IPV4_OFF_PROTOCOL, protocol);
     WRITE_NET16(buf, IPV4_OFF_CHECKSUM, 0x0000);
 
-    memcpy(buf + IPV4_OFF_SRC, ipv4->src, 4);
-    memcpy(buf + IPV4_OFF_DST, ipv4->dst, 4);
+    memcpy(buf + IPV4_OFF_SRC, src, 4);
+    memcpy(buf + IPV4_OFF_DST, dst, 4);
 
     uint16_t checksum = calc_checksum(buf + ETHER_OFF_IPV4, IPV4_HEADER_LEN);
     WRITE_NET16(buf, IPV4_OFF_CHECKSUM, checksum);
+
+    part.ptr = buffer;
+    part.len = IPV4_HEADER_LEN;
+    part.next = payload;
+    arp_get_mac_by_ip(dst_mac, dst);
+    send_ether(
+        arg,
+        dst_mac,
+        ETHER_TYPE_IPV4,
+        &part
+    );
 
     return 1;
 }
@@ -72,8 +92,9 @@ int process_ipv4(struct lan_play *arg, const struct ether_frame *ether)
 
     switch (ipv4.protocol) {
         case IPV4_PROTOCOL_ICMP:
-            return process_icmp(arg, packet, &ipv4);
+            return process_icmp(arg, &ipv4);
     }
+
     return 1;
 }
 

@@ -1,5 +1,61 @@
 #include "lan-play.h"
 
+int send_payloads(
+    struct lan_play *arg,
+    const struct payload *payload
+)
+{
+    uint8_t *buf = arg->buffer;
+    const struct payload *part = payload;
+    uint16_t total_len = 0;
+
+    while (part) {
+        memcpy(buf, part->ptr, part->len);
+        buf += part->len;
+        part = part->next;
+        total_len += part->len;
+    }
+
+    return send_packet(arg, total_len);
+}
+
+int send_ether_ex(
+    struct lan_play *arg,
+    void *dst,
+    void *src,
+    uint16_t type,
+    const struct payload *payload
+)
+{
+    uint8_t buffer[ETHER_HEADER_LEN];
+    struct payload part;
+    
+    part.ptr = buffer;
+    part.len = ETHER_HEADER_LEN;
+    part.next = payload;
+
+    memcpy(buffer + ETHER_OFF_DST, dst, 6);
+    memcpy(buffer + ETHER_OFF_SRC, src, 6);
+    WRITE_NET16(buffer, ETHER_OFF_TYPE, type);
+
+    return send_payloads(arg, &part);
+}
+int send_ether(
+    struct lan_play *arg,
+    void *dst,
+    uint16_t type,
+    const struct payload *payload
+)
+{
+    return send_ether_ex(
+        arg,
+        dst,
+        arg->mac,
+        type,
+        payload
+    );
+}
+
 void print_packet(int id, const struct pcap_pkthdr *pkthdr, const u_char *packet)
 {
     printf("id: %d\n", id);

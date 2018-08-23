@@ -18,8 +18,8 @@ int process_arp(struct lan_play *arg, const struct ether_frame *ether)
     strcpy(sender_ip, ip2str(sender));
     strcpy(target_ip, ip2str(target));
 
-    FILL_IPV4(sender, packet, ARP_OFF_SENDER_IP);
-    FILL_IPV4(target, packet, ARP_OFF_TARGET_IP);
+    CPY_IPV4(sender, packet, ARP_OFF_SENDER_IP);
+    CPY_IPV4(target, packet, ARP_OFF_TARGET_IP);
 
     // printf("[%d] ARP Sender: %s\n", arg->id, sender_ip);
     // printf("         Target: %s\n", target_ip);
@@ -47,4 +47,18 @@ int process_arp(struct lan_play *arg, const struct ether_frame *ether)
     }
 
     return 1;
+}
+
+void arp_list_init(struct arp_item *list)
+{
+    memset(list, 0, ARP_CACHE_LEN * sizeof(*list));
+}
+
+int arp_get_mac_by_ip(void *mac, const void *ip)
+{
+    return false;
+}
+int arp_set(const void *mac, const void *ip)
+{
+    return false;
 }

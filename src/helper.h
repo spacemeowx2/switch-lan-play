@@ -9,6 +9,7 @@
 #define WRITE_NET16(packet, offset, v) (*(uint16_t*)((uint8_t*)packet + offset) = htons(v))
 #define CPY_IPV4(r, packet, offset) (memcpy(r, packet + offset, 4))
 #define CPY_MAC(r, packet, offset) (memcpy(r, packet + offset, 6))
+#define PRINT_IP(ip) printf("%d.%d.%d.%d", *(uint8_t*)(ip), *(uint8_t*)(ip + 1), *(uint8_t*)(ip + 2), *(uint8_t*)(ip + 3))
 const char *ip2str(void *ip);
 void *str2ip(const char *ip);
 #if __APPLE__
