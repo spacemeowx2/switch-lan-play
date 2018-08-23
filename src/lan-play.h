@@ -24,7 +24,7 @@ struct lan_play {
 
 void get_packet(struct lan_play *arg, const struct pcap_pkthdr * pkthdr, const u_char * packet);
 int send_packet(struct lan_play *arg, int size);
-int process_arp(struct lan_play *arg, const u_char *packet);
-int process_ipv4(struct lan_play *arg, const u_char *packet);
+int process_arp(struct lan_play *arg, const struct ether_frame *ether);
+int process_ipv4(struct lan_play *arg, const struct ether_frame *ether);
 
 #endif // _LAN_PLAY_H_

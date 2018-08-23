@@ -25,13 +25,17 @@ int send_packet(struct lan_play *arg, int size)
 
 int process_ether(struct lan_play *arg, const u_char *packet)
 {
-    uint16_t type = READ_NET16(packet, ETHER_OFF_TYPE);
-    // printf("Ether type: %x\n", type);
-    switch (type) {
+    struct ether_frame ether;
+    memcpy(ether.dst, packet + ETHER_OFF_DST, 6);
+    memcpy(ether.src, packet + ETHER_OFF_SRC, 6);
+    ether.type = READ_NET16(packet, ETHER_OFF_TYPE);
+    ether.payload = packet + ETHER_OFF_END;
+
+    switch (ether.type) {
         case ETHER_TYPE_ARP:
-            return process_arp(arg, packet);
+            return process_arp(arg, &ether);
         case ETHER_TYPE_IPV4:
-            return process_ipv4(arg, packet);
+            return process_ipv4(arg, &ether);
         default:
             return 0;
     }

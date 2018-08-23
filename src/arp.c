@@ -1,7 +1,9 @@
 #include "lan-play.h"
 
-int process_arp(struct lan_play *arg, const u_char *packet)
+int process_arp(struct lan_play *arg, const struct ether_frame *ether)
 {
+    const u_char *packet = ether->payload;
+
     uint16_t hardware_type = READ_NET16(packet, ARP_OFF_HARDWARE);
     uint16_t protocol_type = READ_NET16(packet, ARP_OFF_PROTOCOL);
     uint16_t hardware_size = READ_NET8(packet, ARP_OFF_HARDWARE_SIZE);
