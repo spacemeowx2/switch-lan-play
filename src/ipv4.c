@@ -64,14 +64,14 @@ int process_icmp(struct LanPlay *arg, const u_char *packet, const struct IPv4 *i
     uint16_t sum = calc_checksum(buf + IPV4_OFF_END, icmp_len);
     WRITE_NET16(buf, IPV4_OFF_END + 2, sum);
 
-    int ret = sendPacket(arg, header.total_len + ETHER_HEADER_LEN);
+    int ret = send_packet(arg, header.total_len + ETHER_HEADER_LEN);
     if (ret != 0) {
         fprintf(stderr, "Error sendPacket %d\n", ret);
     }
     return 1;
 }
 
-int processIPv4(struct LanPlay *arg, const u_char *packet)
+int process_ipv4(struct LanPlay *arg, const u_char *packet)
 {
     struct IPv4 ipv4;
 

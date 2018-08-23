@@ -1,6 +1,6 @@
 #include "lan-play.h"
 
-void printPacket(int id, const struct pcap_pkthdr *pkthdr, const u_char *packet)
+void print_packet(int id, const struct pcap_pkthdr *pkthdr, const u_char *packet)
 {
     printf("id: %d\n", id);
     printf("Packet length: %d\n", pkthdr->len);
@@ -18,7 +18,7 @@ void printPacket(int id, const struct pcap_pkthdr *pkthdr, const u_char *packet)
     printf("\n\n");
 }
 
-int sendPacket(struct LanPlay *arg, int size)
+int send_packet(struct LanPlay *arg, int size)
 {
     return pcap_sendpacket(arg->dev, arg->buffer, size);
 }
@@ -29,17 +29,17 @@ int process(struct LanPlay *arg, const u_char *packet)
     // printf("Ether type: %x\n", type);
     switch (type) {
         case ETHER_TYPE_ARP:
-            return processARP(arg, packet);
+            return process_arp(arg, packet);
         case ETHER_TYPE_IPV4:
-            return processIPv4(arg, packet);
+            return process_ipv4(arg, packet);
         default:
             return 0;
     }
 }
 
-void getPacket(struct LanPlay *arg, const struct pcap_pkthdr *pkthdr, const u_char *packet)
+void get_packet(struct LanPlay *arg, const struct pcap_pkthdr *pkthdr, const u_char *packet)
 {
     if (process(arg, packet) == 0) {
-        printPacket(++arg->id, pkthdr, packet);
+        print_packet(++arg->id, pkthdr, packet);
     }
 }

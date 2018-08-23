@@ -1,6 +1,6 @@
 #include "lan-play.h"
 
-int processARP(struct LanPlay *arg, const u_char *packet)
+int process_arp(struct LanPlay *arg, const u_char *packet)
 {
     uint16_t hardware_type = READ_NET16(packet, ARP_OFF_HARDWARE);
     uint16_t protocol_type = READ_NET16(packet, ARP_OFF_PROTOCOL);
@@ -38,7 +38,7 @@ int processARP(struct LanPlay *arg, const u_char *packet)
         memcpy(buf + ARP_OFF_TARGET_MAC, dst_mac, 6);
         memcpy(buf + ARP_OFF_TARGET_IP, sender, 4);
 
-        int ret = sendPacket(arg, 42);
+        int ret = send_packet(arg, 42);
         if (ret != 0) {
             fprintf(stderr, "Error sendPacket %d\n", ret);
         }

@@ -1,7 +1,9 @@
 #include <stdio.h>
 #include <stdint.h>
+#if __APPLE__
 #include <sys/ioctl.h>
 #include <net/bpf.h>
+#endif
 #include "helper.h"
 #include "config.h"
 
@@ -23,8 +25,10 @@ void *str2ip(const char *ip)
     }
     return bin;
 }
+#if __APPLE__
 int set_immediate_mode(int fd)
 {
     int on = 1;
     return ioctl(fd, BIOCIMMEDIATE, &on);
 }
+#endif

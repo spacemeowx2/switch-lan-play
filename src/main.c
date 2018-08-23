@@ -2,7 +2,7 @@
 
 uint8_t SEND_BUFFER[BUFFER_SIZE];
 
-void setFilter(pcap_t *dev)
+void set_filter(pcap_t *dev)
 {
     static struct bpf_program bpf;
     pcap_compile(dev, &bpf, "src host " CLIENT_IP, 1, 0);
@@ -30,12 +30,15 @@ int main()
         fprintf(stderr, "Error: pcap_open_live(): %s\n", errBuf);
         exit(1);
     }
-    setFilter(dev);
+    set_filter(dev);
+
+#if __APPLE__
     fd = pcap_fileno(dev); // fix mac os realtime
     if (set_immediate_mode(fd) == -1) {
         fprintf(stderr, "Error: BIOCIMMEDIATE failed %s\n", strerror(errno));
         exit(1);
     }
+#endif
 
     struct LanPlay lan_play;
     lan_play.dev = dev;
@@ -49,7 +52,7 @@ int main()
     lan_play.mac[4] = 0x71;
     lan_play.mac[5] = 0x6f;
 
-    pcap_loop(dev, -1, (void(*)(u_char *, const struct pcap_pkthdr *, const u_char *))getPacket, (u_char*)&lan_play);
+    pcap_loop(dev, -1, (void(*)(u_char *, const struct pcap_pkthdr *, const u_char *))get_packet, (u_char*)&lan_play);
 
     pcap_close(dev);
     return 0;
