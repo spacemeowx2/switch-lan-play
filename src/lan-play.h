@@ -18,6 +18,7 @@ struct LanPlay {
     uint32_t id;
     void *buffer;
     uint8_t mac[6];
+    uint16_t identification;
 };
 
 void getPacket(struct LanPlay *arg, const struct pcap_pkthdr * pkthdr, const u_char * packet);

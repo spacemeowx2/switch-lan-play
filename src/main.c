@@ -34,6 +34,7 @@ int main()
     lan_play.dev = dev;
     lan_play.id = 0;
     lan_play.buffer = SEND_BUFFER;
+    lan_play.identification = 0;
     lan_play.mac[0] = 0x6c;
     lan_play.mac[1] = 0x71;
     lan_play.mac[2] = 0xd9;

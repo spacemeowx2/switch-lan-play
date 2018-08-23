@@ -19,8 +19,8 @@ int processARP(struct LanPlay *arg, const u_char *packet)
     FILL_IPV4(sender, packet, ARP_OFF_SENDER_IP);
     FILL_IPV4(target, packet, ARP_OFF_TARGET_IP);
 
-    printf("[%d] ARP Sender: %s\n", arg->id, sender_ip);
-    printf("         Target: %s\n", target_ip);
+    // printf("[%d] ARP Sender: %s\n", arg->id, sender_ip);
+    // printf("         Target: %s\n", target_ip);
 
     if ((strcmp(SERVER_IP, target_ip) == 0) && (strcmp(CLIENT_IP, sender_ip) == 0)) {
         puts("Reply the ARP");

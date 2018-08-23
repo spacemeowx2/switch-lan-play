@@ -26,7 +26,7 @@ int sendPacket(struct LanPlay *arg, int size)
 int process(struct LanPlay *arg, const u_char *packet)
 {
     uint16_t type = READ_NET16(packet, ETHER_OFF_TYPE);
-    printf("Ether type: %x\n", type);
+    // printf("Ether type: %x\n", type);
     switch (type) {
         case ETHER_TYPE_ARP:
             return processARP(arg, packet);
