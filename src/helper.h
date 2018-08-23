@@ -14,4 +14,5 @@
 } while(0)
 const char *ip2str(void *ip);
 void *str2ip(const char *ip);
+int set_immediate_mode(int fd);
 #endif // _HELPER_H_

@@ -13,22 +13,29 @@ int main()
 {
     char errBuf[PCAP_ERRBUF_SIZE];
     char *devStr;
+    int fd;
+    pcap_t *dev;
 
     devStr = pcap_lookupdev(errBuf);
     if (devStr) {
         printf("Success: device %s\n", devStr);
     } else {
-        printf("Error: %s\n", errBuf);
+        fprintf(stderr, "Error: %s\n", errBuf);
         exit(1);
     }
 
-    pcap_t *dev = pcap_open_live(devStr, 65535, 1, 0, errBuf);
+    dev = pcap_open_live(devStr, 65535, 1, 0, errBuf);
 
     if (!dev) {
-        printf("Error: pcap_open_live(): %s\n", errBuf);
+        fprintf(stderr, "Error: pcap_open_live(): %s\n", errBuf);
         exit(1);
     }
     setFilter(dev);
+    fd = pcap_fileno(dev); // fix mac os realtime
+    if (set_immediate_mode(fd) == -1) {
+        fprintf(stderr, "Error: BIOCIMMEDIATE failed %s\n", strerror(errno));
+        exit(1);
+    }
 
     struct LanPlay lan_play;
     lan_play.dev = dev;

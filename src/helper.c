@@ -1,5 +1,7 @@
 #include <stdio.h>
 #include <stdint.h>
+#include <sys/ioctl.h>
+#include <net/bpf.h>
 #include "helper.h"
 #include "config.h"
 
@@ -20,4 +22,9 @@ void *str2ip(const char *ip)
         bin[i] = p[i];
     }
     return bin;
+}
+int set_immediate_mode(int fd)
+{
+    int on = 1;
+    return ioctl(fd, BIOCIMMEDIATE, &on);
 }

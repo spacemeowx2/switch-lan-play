@@ -41,6 +41,7 @@ int fill_ipv4(struct LanPlay *arg, const u_char *packet, const struct IPv4 *ipv4
     uint16_t checksum = calc_checksum(buf + ETHER_OFF_IPV4, IPV4_HEADER_LEN);
     WRITE_NET16(buf, IPV4_OFF_CHECKSUM, checksum);
 
+    return 1;
 }
 
 int process_icmp(struct LanPlay *arg, const u_char *packet, const struct IPv4 *ipv4)
@@ -65,6 +66,7 @@ int process_icmp(struct LanPlay *arg, const u_char *packet, const struct IPv4 *i
 
     int ret = sendPacket(arg, header.total_len + ETHER_HEADER_LEN);
     printf("sendPacket %d\n", ret);
+    return 1;
 }
 
 int processIPv4(struct LanPlay *arg, const u_char *packet)

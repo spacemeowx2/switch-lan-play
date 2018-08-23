@@ -8,6 +8,7 @@
 #include <stdint.h>
 #include <time.h>
 #include <string.h>
+#include <errno.h>
 
 #include "packet.h"
 #include "helper.h"
