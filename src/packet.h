@@ -35,4 +35,10 @@
 #define ARP_OFF_TARGET_MAC ETHER_OFF_ARP + 18
 #define ARP_OFF_TARGET_IP ETHER_OFF_ARP + 24
 
+struct ether_frame {
+    uint8_t dst[6];
+    uint8_t src[6];
+    uint16_t type;
+};
+
 #endif // _PACKET_H_

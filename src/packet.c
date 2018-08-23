@@ -18,12 +18,12 @@ void print_packet(int id, const struct pcap_pkthdr *pkthdr, const u_char *packet
     printf("\n\n");
 }
 
-int send_packet(struct LanPlay *arg, int size)
+int send_packet(struct lan_play *arg, int size)
 {
     return pcap_sendpacket(arg->dev, arg->buffer, size);
 }
 
-int process(struct LanPlay *arg, const u_char *packet)
+int process_ether(struct lan_play *arg, const u_char *packet)
 {
     uint16_t type = READ_NET16(packet, ETHER_OFF_TYPE);
     // printf("Ether type: %x\n", type);
@@ -37,9 +37,9 @@ int process(struct LanPlay *arg, const u_char *packet)
     }
 }
 
-void get_packet(struct LanPlay *arg, const struct pcap_pkthdr *pkthdr, const u_char *packet)
+void get_packet(struct lan_play *arg, const struct pcap_pkthdr *pkthdr, const u_char *packet)
 {
-    if (process(arg, packet) == 0) {
+    if (process_ether(arg, packet) == 0) {
         print_packet(++arg->id, pkthdr, packet);
     }
 }

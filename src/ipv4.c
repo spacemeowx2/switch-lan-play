@@ -18,7 +18,7 @@ int ipv4_get_header_len(const u_char *packet)
     return (ver_len & 0xF) * 4;
 }
 
-int fill_ipv4(struct LanPlay *arg, const u_char *packet, const struct IPv4 *ipv4)
+int fill_ipv4(struct lan_play *arg, const u_char *packet, const struct IPv4 *ipv4)
 {
     const void *dst_mac = packet + ETHER_OFF_SRC;
     void *buf = arg->buffer;
@@ -44,7 +44,7 @@ int fill_ipv4(struct LanPlay *arg, const u_char *packet, const struct IPv4 *ipv4
     return 1;
 }
 
-int process_icmp(struct LanPlay *arg, const u_char *packet, const struct IPv4 *ipv4)
+int process_icmp(struct lan_play *arg, const u_char *packet, const struct IPv4 *ipv4)
 {
     void *buf = arg->buffer;
     struct IPv4 header;
@@ -71,7 +71,7 @@ int process_icmp(struct LanPlay *arg, const u_char *packet, const struct IPv4 *i
     return 1;
 }
 
-int process_ipv4(struct LanPlay *arg, const u_char *packet)
+int process_ipv4(struct lan_play *arg, const u_char *packet)
 {
     struct IPv4 ipv4;
 

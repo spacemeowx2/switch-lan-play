@@ -40,7 +40,7 @@ int main()
     }
 #endif
 
-    struct LanPlay lan_play;
+    struct lan_play lan_play;
     lan_play.dev = dev;
     lan_play.id = 0;
     lan_play.buffer = SEND_BUFFER;

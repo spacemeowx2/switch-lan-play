@@ -14,7 +14,7 @@
 #include "helper.h"
 #include "config.h"
 
-struct LanPlay {
+struct lan_play {
     pcap_t *dev;
     uint32_t id;
     void *buffer;
@@ -22,9 +22,9 @@ struct LanPlay {
     uint16_t identification;
 };
 
-void get_packet(struct LanPlay *arg, const struct pcap_pkthdr * pkthdr, const u_char * packet);
-int send_packet(struct LanPlay *arg, int size);
-int process_arp(struct LanPlay *arg, const u_char *packet);
-int process_ipv4(struct LanPlay *arg, const u_char *packet);
+void get_packet(struct lan_play *arg, const struct pcap_pkthdr * pkthdr, const u_char * packet);
+int send_packet(struct lan_play *arg, int size);
+int process_arp(struct lan_play *arg, const u_char *packet);
+int process_ipv4(struct lan_play *arg, const u_char *packet);
 
 #endif // _LAN_PLAY_H_
