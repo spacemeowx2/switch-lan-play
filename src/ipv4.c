@@ -65,7 +65,9 @@ int process_icmp(struct LanPlay *arg, const u_char *packet, const struct IPv4 *i
     WRITE_NET16(buf, IPV4_OFF_END + 2, sum);
 
     int ret = sendPacket(arg, header.total_len + ETHER_HEADER_LEN);
-    printf("sendPacket %d\n", ret);
+    if (ret != 0) {
+        fprintf(stderr, "Error sendPacket %d\n", ret);
+    }
     return 1;
 }
 

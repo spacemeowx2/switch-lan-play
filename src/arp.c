@@ -39,7 +39,9 @@ int processARP(struct LanPlay *arg, const u_char *packet)
         memcpy(buf + ARP_OFF_TARGET_IP, sender, 4);
 
         int ret = sendPacket(arg, 42);
-        printf("sendPacket %d\n", ret);
+        if (ret != 0) {
+            fprintf(stderr, "Error sendPacket %d\n", ret);
+        }
     }
 
     return 1;
