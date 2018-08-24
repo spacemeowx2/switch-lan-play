@@ -29,9 +29,8 @@ void init_lan_play(struct lan_play *lan_play, pcap_t *dev)
     lan_play->arp_ttl = 30;
 }
 
-pcap_t *select_dev()
+pcap_t *select_dev(char *err_buf)
 {
-    char err_buf[PCAP_ERRBUF_SIZE];
     pcap_if_t *alldevs;
     pcap_if_t *d;
     pcap_t *dev;
@@ -86,7 +85,7 @@ int main()
     char err_buf[PCAP_ERRBUF_SIZE];
     pcap_t *dev;
 
-    dev = select_dev();
+    dev = select_dev(err_buf);
 
     if (!dev) {
         fprintf(stderr, "Error: pcap_open_live(): %s\n", err_buf);
