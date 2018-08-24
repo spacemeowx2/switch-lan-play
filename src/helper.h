@@ -1,7 +1,9 @@
 #ifndef _HELPER_H_
 #define _HELPER_H_
 
-#if !defined(_WIN32)
+#if defined(_WIN32)
+#include <Winsock.h>
+#else
 #include <arpa/inet.h>
 #endif
 

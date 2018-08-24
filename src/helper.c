@@ -11,7 +11,7 @@ const char *ip2str(void *ip)
 {
     const uint8_t *sip = (uint8_t *)ip;
     static char str[IP_STR_LEN];
-    sprintf(str, "%d.%d.%d.%d", sip[0], sip[1], sip[2], sip[3]);
+	snprintf(str, sizeof(str), "%d.%d.%d.%d", sip[0], sip[1], sip[2], sip[3]);
     return str;
 }
 void *str2ip(const char *ip)

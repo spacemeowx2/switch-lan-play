@@ -6,7 +6,7 @@ void set_filter(pcap_t *dev)
 {
     char filter[100];
     static struct bpf_program bpf;
-    sprintf(filter, "net %s %s", SUBNET_NET, SUBNET_MASK);
+    snprintf(filter, sizeof(filter), "net %s %s", SUBNET_NET, SUBNET_MASK);
     pcap_compile(dev, &bpf, filter, 1, 0);
     pcap_setfilter(dev, &bpf);
 }
