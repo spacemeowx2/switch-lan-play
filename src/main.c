@@ -11,34 +11,32 @@ void set_filter(pcap_t *dev)
     pcap_setfilter(dev, &bpf);
 }
 
-void init_lan_play(struct lan_play *lan_play, pcap_t *dev)
+void get_mac(struct lan_play *lan_play, pcap_if_t *d, pcap_t *p)
 {
-    lan_play->dev = dev;
-    lan_play->id = 0;
-    lan_play->buffer = SEND_BUFFER;
-    lan_play->identification = 0;
-    CPY_IPV4(lan_play->ip, str2ip(SERVER_IP));
-    CPY_IPV4(lan_play->subnet_mask, str2ip(SUBNET_MASK));
-    lan_play->mac[0] = 0x6c;
-    lan_play->mac[1] = 0x71;
-    lan_play->mac[2] = 0xd9;
-    lan_play->mac[3] = 0x1d;
-    lan_play->mac[4] = 0x71;
-    lan_play->mac[5] = 0x6f;
-    arp_list_init(lan_play->arp_list);
-    lan_play->arp_ttl = 30;
+#if defined(_WIN32)
+    if (get_mac_address(d, lan_play->mac) == 0) {
+        fprintf(stderr, "Error when getting the MAC address\n");
+        exit(1);
+    }
+#else
+    ioctl(sock, SIOCGIFHWADDR, &lan_play->mac);
+#endif
+    printf("Get MAC: ");
+    PRINT_MAC(lan_play->mac);
+    putchar('\n');
 }
 
-pcap_t *select_dev(char *err_buf)
+void init_pcap(struct lan_play *lan_play)
 {
+    pcap_t *dev;
     pcap_if_t *alldevs;
     pcap_if_t *d;
-    pcap_t *dev;
+    char err_buf[PCAP_ERRBUF_SIZE];
     int i;
     int arg_inum;
-    
+
     if (pcap_findalldevs(&alldevs, err_buf)) {
-        fprintf(stderr, "Error select_dev: %s\n", err_buf);
+        fprintf(stderr, "Error pcap_findalldevs: %s\n", err_buf);
         exit(1);
     }
 
@@ -76,22 +74,14 @@ pcap_t *select_dev(char *err_buf)
 
     dev = pcap_open_live(d->name, 65535, 1, 0, err_buf);
 
-    pcap_freealldevs(alldevs);
-    return dev;
-}
-
-int main()
-{
-    char err_buf[PCAP_ERRBUF_SIZE];
-    pcap_t *dev;
-
-    dev = select_dev(err_buf);
-
     if (!dev) {
         fprintf(stderr, "Error: pcap_open_live(): %s\n", err_buf);
+        pcap_freealldevs(alldevs);
         exit(1);
     }
     set_filter(dev);
+    get_mac(lan_play, d, dev);
+    pcap_setmintocopy(dev, 0); // low
 
 #if __APPLE__
     int fd;
@@ -102,11 +92,44 @@ int main()
     }
 #endif
 
+    pcap_freealldevs(alldevs);
+
+    lan_play->dev = dev;
+}
+
+void init_lan_play(struct lan_play *lan_play)
+{
+    lan_play->mac[0] = 0x00;
+    lan_play->mac[1] = 0x00;
+    lan_play->mac[2] = 0x00;
+    lan_play->mac[3] = 0x00;
+    lan_play->mac[4] = 0x00;
+    lan_play->mac[5] = 0x00;
+
+    init_pcap(lan_play);
+
+    lan_play->id = 0;
+    lan_play->buffer = SEND_BUFFER;
+    lan_play->identification = 0;
+    CPY_IPV4(lan_play->ip, str2ip(SERVER_IP));
+    CPY_IPV4(lan_play->subnet_mask, str2ip(SUBNET_MASK));
+    arp_list_init(lan_play->arp_list);
+    lan_play->arp_ttl = 30;
+}
+
+void loop_lan_play(struct lan_play *lan_play)
+{
+    pcap_loop(lan_play->dev, -1, (void(*)(u_char *, const struct pcap_pkthdr *, const u_char *))get_packet, (u_char*)lan_play);
+}
+
+int main()
+{
     struct lan_play lan_play;
-    init_lan_play(&lan_play, dev);
 
-    pcap_loop(dev, -1, (void(*)(u_char *, const struct pcap_pkthdr *, const u_char *))get_packet, (u_char*)&lan_play);
+    init_lan_play(&lan_play);
 
-    pcap_close(dev);
+    loop_lan_play(&lan_play);
+
+    pcap_close(lan_play.dev);
     return 0;
 }
