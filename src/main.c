@@ -52,7 +52,7 @@ pcap_t *select_dev()
             printf(" (No description available)");
         }
         if (d->addresses) {
-            printf("\nIP: [");
+            printf("\n\tIP: [");
             struct pcap_addr *taddr;
             struct sockaddr_in *sin;
             char  revIP[100];
@@ -75,7 +75,7 @@ pcap_t *select_dev()
     scanf("%d", &arg_inum);
     for (d = alldevs, i = 0; i < arg_inum - 1; d = d->next, i++);
 
-    dev = pcap_open_live(d->name, 65536, 1, 0, err_buf);
+    dev = pcap_open_live(d->name, 65535, 1, 0, err_buf);
 
     pcap_freealldevs(alldevs);
     return dev;
