@@ -130,11 +130,11 @@ int process_arp(struct lan_play *arg, const struct ether_frame *ether)
         return 0;
     }
 
-	// char sender_ip[IP_STR_LEN];
-	// char target_ip[IP_STR_LEN];
+    // char sender_ip[IP_STR_LEN];
+    // char target_ip[IP_STR_LEN];
 
-	// strcpy(sender_ip, ip2str(arp.sender_ip), sizeof(sender_ip));
-	// strcpy(target_ip, ip2str(arp.target_ip), sizeof(target_ip));
+    // strcpy(sender_ip, ip2str(arp.sender_ip), sizeof(sender_ip));
+    // strcpy(target_ip, ip2str(arp.target_ip), sizeof(target_ip));
 
     // printf("[%d] ARP Sender: %s\n", arg->id, sender_ip);
     // printf("         Target: %s\n", target_ip);
