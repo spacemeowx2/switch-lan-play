@@ -81,7 +81,9 @@ void init_pcap(struct lan_play *lan_play)
     }
     set_filter(dev);
     get_mac(lan_play, d, dev);
-    pcap_setmintocopy(dev, 0); // low
+#if defined(_WIN32)
+    pcap_setmintocopy(dev, 0); // low latency
+#endif
 
 #if __APPLE__
     int fd;
