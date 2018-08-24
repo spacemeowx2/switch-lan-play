@@ -107,6 +107,11 @@ int arp_request(struct lan_play *self, const struct arp *arp)
     return 1;
 }
 
+int arp_reply(struct lan_play *self, const struct arp *arp)
+{
+    return 1;
+}
+
 int process_arp(struct lan_play *arg, const struct ether_frame *ether)
 {
     struct arp arp;
@@ -136,9 +141,11 @@ int process_arp(struct lan_play *arg, const struct ether_frame *ether)
     switch (arp.opcode) {
         case ARP_OPCODE_REQUEST:
             return arp_request(arg, &arp);
+        case ARP_OPCODE_REPLY:
+            return arp_reply(arg, &arp);
     }
 
-    return 1;
+    return 0;
 }
 
 void arp_list_init(struct arp_item *list)
