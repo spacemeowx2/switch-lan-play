@@ -4,8 +4,10 @@ uint8_t SEND_BUFFER[BUFFER_SIZE];
 
 void set_filter(pcap_t *dev)
 {
+    char filter[100];
     static struct bpf_program bpf;
-    pcap_compile(dev, &bpf, "src host " CLIENT_IP, 1, 0);
+    sprintf(filter, "net %s %s", SUBNET_NET, SUBNET_MASK);
+    pcap_compile(dev, &bpf, filter, 1, 0);
     pcap_setfilter(dev, &bpf);
 }
 
@@ -24,6 +26,7 @@ void init_lan_play(struct lan_play *lan_play, pcap_t *dev)
     lan_play->mac[4] = 0x71;
     lan_play->mac[5] = 0x6f;
     arp_list_init(lan_play->arp_list);
+    lan_play->arp_ttl = 30;
 }
 
 int main()

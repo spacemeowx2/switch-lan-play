@@ -8,6 +8,7 @@
 struct arp_item {
     uint8_t ip[4];
     uint8_t mac[6];
+    time_t expire_at;
 };
 
 void arp_list_init(struct arp_item *list);

@@ -82,13 +82,22 @@ int send_packet(struct lan_play *arg, int size)
     return pcap_sendpacket(arg->dev, arg->buffer, size);
 }
 
+void parse_ether(const u_char *packet, struct ether_frame *ether)
+{
+    CPY_MAC(ether->dst, packet + ETHER_OFF_DST);
+    CPY_MAC(ether->src, packet + ETHER_OFF_SRC);
+    ether->type = READ_NET16(packet, ETHER_OFF_TYPE);
+    ether->payload = packet + ETHER_OFF_END;
+}
+
 int process_ether(struct lan_play *arg, const u_char *packet)
 {
     struct ether_frame ether;
-    CPY_MAC(ether.dst, packet + ETHER_OFF_DST);
-    CPY_MAC(ether.src, packet + ETHER_OFF_SRC);
-    ether.type = READ_NET16(packet, ETHER_OFF_TYPE);
-    ether.payload = packet + ETHER_OFF_END;
+    parse_ether(packet, &ether);
+
+    if (CMP_MAC(ether.src, arg->mac)) {
+        return 1;
+    }
 
     switch (ether.type) {
         case ETHER_TYPE_ARP:
@@ -96,7 +105,7 @@ int process_ether(struct lan_play *arg, const u_char *packet)
         case ETHER_TYPE_IPV4:
             return process_ipv4(arg, &ether);
         default:
-            return 0;
+            return 1; // just ignore them
     }
 }
 

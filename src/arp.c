@@ -96,14 +96,16 @@ int send_arp_request(
 
 int arp_request(struct lan_play *self, const struct arp *arp)
 {
-    send_arp(
-        self,
-        ARP_OPCODE_REPLY,
-        self->mac,
-        self->ip,
-        arp->sender_mac,
-        arp->sender_ip
-    );
+    if (CMP_IPV4(arp->target_ip, self->ip)) {
+        send_arp(
+            self,
+            ARP_OPCODE_REPLY,
+            self->mac,
+            self->ip,
+            arp->sender_mac,
+            arp->sender_ip
+        );
+    }
     return 1;
 }
 
@@ -157,10 +159,13 @@ bool arp_get_mac_by_ip(struct lan_play *arg, void *mac, const void *ip)
 {
     int i;
     struct arp_item *list = arg->arp_list;
+    struct arp_item *item;
+    time_t now = time(NULL);
 
     for (i = 0; i < ARP_CACHE_LEN; i++) {
-        if (CMP_IPV4(list[i].ip, ip)) {
-            CPY_MAC(mac, list[i].mac);
+        item = &list[i];
+        if (CMP_IPV4(item->ip, ip) && (item->expire_at > now)) {
+            CPY_MAC(mac, item->mac);
             return true;
         }
     }
@@ -174,11 +179,15 @@ bool arp_set(struct lan_play *arg, const void *mac, const void *ip)
 {
     int i;
     struct arp_item *list = arg->arp_list;
+    struct arp_item *item;
+    time_t now = time(NULL);
 
     for (i = 0; i < ARP_CACHE_LEN; i++) {
-        if (CMP_IPV4(list[i].ip, NONE_IP) || CMP_IPV4(list[i].ip, ip)) {
-            CPY_IPV4(list[i].ip, ip);
-            CPY_MAC(list[i].mac, mac);
+        item = &list[i];
+        if (CMP_IPV4(item->ip, NONE_IP) || CMP_IPV4(item->ip, ip) || item->expire_at < now) {
+            CPY_IPV4(item->ip, ip);
+            CPY_MAC(item->mac, mac);
+            item->expire_at = now + arg->arp_ttl;
             return true;
         }
     }

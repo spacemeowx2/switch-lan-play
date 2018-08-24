@@ -91,6 +91,7 @@ int process_ipv4(struct lan_play *arg, const struct ether_frame *ether)
 {
     struct ipv4 ipv4;
     parse_ipv4(ether, &ipv4);
+    arp_set(arg, ipv4.ether->src, ipv4.src);
 
     switch (ipv4.protocol) {
         case IPV4_PROTOCOL_ICMP:
