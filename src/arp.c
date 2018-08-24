@@ -21,9 +21,9 @@ int process_arp(struct lan_play *arg, const struct ether_frame *ether)
     strcpy(sender_ip, ip2str(sender));
     strcpy(target_ip, ip2str(target));
 
-    CPY_IPV4(sender, packet, ARP_OFF_SENDER_IP);
-    memcpy(sender_mac, packet + ARP_OFF_SENDER_MAC, 6);
-    CPY_IPV4(target, packet, ARP_OFF_TARGET_IP);
+    CPY_IPV4(sender, packet + ARP_OFF_SENDER_IP);
+    CPY_MAC(sender_mac, packet + ARP_OFF_SENDER_MAC);
+    CPY_IPV4(target, packet + ARP_OFF_TARGET_IP);
 
     // printf("[%d] ARP Sender: %s\n", arg->id, sender_ip);
     // printf("         Target: %s\n", target_ip);
@@ -33,17 +33,17 @@ int process_arp(struct lan_play *arg, const struct ether_frame *ether)
         puts("Reply the ARP");
 
         void *buf = arg->buffer;
-        memcpy(buf + ETHER_OFF_DST, ether->src, 6);
-        memcpy(buf + ETHER_OFF_SRC, arg->mac, 6);
+        CPY_MAC(buf + ETHER_OFF_DST, ether->src);
+        CPY_MAC(buf + ETHER_OFF_SRC, arg->mac);
         WRITE_NET16(buf, ETHER_OFF_TYPE, ETHER_TYPE_ARP);
         buf += ETHER_OFF_ARP;
         memcpy(buf + ARP_OFF_HARDWARE, packet + ARP_OFF_HARDWARE, 2 + 2 + 1 + 1);
         WRITE_NET16(buf, ARP_OFF_OPCODE, 2); // reply
 
-        memcpy(buf + ARP_OFF_SENDER_MAC, arg->mac, 6);
-        memcpy(buf + ARP_OFF_SENDER_IP, target, 4);
-        memcpy(buf + ARP_OFF_TARGET_MAC, ether->src, 6);
-        memcpy(buf + ARP_OFF_TARGET_IP, sender, 4);
+        CPY_MAC(buf + ARP_OFF_SENDER_MAC, arg->mac);
+        CPY_IPV4(buf + ARP_OFF_SENDER_IP, target);
+        CPY_MAC(buf + ARP_OFF_TARGET_MAC, ether->src);
+        CPY_IPV4(buf + ARP_OFF_TARGET_IP, sender);
 
         // print_hex(arg->buffer, 42);
 
@@ -61,14 +61,14 @@ void arp_list_init(struct arp_item *list)
     memset(list, 0, ARP_CACHE_LEN * sizeof(*list));
 }
 
-int arp_get_mac_by_ip(struct lan_play *arg, void *mac, const void *ip)
+bool arp_get_mac_by_ip(struct lan_play *arg, void *mac, const void *ip)
 {
     int i;
     struct arp_item *list = arg->arp_list;
 
     for (i = 0; i < ARP_CACHE_LEN; i++) {
-        if (memcmp(list[i].ip, ip, 4) == 0) {
-            memcpy(mac, list[i].mac, 6);
+        if (CMP_IPV4(list[i].ip, ip)) {
+            CPY_MAC(mac, list[i].mac);
             return true;
         }
     }
@@ -76,20 +76,16 @@ int arp_get_mac_by_ip(struct lan_play *arg, void *mac, const void *ip)
     puts("mac not found");
     return false;
 }
-int arp_set(struct lan_play *arg, const void *mac, const void *ip)
+
+bool arp_set(struct lan_play *arg, const void *mac, const void *ip)
 {
     int i;
     struct arp_item *list = arg->arp_list;
 
-    // puts("arp set");
-    // print_hex(mac, 6);
-    // print_hex(ip, 4);
-    // puts("");
-
     for (i = 0; i < ARP_CACHE_LEN; i++) {
-        if (memcmp(list[i].ip, NONE_IP, 4) == 0) {
-            memcpy(list[i].ip, ip, 4);
-            memcpy(list[i].mac, mac, 6);
+        if (CMP_IPV4(list[i].ip, NONE_IP) || CMP_IPV4(list[i].ip, ip)) {
+            CPY_IPV4(list[i].ip, ip);
+            CPY_MAC(list[i].mac, mac);
             return true;
         }
     }

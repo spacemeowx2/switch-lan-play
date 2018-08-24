@@ -11,7 +11,7 @@ struct arp_item {
 };
 
 void arp_list_init(struct arp_item *list);
-int arp_get_mac_by_ip(struct lan_play *arg, void *mac, const void *ip);
-int arp_set(struct lan_play *arg, const void *mac, const void *ip);
+bool arp_get_mac_by_ip(struct lan_play *arg, void *mac, const void *ip);
+bool arp_set(struct lan_play *arg, const void *mac, const void *ip);
 
 #endif // _ARP_H_

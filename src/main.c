@@ -9,6 +9,23 @@ void set_filter(pcap_t *dev)
     pcap_setfilter(dev, &bpf);
 }
 
+void init_lan_play(struct lan_play *lan_play, pcap_t *dev)
+{
+    lan_play->dev = dev;
+    lan_play->id = 0;
+    lan_play->buffer = SEND_BUFFER;
+    lan_play->identification = 0;
+    CPY_IPV4(lan_play->ip, str2ip(SERVER_IP));
+    CPY_IPV4(lan_play->subnet_mask, str2ip(SUBNET_MASK));
+    lan_play->mac[0] = 0x6c;
+    lan_play->mac[1] = 0x71;
+    lan_play->mac[2] = 0xd9;
+    lan_play->mac[3] = 0x1d;
+    lan_play->mac[4] = 0x71;
+    lan_play->mac[5] = 0x6f;
+    arp_list_init(lan_play->arp_list);
+}
+
 int main()
 {
     char errBuf[PCAP_ERRBUF_SIZE];
@@ -41,19 +58,7 @@ int main()
 #endif
 
     struct lan_play lan_play;
-    lan_play.dev = dev;
-    lan_play.id = 0;
-    lan_play.buffer = SEND_BUFFER;
-    lan_play.identification = 0;
-    memcpy(lan_play.ip, str2ip(SERVER_IP), 4);
-    PRINT_IP(lan_play.ip);
-    lan_play.mac[0] = 0x6c;
-    lan_play.mac[1] = 0x71;
-    lan_play.mac[2] = 0xd9;
-    lan_play.mac[3] = 0x1d;
-    lan_play.mac[4] = 0x71;
-    lan_play.mac[5] = 0x6f;
-    arp_list_init(lan_play.arp_list);
+    init_lan_play(&lan_play, dev);
 
     pcap_loop(dev, -1, (void(*)(u_char *, const struct pcap_pkthdr *, const u_char *))get_packet, (u_char*)&lan_play);
 

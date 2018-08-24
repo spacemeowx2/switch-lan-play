@@ -22,6 +22,7 @@ struct lan_play {
     uint32_t id;
     void *buffer;
     uint8_t ip[4];
+    uint8_t subnet_mask[4];
     uint8_t mac[6];
     uint16_t identification;
     struct arp_item arp_list[ARP_CACHE_LEN];

@@ -39,8 +39,8 @@ int send_ipv4_ex(
     WRITE_NET8(buf, IPV4_OFF_PROTOCOL, protocol);
     WRITE_NET16(buf, IPV4_OFF_CHECKSUM, 0x0000);
 
-    memcpy(buf + IPV4_OFF_SRC, src, 4);
-    memcpy(buf + IPV4_OFF_DST, dst, 4);
+    CPY_IPV4(buf + IPV4_OFF_SRC, src);
+    CPY_IPV4(buf + IPV4_OFF_DST, dst);
 
     uint16_t checksum = calc_checksum(buffer, IPV4_HEADER_LEN);
     WRITE_NET16(buf, IPV4_OFF_CHECKSUM, checksum);
@@ -82,8 +82,8 @@ void parse_ipv4(const struct ether_frame *ether, struct ipv4 *ipv4)
     ipv4->ttl = READ_NET8(packet, IPV4_OFF_TTL);
     ipv4->protocol = READ_NET8(packet, IPV4_OFF_PROTOCOL);
     ipv4->checksum = READ_NET16(packet, IPV4_OFF_PROTOCOL);
-    CPY_IPV4(ipv4->src, packet, IPV4_OFF_SRC);
-    CPY_IPV4(ipv4->dst, packet, IPV4_OFF_DST);
+    CPY_IPV4(ipv4->src, packet + IPV4_OFF_SRC);
+    CPY_IPV4(ipv4->dst, packet + IPV4_OFF_DST);
     ipv4->payload = packet + ipv4->header_len;
 }
 

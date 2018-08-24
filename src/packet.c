@@ -37,8 +37,8 @@ int send_ether_ex(
     part.len = ETHER_HEADER_LEN;
     part.next = payload;
 
-    memcpy(buffer + ETHER_OFF_DST, dst, 6);
-    memcpy(buffer + ETHER_OFF_SRC, src, 6);
+    CPY_MAC(buffer + ETHER_OFF_DST, dst);
+    CPY_MAC(buffer + ETHER_OFF_SRC, src);
     WRITE_NET16(buffer, ETHER_OFF_TYPE, type);
 
     return send_payloads(arg, &part);
@@ -85,8 +85,8 @@ int send_packet(struct lan_play *arg, int size)
 int process_ether(struct lan_play *arg, const u_char *packet)
 {
     struct ether_frame ether;
-    memcpy(ether.dst, packet + ETHER_OFF_DST, 6);
-    memcpy(ether.src, packet + ETHER_OFF_SRC, 6);
+    CPY_MAC(ether.dst, packet + ETHER_OFF_DST);
+    CPY_MAC(ether.src, packet + ETHER_OFF_SRC);
     ether.type = READ_NET16(packet, ETHER_OFF_TYPE);
     ether.payload = packet + ETHER_OFF_END;
 
