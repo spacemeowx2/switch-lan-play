@@ -24,8 +24,8 @@ int send_payloads(
 
 int send_ether_ex(
     struct lan_play *arg,
-    void *dst,
-    void *src,
+    const void *dst,
+    const void *src,
     uint16_t type,
     const struct payload *payload
 )
@@ -45,7 +45,7 @@ int send_ether_ex(
 }
 int send_ether(
     struct lan_play *arg,
-    void *dst,
+    const void *dst,
     uint16_t type,
     const struct payload *payload
 )

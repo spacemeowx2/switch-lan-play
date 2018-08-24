@@ -35,6 +35,11 @@
 #define ARP_OFF_SENDER_IP 14
 #define ARP_OFF_TARGET_MAC 18
 #define ARP_OFF_TARGET_IP 24
+#define ARP_OFF_END 28
+#define ARP_LEN 28
+#define ARP_HARDTYPE_ETHER 1
+#define ARP_OPCODE_REQUEST 1
+#define ARP_OPCODE_REPLY 2
 
 struct ether_frame {
     uint8_t dst[6];
@@ -62,6 +67,20 @@ struct ipv4 {
     const u_char *payload;
 };
 
+struct arp {
+    const struct ether_frame *ether;
+    uint16_t hardware_type;
+    uint16_t protocol_type;
+    uint8_t hardware_size;
+    uint8_t protocol_size;
+    uint16_t opcode;
+    uint8_t sender_mac[6];
+    uint8_t sender_ip[4];
+    uint8_t target_mac[6];
+    uint8_t target_ip[4];
+    const u_char *payload;
+};
+
 struct icmp {
     uint8_t type;
     uint8_t code;
@@ -80,14 +99,14 @@ struct payload {
 
 int send_ether_ex(
     struct lan_play *arg,
-    void *dst,
-    void *src,
+    const void *dst,
+    const void *src,
     uint16_t type,
     const struct payload *payload
 );
 int send_ether(
     struct lan_play *arg,
-    void *dst,
+    const void *dst,
     uint16_t type,
     const struct payload *payload
 );

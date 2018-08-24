@@ -58,7 +58,7 @@ int send_ipv4_ex(
         dst_mac,
         ETHER_TYPE_IPV4,
         &part
-    );;
+    );
 }
 
 void parse_ipv4(const struct ether_frame *ether, struct ipv4 *ipv4)
