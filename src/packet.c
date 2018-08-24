@@ -66,7 +66,7 @@ void print_packet(int id, const struct pcap_pkthdr *pkthdr, const u_char *packet
     printf("Number of bytes: %d\n", pkthdr->caplen);
     printf("Recieved time: %s", ctime((const time_t *)&pkthdr->ts.tv_sec)); 
 
-    int i;
+    uint32_t i;
     for (i=0; i<pkthdr->len; ++i) {
         printf(" %02x", packet[i]);
         if ( (i + 1) % 16 == 0 ) {

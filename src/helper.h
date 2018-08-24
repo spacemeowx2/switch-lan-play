@@ -1,7 +1,9 @@
 #ifndef _HELPER_H_
 #define _HELPER_H_
 
+#if !defined(_WIN32)
 #include <arpa/inet.h>
+#endif
 
 #define READ_NET8(packet, offset) (*(uint8_t*)((uint8_t*)packet + offset))
 #define READ_NET16(packet, offset) ntohs(*(uint16_t*)((uint8_t*)packet + offset))

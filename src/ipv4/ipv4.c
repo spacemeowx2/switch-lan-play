@@ -26,7 +26,7 @@ int send_ipv4_ex(
     struct payload part;
     uint8_t dst_mac[6];
     uint8_t buffer[IPV4_HEADER_LEN];
-    void *buf = buffer;
+	uint8_t *buf = buffer;
     uint8_t t;
     uint16_t tt;
 

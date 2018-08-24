@@ -33,7 +33,6 @@ int main()
 {
     char errBuf[PCAP_ERRBUF_SIZE];
     char *devStr;
-    int fd;
     pcap_t *dev;
 
     devStr = pcap_lookupdev(errBuf);
@@ -53,6 +52,7 @@ int main()
     set_filter(dev);
 
 #if __APPLE__
+	int fd;
     fd = pcap_fileno(dev); // fix mac os realtime
     if (set_immediate_mode(fd) == -1) {
         fprintf(stderr, "Error: BIOCIMMEDIATE failed %s\n", strerror(errno));

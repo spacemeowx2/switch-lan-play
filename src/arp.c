@@ -32,7 +32,6 @@ int send_arp_ex(
 )
 {
     uint8_t buffer[ARP_LEN];
-    struct arp arp;
     struct payload part;
 
     WRITE_NET16(buffer, ARP_OFF_HARDWARE, ARP_HARDTYPE_ETHER);
