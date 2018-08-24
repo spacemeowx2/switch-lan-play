@@ -39,7 +39,7 @@ int set_immediate_mode(pcap_t *p)
     fd = pcap_fileno(dev);
     return ioctl(fd, BIOCIMMEDIATE, &on);
 #elif defined(_WIN32)
-    return pcap_setmintocopy(dev, 0); // low latency
+    return pcap_setmintocopy(p, 0); // low latency
 #endif
 }
 void print_hex(const void *buf, int len)

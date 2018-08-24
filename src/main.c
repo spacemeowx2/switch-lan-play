@@ -53,7 +53,7 @@ void init_pcap(struct lan_play *lan_play)
             {
                 sin = (struct sockaddr_in *)taddr->addr;
                 if (sin->sin_family == AF_INET) {
-                    strcpy(revIP, inet_ntoa(sin->sin_addr));
+                    strncpy(revIP, inet_ntoa(sin->sin_addr), sizeof(revIP));
                     printf("%s", revIP);
                     if (taddr->next)
                         putchar(',');
@@ -122,5 +122,6 @@ int main()
     loop_lan_play(&lan_play);
 
     pcap_close(lan_play.dev);
+
     return 0;
 }
