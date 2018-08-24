@@ -22,10 +22,6 @@
 const char *ip2str(void *ip);
 void *str2ip(const char *ip);
 void print_hex(const void *buf, int len);
-#if __APPLE__
-int set_immediate_mode(int fd);
-#endif
-#if defined(_WIN32)
-int get_mac_address(pcap_if_t *d, u_char mac_addr[6]);
-#endif
+int set_immediate_mode(pcap_t *p);
+int get_mac_address(pcap_if_t *d, pcap_t *p, u_char mac_addr[6]);
 #endif // _HELPER_H_

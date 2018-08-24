@@ -13,14 +13,10 @@ void set_filter(pcap_t *dev)
 
 void get_mac(struct lan_play *lan_play, pcap_if_t *d, pcap_t *p)
 {
-#if defined(_WIN32)
-    if (get_mac_address(d, lan_play->mac) == 0) {
+    if (get_mac_address(d, p, lan_play->mac) == 0) {
         fprintf(stderr, "Error when getting the MAC address\n");
         exit(1);
     }
-#else
-    ioctl(sock, SIOCGIFHWADDR, &lan_play->mac);
-#endif
     printf("Get MAC: ");
     PRINT_MAC(lan_play->mac);
     putchar('\n');
@@ -71,6 +67,7 @@ void init_pcap(struct lan_play *lan_play)
     printf("Enter the interface number (1-%d):", i);
     scanf("%d", &arg_inum);
     for (d = alldevs, i = 0; i < arg_inum - 1; d = d->next, i++);
+    printf("Opening %s\n", d->name);
 
     dev = pcap_open_live(d->name, 65535, 1, 0, err_buf);
 
@@ -81,18 +78,10 @@ void init_pcap(struct lan_play *lan_play)
     }
     set_filter(dev);
     get_mac(lan_play, d, dev);
-#if defined(_WIN32)
-    pcap_setmintocopy(dev, 0); // low latency
-#endif
-
-#if __APPLE__
-    int fd;
-    fd = pcap_fileno(dev); // fix mac os realtime
-    if (set_immediate_mode(fd) == -1) {
-        fprintf(stderr, "Error: BIOCIMMEDIATE failed %s\n", strerror(errno));
+    if (set_immediate_mode(dev) == -1) {
+        fprintf(stderr, "Error: set_immediate_mode failed %s\n", strerror(errno));
         exit(1);
     }
-#endif
 
     pcap_freealldevs(alldevs);
 

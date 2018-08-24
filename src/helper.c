@@ -1,7 +1,13 @@
 #include <stdio.h>
 #include <stdint.h>
-#if __APPLE__
+#include <stdlib.h>
+#include <errno.h>
+#include <string.h>
+#if !defined(_WIN32)
 #include <sys/ioctl.h>
+#include <net/if.h>
+#endif
+#if __APPLE__
 #include <net/bpf.h>
 #endif
 #include "helper.h"
@@ -25,13 +31,17 @@ void *str2ip(const char *ip)
     }
     return bin;
 }
-#if __APPLE__
-int set_immediate_mode(int fd)
+int set_immediate_mode(pcap_t *p)
 {
+#if __APPLE__
+    int fd;
     int on = 1;
+    fd = pcap_fileno(dev);
     return ioctl(fd, BIOCIMMEDIATE, &on);
-}
+#elif defined(_WIN32)
+    return pcap_setmintocopy(dev, 0); // low latency
 #endif
+}
 void print_hex(const void *buf, int len)
 {
     int i;
@@ -98,11 +108,13 @@ int compare_guid(wchar_t *wszPcapName, wchar_t *wszIfName)
             return *ic - *pc;
     }
 }
+#endif
 
 // Find mac address using GetIFTable, since the GetAdaptersAddresses etc     functions
 // ony work with adapters that have an IP address
-int get_mac_address(pcap_if_t *d, u_char mac_addr[6])
+int get_mac_address(pcap_if_t *d, pcap_t *p, u_char mac_addr[6])
 {
+#if defined(_WIN32)
     // Declare and initialize variables.
 
     wchar_t* wszWideName = NULL;
@@ -179,5 +191,18 @@ done:
     wszWideName = NULL;
 
     return nRVal;
-}
+#else
+    int fd = pcap_fileno(p);
+    struct ifreq buffer;
+    memset(&buffer, 0x00, sizeof(buffer));
+    strcpy(buffer.ifr_name, d->name);
+    int result = ioctl(fd, SIOCGIFHWADDR, &buffer);
+    if (result < 0)
+    {
+        fprintf(stderr, "%s %d\n", strerror(errno), fd);
+        exit(1);
+    }
+    memcpy(mac_addr, buffer.ifr_hwaddr.sa_data, 6);
+    return result == 0 ? 1 : 0;
 #endif
+}
