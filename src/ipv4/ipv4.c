@@ -42,21 +42,23 @@ int send_ipv4_ex(
     memcpy(buf + IPV4_OFF_SRC, src, 4);
     memcpy(buf + IPV4_OFF_DST, dst, 4);
 
-    uint16_t checksum = calc_checksum(buf + ETHER_OFF_IPV4, IPV4_HEADER_LEN);
+    uint16_t checksum = calc_checksum(buffer, IPV4_HEADER_LEN);
     WRITE_NET16(buf, IPV4_OFF_CHECKSUM, checksum);
 
     part.ptr = buffer;
     part.len = IPV4_HEADER_LEN;
     part.next = payload;
-    arp_get_mac_by_ip(dst_mac, dst);
-    send_ether(
+    
+    if (!arp_get_mac_by_ip(arg, dst_mac, dst)) {
+        return false;
+    }
+
+    return send_ether(
         arg,
         dst_mac,
         ETHER_TYPE_IPV4,
         &part
-    );
-
-    return 1;
+    );;
 }
 
 void parse_ipv4(const struct ether_frame *ether, struct ipv4 *ipv4)

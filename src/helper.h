@@ -12,6 +12,7 @@
 #define PRINT_IP(ip) printf("%d.%d.%d.%d", *(uint8_t*)(ip), *(uint8_t*)(ip + 1), *(uint8_t*)(ip + 2), *(uint8_t*)(ip + 3))
 const char *ip2str(void *ip);
 void *str2ip(const char *ip);
+void print_hex(const void *buf, int len);
 #if __APPLE__
 int set_immediate_mode(int fd);
 #endif

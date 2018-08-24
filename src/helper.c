@@ -32,3 +32,17 @@ int set_immediate_mode(int fd)
     return ioctl(fd, BIOCIMMEDIATE, &on);
 }
 #endif
+void print_hex(const void *buf, int len)
+{
+    int i;
+    uint8_t *packet = buf;
+
+    for (i=0; i < len; ++i) {
+        printf(" %02x", packet[i]);
+        if ( (i + 1) % 16 == 0 ) {
+            printf("\n");
+        }
+    }
+
+    printf("\n\n");
+}

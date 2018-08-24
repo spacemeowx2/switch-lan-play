@@ -12,10 +12,13 @@ int send_payloads(
     while (part) {
         memcpy(buf, part->ptr, part->len);
         buf += part->len;
-        part = part->next;
         total_len += part->len;
+
+        part = part->next;
     }
 
+    // print_hex(arg->buffer, total_len);
+    // printf("total len %d\n", total_len);
     return send_packet(arg, total_len);
 }
 

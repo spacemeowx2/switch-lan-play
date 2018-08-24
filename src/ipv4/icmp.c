@@ -8,10 +8,10 @@ int process_icmp(struct lan_play *arg, const struct ipv4 *ipv4)
 
     int icmp_len = ipv4->total_len - ipv4->header_len;
     memcpy(payload, ipv4->payload, icmp_len);
-    WRITE_NET8(payload, IPV4_OFF_END, 0); // response
-    WRITE_NET16(payload, IPV4_OFF_END + 2, 0x0000); // checksum
+    WRITE_NET8(payload, 0, 0); // response
+    WRITE_NET16(payload, 2, 0x0000); // checksum
     uint16_t sum = calc_checksum(payload, icmp_len);
-    WRITE_NET16(payload, IPV4_OFF_END + 2, sum);
+    WRITE_NET16(payload, 2, sum);
 
     part.ptr = payload;
     part.len = icmp_len;
