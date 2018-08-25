@@ -116,12 +116,17 @@ void loop_lan_play(struct lan_play *lan_play)
 int main()
 {
     struct lan_play lan_play;
+    pthread_t tid;
 
     init_lan_play(&lan_play);
+
+    pthread_create(&tid, NULL, forwarder_thread, NULL);
 
     loop_lan_play(&lan_play);
 
     pcap_close(lan_play.dev);
+
+    pthread_join(tid, NULL);
 
     return 0;
 }

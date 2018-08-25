@@ -1,6 +1,6 @@
 #include "lan-play.h"
 
-int forwarder_thread()
+void *forwarder_thread(void *p)
 {
-    return 0;
+    return NULL;
 }

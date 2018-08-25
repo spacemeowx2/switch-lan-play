@@ -24,6 +24,7 @@ set(SOURCE_FILES
     src/packet.c
     src/arp.c
     src/helper.c
+    src/forwarder.c
     src/ipv4/ipv4.c
     src/ipv4/tcp.c
     src/ipv4/udp.c
@@ -35,5 +36,5 @@ target_link_libraries(lan-play ${PCAP_LIBRARY})
 include_directories(lan-play ${PCAP_INCLUDE_DIR})
 if (WIN32)
     add_dependencies(lan-play winpcap)
-    target_link_libraries(lan-play ws2_32.lib iphlpapi.lib)
+    target_link_libraries(lan-play ws2_32.lib iphlpapi.lib libwinpthread.a)
 endif()
