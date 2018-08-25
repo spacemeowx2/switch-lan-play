@@ -61,7 +61,6 @@ void print_hex(const void *buf, int len)
 // https://stackoverflow.com/questions/47748975/how-to-get-selected-adapters-mac-address-in-winpcap
 #include <winsock2.h>
 #include <iphlpapi.h>
-#pragma comment(lib, "IPHLPAPI.lib")
 
 // Compare the guid parts of both names and see if they match
 int compare_guid(wchar_t *wszPcapName, wchar_t *wszIfName)
