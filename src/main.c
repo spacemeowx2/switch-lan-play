@@ -111,6 +111,7 @@ void init_lan_play(struct lan_play *lan_play)
 void loop_lan_play(struct lan_play *lan_play)
 {
     pcap_loop(lan_play->dev, -1, (void(*)(u_char *, const struct pcap_pkthdr *, const u_char *))get_packet, (u_char*)lan_play);
+    puts("Loop started");
 }
 
 int main()
@@ -118,9 +119,10 @@ int main()
     struct lan_play lan_play;
     pthread_t tid;
 
-    init_lan_play(&lan_play);
+    forwarder_init(&lan_play);
+    pthread_create(&tid, NULL, forwarder_thread, &lan_play);
 
-    pthread_create(&tid, NULL, forwarder_thread, NULL);
+    init_lan_play(&lan_play);
 
     loop_lan_play(&lan_play);
 

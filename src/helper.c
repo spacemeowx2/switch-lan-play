@@ -205,3 +205,19 @@ done:
     return result == 0 ? 1 : 0;
 #endif
 }
+
+#if defined(_WIN32)
+static void win32_init_winsocket() __attribute__((constructor));
+static void win32_init_winsocket()
+{
+    int result;
+    WSADATA data;
+
+    // Initialize Winsock
+    result = WSAStartup(MAKEWORD(2,2), &data);
+    if (result != 0) {
+        fprintf(stderr, "WSAStartup failed: %d\n", result);
+        exit(1);
+    }
+}
+#endif
