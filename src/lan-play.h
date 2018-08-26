@@ -32,6 +32,7 @@ struct lan_play {
 
     // forwarder
     int f_fd;
+    int u_fd;
     pthread_mutex_t mutex;
 };
 
