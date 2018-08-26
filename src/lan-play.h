@@ -23,6 +23,7 @@ struct lan_play {
     uint32_t id;
     void *buffer;
     uint8_t ip[4];
+    uint8_t subnet_net[4];
     uint8_t subnet_mask[4];
     uint8_t mac[6];
     uint16_t identification;
@@ -40,5 +41,6 @@ int process_arp(struct lan_play *arg, const struct ether_frame *ether);
 int process_ipv4(struct lan_play *arg, const struct ether_frame *ether);
 void *forwarder_thread(void *);
 void forwarder_init(struct lan_play *lan_play);
+int forwarder_send(struct lan_play *lan_play, void *dst_ip, const void *packet, uint16_t len);
 
 #endif // _LAN_PLAY_H_

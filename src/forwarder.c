@@ -30,13 +30,56 @@ void forwarder_init(struct lan_play *lan_play)
         fprintf(stderr, "Error pthread_mutex_init %s\n", strerror(errno));
         exit(1);
     }
-    MUTEX_LOCK(&lan_play->mutex);
+}
+
+int forwarder_process(struct lan_play *lan_play, const uint8_t *packet, uint16_t len)
+{
+    uint8_t dst_mac[6];
+    const uint8_t *dst = packet + IPV4_OFF_DST;
+    struct payload part;
+
+    if (!arp_get_mac_by_ip(lan_play, dst_mac, dst)) {
+        return false;
+    }
+
+    part.ptr = packet;
+    part.len = len;
+    part.next = NULL;
+
+    return send_ether(
+        lan_play,
+        dst_mac,
+        ETHER_TYPE_IPV4,
+        &part
+    );
 }
 
 void *forwarder_thread(void *p)
 {
+    uint8_t buffer[BUFFER_SIZE];
+    uint32_t buf_len = 0;
     struct lan_play *lan_play = (struct lan_play *)p;
+    int fd = lan_play->f_fd;
 
+    while (recv(fd, buffer + buf_len, BUFFER_SIZE - buf_len, 0) != 0) {
+        if (buf_len >= 4) {
+            uint32_t packet_len = READ_NET32(buffer, 0);
+            if (buf_len >= packet_len) {
+                forwarder_process(lan_play, buffer + 4, packet_len);
+            }
+        }
+    }
+
+    fprintf(stderr, "Forwarder server disconnected\n");
+    exit(1);
 
     return NULL;
+}
+
+int forwarder_send(struct lan_play *lan_play, void *dst_ip, const void *packet, uint16_t len)
+{
+    uint8_t packet_len[4];
+    WRITE_NET32(packet_len, 0, len);
+    send(lan_play->f_fd, packet_len, 4, 0);
+    return send(lan_play->f_fd, packet, len, 0);
 }

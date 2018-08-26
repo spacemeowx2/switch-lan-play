@@ -12,7 +12,7 @@ void parse_arp(const struct ether_frame *ether, struct arp *arp)
     arp->hardware_size = READ_NET8(packet, ARP_OFF_HARDWARE_SIZE);
     arp->protocol_size = READ_NET8(packet, ARP_OFF_PROTOCOL_SIZE);
     arp->opcode = READ_NET16(packet, ARP_OFF_OPCODE);
-    
+
     CPY_MAC(arp->sender_mac, packet + ARP_OFF_SENDER_MAC);
     CPY_IPV4(arp->sender_ip, packet + ARP_OFF_SENDER_IP);
     CPY_MAC(arp->target_mac, packet + ARP_OFF_TARGET_MAC);
@@ -95,12 +95,12 @@ int send_arp_request(
 
 int arp_request(struct lan_play *self, const struct arp *arp)
 {
-    if (CMP_IPV4(arp->target_ip, self->ip)) {
+    if (IS_SUBNET(arp->target_ip, self->subnet_net, self->subnet_mask)) {
         send_arp(
             self,
             ARP_OPCODE_REPLY,
             self->mac,
-            self->ip,
+            arp->target_ip,
             arp->sender_mac,
             arp->sender_ip
         );

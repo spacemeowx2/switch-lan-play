@@ -103,6 +103,7 @@ void init_lan_play(struct lan_play *lan_play)
     lan_play->buffer = SEND_BUFFER;
     lan_play->identification = 0;
     CPY_IPV4(lan_play->ip, str2ip(SERVER_IP));
+    CPY_IPV4(lan_play->subnet_net, str2ip(SUBNET_NET));
     CPY_IPV4(lan_play->subnet_mask, str2ip(SUBNET_MASK));
     arp_list_init(lan_play->arp_list);
     lan_play->arp_ttl = 30;

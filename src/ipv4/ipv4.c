@@ -46,7 +46,7 @@ int send_ipv4_ex(
     part.ptr = buffer;
     part.len = IPV4_HEADER_LEN;
     part.next = payload;
-    
+
     if (!arp_get_mac_by_ip(arg, dst_mac, dst)) {
         return false;
     }
@@ -91,9 +91,13 @@ int process_ipv4(struct lan_play *arg, const struct ether_frame *ether)
     parse_ipv4(ether, &ipv4);
     arp_set(arg, ipv4.ether->src, ipv4.src);
 
-    switch (ipv4.protocol) {
-        case IPV4_PROTOCOL_ICMP:
-            return process_icmp(arg, &ipv4);
+    if (CMP_IPV4(ipv4.dst, arg->ip)) {
+        switch (ipv4.protocol) {
+            case IPV4_PROTOCOL_ICMP:
+                return process_icmp(arg, &ipv4);
+        }
+    } else {
+        forwarder_send(arg, ipv4.dst, ipv4.ether->payload, ipv4.total_len);
     }
 
     return 1;
@@ -108,7 +112,7 @@ uint16_t calc_checksum(const u_char *buffer, int len)
         len -= sizeof(uint16_t);
     }
     if (len) {
-        sum += *(uint8_t *)buf; 
+        sum += *(uint8_t *)buf;
     }
     while (sum > 0xffff) {
         sum -= 0xffff;

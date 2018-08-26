@@ -6,7 +6,6 @@ class SLPHandler {
   id: number
   constructor (private socket: Socket, private server: SLPServer) {
     socket.on('data', (data) => this.onData(data))
-    console.log('new SLPHandler')
     socket.on('close', () => {
       console.error(`SLPHandler: close`)
       server.onHandlerClose(this)
@@ -17,6 +16,7 @@ class SLPHandler {
     this.id = server.getNextID()
   }
   private onData (data: Buffer) {
+    this.server.byteLastSec += data.byteLength
     this.buf = Buffer.concat([this.buf, data])
     if (this.buf.byteLength < 4) {
       return
@@ -32,10 +32,10 @@ class SLPHandler {
     }
   }
   onPacket (p: Buffer) {
-    console.log(p)
     this.server.sendBroadcast(this, p)
   }
   send (buf: Buffer) {
+    this.server.byteLastSec += buf.byteLength
     const header = new ArrayBuffer(4)
     if (buf.byteLength > 0) {
       new DataView(header).setUint32(0, buf.byteLength, false)
@@ -48,6 +48,7 @@ class SLPHandler {
 class SLPServer {
   server: Server
   clients: Set<SLPHandler> = new Set()
+  byteLastSec: number = 0
   private nextID = 1
   constructor (port: number) {
     const server = createServer()
@@ -57,7 +58,10 @@ class SLPServer {
     server.listen(port)
     this.server = server
     setInterval(() => {
-      console.log(`Client count: ${this.clients.size}`)
+      const str = `  Client count: ${this.clients.size} ${this.byteLastSec / 1024}KB/s`
+      process.stdout.write(str)
+      process.stdout.write('\b'.repeat(str.length))
+      this.byteLastSec = 0
     }, 1000)
   }
   getNextID () {
