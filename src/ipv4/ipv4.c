@@ -96,7 +96,7 @@ int process_ipv4(struct lan_play *arg, const struct ether_frame *ether)
             case IPV4_PROTOCOL_ICMP:
                 return process_icmp(arg, &ipv4);
         }
-    } else {
+    } else if (IS_SUBNET(ipv4.dst, arg->subnet_net, arg->subnet_mask)) {
         forwarder_send(arg, ipv4.dst, ipv4.ether->payload, ipv4.total_len);
     }
 

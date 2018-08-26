@@ -58,7 +58,7 @@ class SLPServer {
     server.listen(port)
     this.server = server
     setInterval(() => {
-      const str = `  Client count: ${this.clients.size} ${this.byteLastSec / 1024}KB/s`
+      const str = `  Client count: ${this.clients.size} ${this.byteLastSec / 1000}KB/s`
       process.stdout.write(str)
       process.stdout.write('\b'.repeat(str.length))
       this.byteLastSec = 0
