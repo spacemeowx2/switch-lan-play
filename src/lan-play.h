@@ -34,6 +34,7 @@ struct lan_play {
     int f_fd;
     int u_fd;
     pthread_mutex_t mutex;
+    struct sockaddr_in server_addr;
 };
 
 void get_packet(struct lan_play *arg, const struct pcap_pkthdr * pkthdr, const u_char * packet);

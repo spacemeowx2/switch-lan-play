@@ -18,13 +18,7 @@ class SLPServer {
     const server = createSocket('udp4')
     server.on('error', (err) => this.onError(err))
     server.on('close', () => this.onClose())
-    server.on('message', (msg: Buffer, rinfo: AddressInfo)=>{
-      this.clients.set(addr2str(rinfo), {
-        time: Date.now(),
-        rinfo
-      })
-      this.sendBroadcast(rinfo, msg)
-    })
+    server.on('message', (msg: Buffer, rinfo: AddressInfo) => this.onMessage(msg, rinfo))
     server.bind(port)
     this.server = server
     setInterval(() => {
@@ -35,12 +29,19 @@ class SLPServer {
       this.clearExpire()
     }, 1000)
   }
+  onMessage (msg: Buffer, rinfo: AddressInfo) {
+    this.clients.set(addr2str(rinfo), {
+      time: Date.now(),
+      rinfo
+    })
+    this.sendBroadcast(rinfo, msg)
+  }
   onError (err: Error) {
     console.log(`server error:\n${err.stack}`)
     this.server.close()
   }
   onSendError (error: Error, bytes: number) {
-    console.error(`onSendError ${error.message} ${bytes}`)
+    console.error(`onSendError ${error} ${bytes}`)
   }
   onClose () {
     console.log(`server closed`)
@@ -49,7 +50,9 @@ class SLPServer {
     let exceptStr = addr2str(except)
     for (let [key, {rinfo: {address, port}}] of this.clients) {
       if (exceptStr === key) continue
-      this.server.send(data, port, address, (error, bytes) => this.onSendError(error, bytes))
+      this.server.send(data, port, address, (error, bytes) => {
+        this.clients.delete(key)
+      })
     }
   }
   clearExpire () {

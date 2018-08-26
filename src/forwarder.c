@@ -5,26 +5,36 @@ uint8_t BROADCAST_MAC[6] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
 void forwarder_init(struct lan_play *lan_play)
 {
     int ret;
-    int fd = socket(AF_INET, SOCK_STREAM, 0);
+    int fd = socket(AF_INET, SOCK_DGRAM, 0);
     struct hostent *server_net;
-    struct sockaddr_in server_addr;
+    struct sockaddr_in *server_addr = &lan_play->server_addr;
+
+    if (fd < 0) {
+        fprintf(stderr, "Error socket %s\n", strerror(errno));
+        exit(1);
+    }
 
     server_net = gethostbyname(SERVER_ADDR);
     if (server_net == NULL) {
         fprintf(stderr, "Error gethostbyname %s\n", strerror(errno));
         exit(1);
     }
-    printf("%p %x\n", server_net, *(uint32_t*)server_net->h_addr);
+    printf("Server IP: ");
+    PRINT_IP(server_net->h_addr);
+    putchar('\n');
 
-    server_addr.sin_family = AF_INET;
-    server_addr.sin_addr = *((struct in_addr *)server_net->h_addr);
-    server_addr.sin_port = htons(SERVER_PORT);
+    server_addr->sin_family = AF_INET;
+    server_addr->sin_addr = *((struct in_addr *)server_net->h_addr);
+    server_addr->sin_port = htons(SERVER_PORT);
 
-    ret = connect(fd, (struct sockaddr *)&server_addr, sizeof(server_addr));
-    if (ret != 0) {
-        fprintf(stderr, "Error connect %d\n", ret);
-        exit(1);
-    }
+    // ret = connect(fd, (struct sockaddr *)&server_addr, sizeof(server_addr));
+    // if (ret != 0) {
+    //     fprintf(stderr, "Error connect %d\n", ret);
+    //     exit(1);
+    // }
+    uint32_t empty = 0;
+    sendto(fd, (char *)&empty, 4, 0, (struct sockaddr *)server_addr, sizeof(*server_addr));
+
     puts("Forwarder connected");
     lan_play->f_fd = fd;
 
@@ -71,13 +81,16 @@ void *forwarder_thread(void *p)
     uint32_t buf_len = 0;
     uint32_t recv_len = 0;
     int32_t wait_len = -1;
+    int fromlen;
     struct lan_play *lan_play = (struct lan_play *)p;
     int fd = lan_play->f_fd;
-
+    struct sockaddr_in *server_addr = &lan_play->server_addr;
 
     while (1) {
-        recv_len = recv(fd, buffer + buf_len, BUFFER_SIZE - buf_len, 0);
-        if (recv_len == 0) {
+        fromlen = sizeof(*server_addr);
+        recv_len = recvfrom(fd, buffer + buf_len, BUFFER_SIZE - buf_len, 0, (struct sockaddr *)server_addr, &fromlen);
+        printf("recv_len %d\n", recv_len);
+        if (recv_len == 0 || recv_len == -1) {
             break;
         }
         buf_len += recv_len;
@@ -89,6 +102,7 @@ void *forwarder_thread(void *p)
         }
         if (buf_len >= wait_len) {
             forwarder_process(lan_play, buffer + 4, wait_len - 4);
+            printf("%d %d\n", buf_len, wait_len);
             memmove(buffer, buffer + wait_len, buf_len - wait_len);
             buf_len -= wait_len;
             wait_len = -1;
@@ -103,11 +117,12 @@ void *forwarder_thread(void *p)
 
 int forwarder_send(struct lan_play *lan_play, void *dst_ip, const void *packet, uint16_t len)
 {
+    struct sockaddr_in *server_addr = &lan_play->server_addr;
     printf("dst: ");
     PRINT_IP(dst_ip);
     printf(" forwarder_send %d\n", len);
     uint8_t packet_len[4];
     WRITE_NET32(packet_len, 0, len);
     send(lan_play->f_fd, packet_len, 4, 0);
-    return send(lan_play->f_fd, packet, len, 0);
+    return sendto(lan_play->f_fd, packet, len, 0, (struct sockaddr *)server_addr, sizeof(*server_addr));
 }
