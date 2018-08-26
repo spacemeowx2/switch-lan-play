@@ -99,6 +99,9 @@ int arp_request(struct lan_play *self, const struct arp *arp)
         if (CMP_IPV4(arp->target_ip, arp->sender_ip)) {
             return 1;
         }
+        if (arp_has_ip(self, arp->target_ip)) {
+            return 1;
+        }
         send_arp(
             self,
             ARP_OPCODE_REPLY,
@@ -156,6 +159,23 @@ int process_arp(struct lan_play *arg, const struct ether_frame *ether)
 void arp_list_init(struct arp_item *list)
 {
     memset(list, 0, ARP_CACHE_LEN * sizeof(*list));
+}
+
+bool arp_has_ip(struct lan_play *arg, const void *ip)
+{
+    int i;
+    struct arp_item *list = arg->arp_list;
+    struct arp_item *item;
+    time_t now = time(NULL);
+
+    for (i = 0; i < ARP_CACHE_LEN; i++) {
+        item = &list[i];
+        if (CMP_IPV4(item->ip, ip) && (item->expire_at > now)) {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 bool arp_get_mac_by_ip(struct lan_play *arg, void *mac, const void *ip)

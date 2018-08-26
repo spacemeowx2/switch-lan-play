@@ -50,7 +50,7 @@ int forwarder_process(struct lan_play *lan_play, const uint8_t *packet, uint16_t
 
     if (IS_BROADCAST(dst, lan_play->subnet_net, lan_play->subnet_mask)) {
         CPY_MAC(dst_mac, BROADCAST_MAC);
-    } else if (arp_get_mac_by_ip(lan_play, dst_mac, dst)) {
+    } else if (!arp_get_mac_by_ip(lan_play, dst_mac, dst)) {
         return false;
     }
 
@@ -103,6 +103,9 @@ void *forwarder_thread(void *p)
 
 int forwarder_send(struct lan_play *lan_play, void *dst_ip, const void *packet, uint16_t len)
 {
+    printf("dst: ");
+    PRINT_IP(dst_ip);
+    printf(" forwarder_send %d\n", len);
     uint8_t packet_len[4];
     WRITE_NET32(packet_len, 0, len);
     send(lan_play->f_fd, packet_len, 4, 0);
