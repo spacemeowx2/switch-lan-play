@@ -19,6 +19,7 @@
 #define CMP_IPV4(ip1, ip2) (memcmp(ip1, ip2, 4) == 0)
 #define CMP_MAC(mac1, mac2) (memcmp(mac1, mac2, 4) == 0)
 #define IS_SUBNET(ip, net, mask) ( ((*(uint32_t*)ip) & (*(uint32_t*)mask)) == *(uint32_t*)net )
+#define IS_BROADCAST(ip, net, mask) ( ((*(uint32_t*)net) | ( ~ *(uint32_t*)mask)) == *(uint32_t*)ip )
 #define PRINT_IP(ip) printf("%d.%d.%d.%d", *(uint8_t*)(ip), *(uint8_t*)(ip + 1), *(uint8_t*)(ip + 2), *(uint8_t*)(ip + 3))
 #define PRINT_MAC(mac) printf("%x:%x:%x:%x:%x:%x", *(uint8_t*)(mac), *(uint8_t*)(mac + 1), *(uint8_t*)(mac + 2), *(uint8_t*)(mac + 3), *(uint8_t*)(mac + 4), *(uint8_t*)(mac + 5))
 #define MUTEX_LOCK(mutex) do { \

@@ -96,6 +96,9 @@ int send_arp_request(
 int arp_request(struct lan_play *self, const struct arp *arp)
 {
     if (IS_SUBNET(arp->target_ip, self->subnet_net, self->subnet_mask)) {
+        if (CMP_IPV4(arp->target_ip, arp->sender_ip)) {
+            return 1;
+        }
         send_arp(
             self,
             ARP_OPCODE_REPLY,

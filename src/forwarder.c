@@ -1,5 +1,7 @@
 #include "lan-play.h"
 
+uint8_t BROADCAST_MAC[6] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
+
 void forwarder_init(struct lan_play *lan_play)
 {
     int ret;
@@ -38,14 +40,23 @@ int forwarder_process(struct lan_play *lan_play, const uint8_t *packet, uint16_t
     const uint8_t *dst = packet + IPV4_OFF_DST;
     struct payload part;
 
-    if (!arp_get_mac_by_ip(lan_play, dst_mac, dst)) {
+    printf("dst: ");
+    PRINT_IP(dst);
+    printf(" forwarder_process %d\n", len);
+    if (lan_play->dev == NULL) {
+        printf("not ready\n");
+        return 0;
+    }
+
+    if (IS_BROADCAST(dst, lan_play->subnet_net, lan_play->subnet_mask)) {
+        CPY_MAC(dst_mac, BROADCAST_MAC);
+    } else if (arp_get_mac_by_ip(lan_play, dst_mac, dst)) {
         return false;
     }
 
     part.ptr = packet;
     part.len = len;
     part.next = NULL;
-
     return send_ether(
         lan_play,
         dst_mac,
@@ -58,15 +69,29 @@ void *forwarder_thread(void *p)
 {
     uint8_t buffer[BUFFER_SIZE];
     uint32_t buf_len = 0;
+    uint32_t recv_len = 0;
+    int32_t wait_len = -1;
     struct lan_play *lan_play = (struct lan_play *)p;
     int fd = lan_play->f_fd;
 
-    while (recv(fd, buffer + buf_len, BUFFER_SIZE - buf_len, 0) != 0) {
-        if (buf_len >= 4) {
-            uint32_t packet_len = READ_NET32(buffer, 0);
-            if (buf_len >= packet_len) {
-                forwarder_process(lan_play, buffer + 4, packet_len);
-            }
+
+    while (1) {
+        recv_len = recv(fd, buffer + buf_len, BUFFER_SIZE - buf_len, 0);
+        if (recv_len == 0) {
+            break;
+        }
+        buf_len += recv_len;
+        if (buf_len < 4) {
+            continue;
+        }
+        if (wait_len == -1) {
+            wait_len = READ_NET32(buffer, 0) + 4;
+        }
+        if (buf_len >= wait_len) {
+            forwarder_process(lan_play, buffer + 4, wait_len - 4);
+            memmove(buffer, buffer + wait_len, buf_len - wait_len);
+            buf_len -= wait_len;
+            wait_len = -1;
         }
     }
 

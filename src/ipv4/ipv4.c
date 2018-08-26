@@ -97,7 +97,13 @@ int process_ipv4(struct lan_play *arg, const struct ether_frame *ether)
                 return process_icmp(arg, &ipv4);
         }
     } else if (IS_SUBNET(ipv4.dst, arg->subnet_net, arg->subnet_mask)) {
-        forwarder_send(arg, ipv4.dst, ipv4.ether->payload, ipv4.total_len);
+        uint8_t dst_mac[6];
+        if (
+            IS_BROADCAST(ipv4.dst, arg->subnet_net, arg->subnet_mask)
+            || !arp_get_mac_by_ip(arg, dst_mac, ipv4.dst)
+        ) {
+            forwarder_send(arg, ipv4.dst, ipv4.ether->payload, ipv4.total_len);
+        }
     }
 
     return 1;
