@@ -6,6 +6,7 @@
 #include <Winsock2.h>
 #else
 #include <arpa/inet.h>
+#include <netdb.h>
 #endif
 
 #define READ_NET8(packet, offset) (*(uint8_t*)((uint8_t*)packet + offset))
