@@ -30,6 +30,7 @@ class SLPServer {
     }, 1000)
   }
   onMessage (msg: Buffer, rinfo: AddressInfo) {
+    this.byteLastSec += msg.byteLength
     this.clients.set(addr2str(rinfo), {
       time: Date.now(),
       rinfo
@@ -50,8 +51,11 @@ class SLPServer {
     let exceptStr = addr2str(except)
     for (let [key, {rinfo: {address, port}}] of this.clients) {
       if (exceptStr === key) continue
+      this.byteLastSec += data.byteLength
       this.server.send(data, port, address, (error, bytes) => {
-        this.clients.delete(key)
+        if (error) {
+          this.clients.delete(key)
+        }
       })
     }
   }
@@ -63,7 +67,6 @@ class SLPServer {
         clients.delete(key)
       }
     }
-
   }
 }
 let s = new SLPServer(11451)

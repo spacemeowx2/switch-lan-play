@@ -29,6 +29,7 @@ struct lan_play {
     uint16_t identification;
     struct arp_item arp_list[ARP_CACHE_LEN];
     time_t arp_ttl;
+    bool stop;
 
     // forwarder
     int f_fd;
@@ -42,6 +43,7 @@ int send_packet(struct lan_play *arg, int size);
 int process_arp(struct lan_play *arg, const struct ether_frame *ether);
 int process_ipv4(struct lan_play *arg, const struct ether_frame *ether);
 void *forwarder_thread(void *);
+void *forwarder_keepalive(void *);
 void forwarder_init(struct lan_play *lan_play);
 int forwarder_send(struct lan_play *lan_play, void *dst_ip, const void *packet, uint16_t len);
 

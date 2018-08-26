@@ -2,13 +2,13 @@
 #define _HELPER_H_
 
 #include <pcap.h>
+#include <unistd.h>
 #if defined(_WIN32)
 #include <Winsock2.h>
 #else
 #include <arpa/inet.h>
 #include <netdb.h>
 #endif
-
 #define READ_NET8(packet, offset) (*(uint8_t*)((uint8_t*)packet + offset))
 #define READ_NET16(packet, offset) ntohs(*(uint16_t*)((uint8_t*)packet + offset))
 #define READ_NET32(packet, offset) ntohl(*(uint32_t*)((uint8_t*)packet + offset))

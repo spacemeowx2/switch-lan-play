@@ -46,6 +46,9 @@ void forwarder_init(struct lan_play *lan_play)
 
 int forwarder_process(struct lan_play *lan_play, const uint8_t *packet, uint16_t len)
 {
+    if (len == 0) {
+        return false;
+    }
     uint8_t dst_mac[6];
     const uint8_t *dst = packet + IPV4_OFF_DST;
     struct payload part;
@@ -75,37 +78,53 @@ int forwarder_process(struct lan_play *lan_play, const uint8_t *packet, uint16_t
     );
 }
 
+void *forwarder_keepalive(void *p)
+{
+    struct lan_play *lan_play = (struct lan_play *)p;
+    int fd = lan_play->f_fd;
+    struct sockaddr_in *server_addr = &lan_play->server_addr;
+    while (1) {
+        uint32_t empty = 0;
+        sendto(fd, (char *)&empty, 4, 0, (struct sockaddr *)server_addr, sizeof(*server_addr));
+        sleep(10);
+    }
+}
+
 void *forwarder_thread(void *p)
 {
+    struct lan_play *lan_play = (struct lan_play *)p;
     uint8_t buffer[BUFFER_SIZE];
     uint32_t buf_len = 0;
     uint32_t recv_len = 0;
     int32_t wait_len = -1;
     int fromlen;
-    struct lan_play *lan_play = (struct lan_play *)p;
     int fd = lan_play->f_fd;
     struct sockaddr_in *server_addr = &lan_play->server_addr;
+    pthread_t keepalive_tid;
+
+    pthread_create(&keepalive_tid, NULL, forwarder_keepalive, p);
 
     while (1) {
         fromlen = sizeof(*server_addr);
         recv_len = recvfrom(fd, buffer + buf_len, BUFFER_SIZE - buf_len, 0, (struct sockaddr *)server_addr, &fromlen);
-        printf("recv_len %d\n", recv_len);
-        if (recv_len == 0 || recv_len == -1) {
-            break;
-        }
-        buf_len += recv_len;
-        if (buf_len < 4) {
-            continue;
-        }
-        if (wait_len == -1) {
-            wait_len = READ_NET32(buffer, 0) + 4;
-        }
-        if (buf_len >= wait_len) {
-            forwarder_process(lan_play, buffer + 4, wait_len - 4);
-            printf("%d %d\n", buf_len, wait_len);
-            memmove(buffer, buffer + wait_len, buf_len - wait_len);
-            buf_len -= wait_len;
-            wait_len = -1;
+        // if (recv_len == 0 || recv_len == -1) {
+        //     break;
+        // }
+        // buf_len += recv_len;
+        // if (buf_len < 4) {
+        //     continue;
+        // }
+        // if (wait_len == -1) {
+        //     wait_len = READ_NET32(buffer, 0) + 4;
+        // }
+        // if (buf_len >= wait_len) {
+        //     forwarder_process(lan_play, buffer + 4, wait_len - 4);
+        //     memmove(buffer, buffer + wait_len, buf_len - wait_len);
+        //     buf_len -= wait_len;
+        //     wait_len = -1;
+        // }
+        if (recv_len >= 20) {
+            forwarder_process(lan_play, buffer, recv_len);
         }
     }
 
@@ -123,6 +142,6 @@ int forwarder_send(struct lan_play *lan_play, void *dst_ip, const void *packet, 
     printf(" forwarder_send %d\n", len);
     uint8_t packet_len[4];
     WRITE_NET32(packet_len, 0, len);
-    send(lan_play->f_fd, packet_len, 4, 0);
+    // send(lan_play->f_fd, packet_len, 4, 0);
     return sendto(lan_play->f_fd, packet, len, 0, (struct sockaddr *)server_addr, sizeof(*server_addr));
 }

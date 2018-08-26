@@ -97,6 +97,7 @@ void init_lan_play(struct lan_play *lan_play)
     lan_play->mac[4] = 0x00;
     lan_play->mac[5] = 0x00;
     lan_play->dev = NULL;
+    lan_play->stop = false;
 
     init_pcap(lan_play);
 
