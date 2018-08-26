@@ -99,6 +99,9 @@ int arp_request(struct lan_play *self, const struct arp *arp)
         if (CMP_IPV4(arp->target_ip, arp->sender_ip)) {
             return 1;
         }
+        if (CMP_IPV4(arp->sender_ip, NONE_IP)) {
+            return 1;
+        }
         if (arp_has_ip(self, arp->target_ip)) {
             return 1;
         }

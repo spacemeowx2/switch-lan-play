@@ -99,7 +99,15 @@ int process_ipv4(struct lan_play *arg, const struct ether_frame *ether)
     } else if (IS_SUBNET(ipv4.dst, arg->subnet_net, arg->subnet_mask)) {
         if (IS_BROADCAST(ipv4.dst, arg->subnet_net, arg->subnet_mask)) {
             forwarder_send(arg, ipv4.dst, ipv4.ether->payload, ipv4.total_len);
-        } else if (!arp_has_ip(arg, ipv4.dst)) {
+        } else if (arp_has_ip(arg, ipv4.dst)) {
+            uint8_t dst_mac[6];
+            struct payload part;
+            arp_get_mac_by_ip(arg, dst_mac, ipv4.dst);
+            part.ptr = ipv4.ether->payload;
+            part.len = ipv4.total_len;
+            part.next = NULL;
+            return send_ether(arg, dst_mac, ETHER_TYPE_IPV4, &part);
+        } else {
             forwarder_send(arg, ipv4.dst, ipv4.ether->payload, ipv4.total_len);
         }
     }
