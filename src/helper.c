@@ -9,6 +9,7 @@
 #endif
 #if __APPLE__
 #include <net/bpf.h>
+#include <net/if_dl.h>
 #endif
 #include "helper.h"
 #include "config.h"
@@ -36,7 +37,7 @@ int set_immediate_mode(pcap_t *p)
 #if __APPLE__
     int fd;
     int on = 1;
-    fd = pcap_fileno(dev);
+    fd = pcap_fileno(p);
     return ioctl(fd, BIOCIMMEDIATE, &on);
 #elif defined(_WIN32)
     return pcap_setmintocopy(p, 0); // low latency
@@ -190,7 +191,7 @@ done:
     wszWideName = NULL;
 
     return nRVal;
-#else
+#elif defined(__LINUX__)
     int fd = pcap_fileno(p);
     struct ifreq buffer;
     memset(&buffer, 0x00, sizeof(buffer));
@@ -203,6 +204,33 @@ done:
     }
     memcpy(mac_addr, buffer.ifr_hwaddr.sa_data, 6);
     return result == 0 ? 1 : 0;
+#elif defined(__APPLE__)
+#define LLADDR(s) ((caddr_t)((s)->sdl_data + (s)->sdl_nlen))
+    pcap_addr_t *alladdrs;
+    pcap_addr_t *a;
+    struct sockaddr_dl* link;
+
+    alladdrs = d->addresses;
+    for (a = alladdrs; a != NULL; a = a->next) {
+        if(a->addr->sa_family == AF_LINK) {
+            link = (struct sockaddr_dl*)a->addr->sa_data;
+
+            caddr_t macaddr = LLADDR(link);
+            fprintf(stderr, "sdl_alen %d\n", link->sdl_alen);
+
+            if (link->sdl_alen == 6) {
+                memcpy(mac_addr, macaddr, 6);
+                return 1;
+            } else if(link->sdl_alen > 6) {
+                memcpy(mac_addr, (uint8_t *)macaddr + 1, 6);
+                return 1;
+            }
+        }
+    }
+    fprintf(stderr, "mac not found\n");
+    exit(1);
+#else
+    #error("platform not support");
 #endif
 }
 

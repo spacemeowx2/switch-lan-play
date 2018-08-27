@@ -97,7 +97,7 @@ void *forwarder_thread(void *p)
     uint32_t buf_len = 0;
     uint32_t recv_len = 0;
     int32_t wait_len = -1;
-    int fromlen;
+    socklen_t fromlen;
     int fd = lan_play->f_fd;
     struct sockaddr_in *server_addr = &lan_play->server_addr;
     pthread_t keepalive_tid;
