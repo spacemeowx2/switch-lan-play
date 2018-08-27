@@ -190,7 +190,7 @@ done:
         free(wszWideName);
     wszWideName = NULL;
 
-    return nRVal;
+    return nRVal == 1 ? 0 : -1;
 #elif defined(__LINUX__)
     int fd = pcap_fileno(p);
     struct ifreq buffer;
@@ -203,7 +203,7 @@ done:
         exit(1);
     }
     memcpy(mac_addr, buffer.ifr_hwaddr.sa_data, 6);
-    return result == 0 ? 1 : 0;
+    return result;
 #elif defined(__APPLE__)
 #define LLADDR(s) ((caddr_t)((s)->sdl_data + (s)->sdl_nlen))
     pcap_addr_t *alladdrs;
@@ -220,15 +220,14 @@ done:
 
             if (link->sdl_alen == 6) {
                 memcpy(mac_addr, macaddr, 6);
-                return 1;
+                return 0;
             } else if(link->sdl_alen > 6) {
                 memcpy(mac_addr, (uint8_t *)macaddr + 1, 6);
-                return 1;
+                return 0;
             }
         }
     }
-    fprintf(stderr, "mac not found\n");
-    exit(1);
+    return -1;
 #else
     #error("platform not support");
 #endif

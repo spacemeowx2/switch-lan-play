@@ -47,24 +47,21 @@ void forwarder_init(struct lan_play *lan_play)
 int forwarder_process(struct lan_play *lan_play, const uint8_t *packet, uint16_t len)
 {
     if (len == 0) {
-        return false;
+        return 0;
     }
     uint8_t dst_mac[6];
     const uint8_t *dst = packet + IPV4_OFF_DST;
     struct payload part;
 
-    printf("dst: ");
-    PRINT_IP(dst);
-    printf(" forwarder_process %d\n", len);
     if (lan_play->dev == NULL) {
         printf("not ready\n");
-        return 0;
+        return 1;
     }
 
     if (IS_BROADCAST(dst, lan_play->subnet_net, lan_play->subnet_mask)) {
         CPY_MAC(dst_mac, BROADCAST_MAC);
     } else if (!arp_get_mac_by_ip(lan_play, dst_mac, dst)) {
-        return false;
+        return 0;
     }
 
     part.ptr = packet;
@@ -107,22 +104,6 @@ void *forwarder_thread(void *p)
     while (1) {
         fromlen = sizeof(*server_addr);
         recv_len = recvfrom(fd, buffer + buf_len, BUFFER_SIZE - buf_len, 0, (struct sockaddr *)server_addr, &fromlen);
-        // if (recv_len == 0 || recv_len == -1) {
-        //     break;
-        // }
-        // buf_len += recv_len;
-        // if (buf_len < 4) {
-        //     continue;
-        // }
-        // if (wait_len == -1) {
-        //     wait_len = READ_NET32(buffer, 0) + 4;
-        // }
-        // if (buf_len >= wait_len) {
-        //     forwarder_process(lan_play, buffer + 4, wait_len - 4);
-        //     memmove(buffer, buffer + wait_len, buf_len - wait_len);
-        //     buf_len -= wait_len;
-        //     wait_len = -1;
-        // }
         if (recv_len >= 20) {
             forwarder_process(lan_play, buffer, recv_len);
         }
@@ -137,11 +118,8 @@ void *forwarder_thread(void *p)
 int forwarder_send(struct lan_play *lan_play, void *dst_ip, const void *packet, uint16_t len)
 {
     struct sockaddr_in *server_addr = &lan_play->server_addr;
-    printf("dst: ");
-    PRINT_IP(dst_ip);
-    printf(" forwarder_send %d\n", len);
     uint8_t packet_len[4];
     WRITE_NET32(packet_len, 0, len);
-    // send(lan_play->f_fd, packet_len, 4, 0);
-    return sendto(lan_play->f_fd, packet, len, 0, (struct sockaddr *)server_addr, sizeof(*server_addr));
+    int ret = sendto(lan_play->f_fd, packet, len, 0, (struct sockaddr *)server_addr, sizeof(*server_addr));
+    return ret == -1 ? 1 : 0; // 0 on success
 }

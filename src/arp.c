@@ -97,15 +97,15 @@ int arp_request(struct lan_play *self, const struct arp *arp)
 {
     if (IS_SUBNET(arp->target_ip, self->subnet_net, self->subnet_mask)) {
         if (CMP_IPV4(arp->target_ip, arp->sender_ip)) {
-            return 1;
+            return 0;
         }
         if (CMP_IPV4(arp->sender_ip, NONE_IP)) {
-            return 1;
+            return 0;
         }
         if (arp_has_ip(self, arp->target_ip)) {
-            return 1;
+            return 0;
         }
-        send_arp(
+        return send_arp(
             self,
             ARP_OPCODE_REPLY,
             self->mac,
@@ -114,12 +114,12 @@ int arp_request(struct lan_play *self, const struct arp *arp)
             arp->sender_ip
         );
     }
-    return 1;
+    return 0;
 }
 
 int arp_reply(struct lan_play *self, const struct arp *arp)
 {
-    return 1;
+    return 0;
 }
 
 int process_arp(struct lan_play *arg, const struct ether_frame *ether)
@@ -136,17 +136,9 @@ int process_arp(struct lan_play *arg, const struct ether_frame *ether)
         printf("Unknown hardware or protocol:\n");
         printf("hardware_type: %d protocol_type: %x\n", arp.hardware_type, arp.protocol_type);
         printf("hardware_size: %d protocol_size: %d\n", arp.hardware_size, arp.protocol_size);
-        return 0;
+        return -1;
     }
 
-    // char sender_ip[IP_STR_LEN];
-    // char target_ip[IP_STR_LEN];
-
-    // strcpy(sender_ip, ip2str(arp.sender_ip), sizeof(sender_ip));
-    // strcpy(target_ip, ip2str(arp.target_ip), sizeof(target_ip));
-
-    // printf("[%d] ARP Sender: %s\n", arg->id, sender_ip);
-    // printf("         Target: %s\n", target_ip);
     arp_set(arg, arp.sender_mac, arp.sender_ip);
 
     switch (arp.opcode) {
@@ -156,7 +148,7 @@ int process_arp(struct lan_play *arg, const struct ether_frame *ether)
             return arp_reply(arg, &arp);
     }
 
-    return 0;
+    return -1;
 }
 
 void arp_list_init(struct arp_item *list)

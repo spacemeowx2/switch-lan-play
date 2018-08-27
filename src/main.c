@@ -8,12 +8,12 @@ void set_filter(pcap_t *dev)
     static struct bpf_program bpf;
     snprintf(filter, sizeof(filter), "net %s %s", SUBNET_NET, SUBNET_MASK);
     pcap_compile(dev, &bpf, filter, 1, 0);
-    // pcap_setfilter(dev, &bpf);
+    pcap_setfilter(dev, &bpf);
 }
 
 void get_mac(struct lan_play *lan_play, pcap_if_t *d, pcap_t *p)
 {
-    if (get_mac_address(d, p, lan_play->mac) == 0) {
+    if (get_mac_address(d, p, lan_play->mac) != 0) {
         fprintf(stderr, "Error when getting the MAC address\n");
         exit(1);
     }

@@ -25,5 +25,5 @@ int process_icmp(struct lan_play *arg, const struct ipv4 *ipv4)
     if (ret != 0) {
         fprintf(stderr, "Error send_ipv4 %d\n", ret);
     }
-    return 1;
+    return 0;
 }

@@ -108,11 +108,11 @@ int process_ipv4(struct lan_play *arg, const struct ether_frame *ether)
             part.next = NULL;
             return send_ether(arg, dst_mac, ETHER_TYPE_IPV4, &part);
         } else {
-            forwarder_send(arg, ipv4.dst, ipv4.ether->payload, ipv4.total_len);
+            return forwarder_send(arg, ipv4.dst, ipv4.ether->payload, ipv4.total_len);
         }
     }
 
-    return 1;
+    return 0;
 }
 
 uint16_t calc_checksum(const u_char *buffer, int len)

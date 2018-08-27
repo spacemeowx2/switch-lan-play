@@ -96,7 +96,7 @@ int process_ether(struct lan_play *arg, const u_char *packet)
     parse_ether(packet, &ether);
 
     if (CMP_MAC(ether.src, arg->mac)) {
-        return 1;
+        return 0;
     }
 
     switch (ether.type) {
@@ -105,13 +105,13 @@ int process_ether(struct lan_play *arg, const u_char *packet)
         case ETHER_TYPE_IPV4:
             return process_ipv4(arg, &ether);
         default:
-            return 1; // just ignore them
+            return 0; // just ignore them
     }
 }
 
 void get_packet(struct lan_play *arg, const struct pcap_pkthdr *pkthdr, const u_char *packet)
 {
-    if (process_ether(arg, packet) == 0) {
+    if (process_ether(arg, packet) != 0) {
         print_packet(++arg->id, pkthdr, packet);
     }
 }
