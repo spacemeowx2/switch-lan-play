@@ -19,9 +19,9 @@ void forwarder_init(struct lan_play *lan_play)
         fprintf(stderr, "Error gethostbyname %s\n", strerror(errno));
         exit(1);
     }
-    printf("Server IP: ");
-    PRINT_IP(server_net->h_addr);
-    putchar('\n');
+    // printf("Server IP: ");
+    // PRINT_IP(server_net->h_addr);
+    // putchar('\n');
 
     server_addr->sin_family = AF_INET;
     server_addr->sin_addr = *((struct in_addr *)server_net->h_addr);
@@ -118,6 +118,7 @@ void *forwarder_thread(void *p)
 int forwarder_send(struct lan_play *lan_play, void *dst_ip, const void *packet, uint16_t len)
 {
     struct sockaddr_in *server_addr = &lan_play->server_addr;
+
     uint8_t packet_len[4];
     WRITE_NET32(packet_len, 0, len);
     int ret = sendto(lan_play->f_fd, packet, len, 0, (struct sockaddr *)server_addr, sizeof(*server_addr));

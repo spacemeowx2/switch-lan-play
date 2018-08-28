@@ -5,6 +5,7 @@
 #include <unistd.h>
 #if defined(_WIN32)
 #include <Winsock2.h>
+#include<ws2tcpip.h>
 #else
 #include <arpa/inet.h>
 #include <netdb.h>
