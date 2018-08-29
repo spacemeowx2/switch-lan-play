@@ -1,6 +1,29 @@
 cmake_minimum_required(VERSION 3.0)
 project (SwitchLanPlay)
 
+include(TestBigEndian)
+test_big_endian(BIG_ENDIAN)
+if (BIG_ENDIAN)
+    add_definitions(-DLANPLAY_BIG_ENDIAN)
+else ()
+    add_definitions(-DLANPLAY_LITTLE_ENDIAN)
+endif ()
+if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    add_definitions(-DLANPLAY_LINUX)
+elseif(CMAKE_SYSTEM_NAME MATCHES "FreeBSD")
+    add_definitions(-DLANPLAY_FREEBSD)
+elseif(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+    add_definitions(-DLANPLAY_DARWIN)
+endif()
+
+
+include_directories(
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    lwip/custom
+    lwip/src/include
+)
+add_subdirectory(lwip)
+
 if (WIN32)
     include(ExternalProject)
     ExternalProject_Add(
@@ -32,7 +55,7 @@ set(SOURCE_FILES
 )
 
 add_executable (lan-play ${SOURCE_FILES})
-target_link_libraries(lan-play ${PCAP_LIBRARY})
+target_link_libraries(lan-play ${PCAP_LIBRARY} lwip_lib)
 include_directories(lan-play ${PCAP_INCLUDE_DIR})
 if (WIN32)
     add_dependencies(lan-play winpcap)
