@@ -182,7 +182,7 @@ int get_mac_address(pcap_if_t *d, pcap_t *p, u_char mac_addr[6])
     }
 
 done:
-    if (pIfTable != NULL) 
+    if (pIfTable != NULL)
         free(pIfTable);
     pIfTable = NULL;
 
