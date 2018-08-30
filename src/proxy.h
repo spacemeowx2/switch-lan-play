@@ -1,6 +1,8 @@
 #ifndef _PROXY_H_
 #define _PROXY_H_
 
+#include <lwip/netif.h>
+
 struct proxy {
     struct netif netif;
 };
