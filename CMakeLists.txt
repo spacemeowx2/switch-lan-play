@@ -48,6 +48,7 @@ set(SOURCE_FILES
     src/arp.c
     src/helper.c
     src/forwarder.c
+    src/proxy.c
     src/ipv4/ipv4.c
     src/ipv4/tcp.c
     src/ipv4/udp.c
@@ -55,7 +56,7 @@ set(SOURCE_FILES
 )
 
 add_executable (lan-play ${SOURCE_FILES})
-target_link_libraries(lan-play ${PCAP_LIBRARY} lwip_lib)
+target_link_libraries(lan-play lwip_lib ${PCAP_LIBRARY})
 include_directories(lan-play ${PCAP_INCLUDE_DIR})
 if (WIN32)
     add_dependencies(lan-play winpcap)

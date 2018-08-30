@@ -122,6 +122,8 @@ int main()
     struct lan_play lan_play;
     pthread_t tid;
 
+    proxy_init();
+
     forwarder_init(&lan_play);
     pthread_create(&tid, NULL, forwarder_thread, &lan_play);
 

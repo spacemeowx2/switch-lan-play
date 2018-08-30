@@ -75,6 +75,7 @@
 // needed on 64-bit systems, enable it always so that the same configuration
 // is used regardless of the platform
 #define IPV6_FRAG_COPYHEADER 1
+#define LWIP_STATS 0
 
 /*
 #define LWIP_DEBUG 1

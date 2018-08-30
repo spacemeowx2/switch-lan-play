@@ -17,6 +17,7 @@ struct lan_play;
 #include "helper.h"
 #include "config.h"
 #include "arp.h"
+#include "proxy.h"
 
 struct lan_play {
     pcap_t *dev;
