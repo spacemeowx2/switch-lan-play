@@ -206,8 +206,10 @@ ip4_route(const ip4_addr_t *dest)
   }
 #endif
 
-  if ((netif_default == NULL) || !netif_is_up(netif_default) || !netif_is_link_up(netif_default) ||
-      ip4_addr_isany_val(*netif_ip4_addr(netif_default))) {
+  if ((netif_default == NULL) || !netif_is_up(netif_default) || !netif_is_link_up(netif_default)
+      /* Yes we are binding to any addr */
+      // || ip4_addr_isany_val(*netif_ip4_addr(netif_default))
+    ) {
     /* No matching netif found and default netif is not usable.
        If this is not good enough for you, use LWIP_HOOK_IP4_ROUTE() */
     LWIP_DEBUGF(IP_DEBUG | LWIP_DBG_LEVEL_SERIOUS, ("ip4_route: No route to %"U16_F".%"U16_F".%"U16_F".%"U16_F"\n",
@@ -588,6 +590,12 @@ ip4_input(struct pbuf *p, struct netif *inp)
       MIB2_STATS_INC(mib2.ipindiscards);
       return ERR_OK;
     }
+  }
+
+  /* if we're pretending we are everyone for TCP, assume the packet is for source interface if it
+     isn't for a local address */
+  if (netif == NULL && (inp->flags & NETIF_FLAG_PRETEND_TCP) && IPH_PROTO(iphdr) == IP_PROTO_TCP) {
+      netif = inp;
   }
 
   /* packet not for us? */

@@ -173,6 +173,8 @@ enum tcp_state {
   void *callback_arg; \
   enum tcp_state state; /* TCP state */ \
   u8_t prio; \
+  u8_t bound_to_netif; \
+  char local_netif[3]; \
   /* ports are in host byte order */ \
   u16_t local_port
 
@@ -393,6 +395,7 @@ err_t            tcp_bind    (struct tcp_pcb *pcb, const ip_addr_t *ipaddr,
                               u16_t port);
 err_t            tcp_connect (struct tcp_pcb *pcb, const ip_addr_t *ipaddr,
                               u16_t port, tcp_connected_fn connected);
+err_t            tcp_bind_to_netif (struct tcp_pcb *pcb, const char ifname[3]);
 
 struct tcp_pcb * tcp_listen_with_backlog_and_err(struct tcp_pcb *pcb, u8_t backlog, err_t *err);
 struct tcp_pcb * tcp_listen_with_backlog(struct tcp_pcb *pcb, u8_t backlog);

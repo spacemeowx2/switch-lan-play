@@ -99,6 +99,9 @@ extern "C" {
 /** If set, the netif has MLD6 capability.
  * Set by the netif driver in its init function. */
 #define NETIF_FLAG_MLD6         0x40U
+/** Whether to pretend that we are every host for TCP packets.
+ * Set by netif_set_pretend_tcp. */
+#define NETIF_FLAG_PRETEND_TCP  0x100U
 
 /**
  * @}
@@ -302,7 +305,7 @@ struct netif {
   /** link level hardware address of this interface */
   u8_t hwaddr[NETIF_MAX_HWADDR_LEN];
   /** flags (@see @ref netif_flags) */
-  u8_t flags;
+  u16_t flags;
   /** descriptive abbreviation */
   char name[2];
   /** number of this interface */
@@ -373,12 +376,15 @@ void netif_remove(struct netif * netif);
    structure. */
 struct netif *netif_find(const char *name);
 
+int netif_is_named (struct netif *netif, const char name[3]);
+
 void netif_set_default(struct netif *netif);
 
 #if LWIP_IPV4
 void netif_set_ipaddr(struct netif *netif, const ip4_addr_t *ipaddr);
 void netif_set_netmask(struct netif *netif, const ip4_addr_t *netmask);
 void netif_set_gw(struct netif *netif, const ip4_addr_t *gw);
+void netif_set_pretend_tcp(struct netif *netif, u8_t pretend);
 /** @ingroup netif_ip4 */
 #define netif_ip4_addr(netif)    ((const ip4_addr_t*)ip_2_ip4(&((netif)->ip_addr)))
 /** @ingroup netif_ip4 */

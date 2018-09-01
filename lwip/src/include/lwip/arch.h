@@ -37,6 +37,8 @@
 #ifndef LWIP_HDR_ARCH_H
 #define LWIP_HDR_ARCH_H
 
+#include "arch/cc.h"
+
 #ifndef LITTLE_ENDIAN
 #define LITTLE_ENDIAN 1234
 #endif
@@ -44,8 +46,6 @@
 #ifndef BIG_ENDIAN
 #define BIG_ENDIAN 4321
 #endif
-
-#include "arch/cc.h"
 
 /**
  * @defgroup compiler_abstraction Compiler/platform abstraction
@@ -72,7 +72,7 @@
 
 /** Platform specific diagnostic output.\n
  * Note the default implementation pulls in printf, which may
- * in turn pull in a lot of standard libary code. In resource-constrained 
+ * in turn pull in a lot of standard libary code. In resource-constrained
  * systems, this should be defined to something less resource-consuming.
  */
 #ifndef LWIP_PLATFORM_DIAG
@@ -83,7 +83,7 @@
 
 /** Platform specific assertion handling.\n
  * Note the default implementation pulls in printf, fflush and abort, which may
- * in turn pull in a lot of standard libary code. In resource-constrained 
+ * in turn pull in a lot of standard libary code. In resource-constrained
  * systems, this should be defined to something less resource-consuming.
  */
 #ifndef LWIP_PLATFORM_ASSERT
