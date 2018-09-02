@@ -11,6 +11,7 @@
 #include <errno.h>
 #include <stdbool.h>
 #include <pthread.h>
+#include <base/llog.h>
 
 struct lan_play;
 #include "packet.h"
