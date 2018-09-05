@@ -1,0 +1,4 @@
+FROM buildpack-deps:jessie
+
+RUN apt update \
+    && apt install -y libpcap0.8-dev cmake make

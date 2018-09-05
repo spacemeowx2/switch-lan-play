@@ -192,7 +192,7 @@ done:
     wszWideName = NULL;
 
     return nRVal == 1 ? 0 : -1;
-#elif defined(__LINUX__)
+#elif defined(__linux__)
     int fd = pcap_fileno(p);
     struct ifreq buffer;
     memset(&buffer, 0x00, sizeof(buffer));

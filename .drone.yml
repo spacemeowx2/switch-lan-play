@@ -1,0 +1,31 @@
+pipeline:
+  setup:
+    image: docker
+    commands:
+      - docker build --rm -t switch-lan-play-build:linux -f docker/Dockerfile.linux .
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+  lan-play:
+    group: build
+    image: switch-lan-play-build:linux
+    commands:
+      - mkdir build && cd build
+      - cmake ..
+      - make
+  server:
+    group: build
+    image: node:alpine
+    commands:
+      - cd server
+      - npm install
+      - npm run build
+  github_pre_release:
+    image: plugins/github-release
+    secrets: [ github_token ]
+    files:
+      - build/lan-play
+    checksum:
+       - sha1
+    prerelease: true
+    when:
+      event: tag
