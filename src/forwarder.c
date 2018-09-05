@@ -106,11 +106,14 @@ void *forwarder_thread(void *p)
         recv_len = recvfrom(fd, buffer, BUFFER_SIZE, 0, (struct sockaddr *)server_addr, &fromlen);
         if (recv_len == -1) {
             LLOG(LLOG_ERROR,  "Error forwarder recvfrom %s", strerror(errno));
-            LLOG(LLOG_ERROR,  "Error forwarder recvfrom %d", WSAGetLastError());
             break;
         }
-        if (recv_len >= 20) {
-            forwarder_process(lan_play, buffer, recv_len);
+        switch (buffer[0]) { // type
+        case FORWARDER_TYPE_KEEPALIVE:
+            break;
+        case FORWARDER_TYPE_IPV4:
+            forwarder_process(lan_play, buffer + 1, recv_len);
+            break;
         }
     }
 
