@@ -113,8 +113,8 @@ void init_lan_play(struct lan_play *lan_play)
 
 void loop_lan_play(struct lan_play *lan_play)
 {
+    puts("Loop start");
     pcap_loop(lan_play->dev, -1, (void(*)(u_char *, const struct pcap_pkthdr *, const u_char *))get_packet, (u_char*)lan_play);
-    puts("Loop started");
 }
 
 int main()

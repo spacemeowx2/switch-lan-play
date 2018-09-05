@@ -5,7 +5,22 @@
 #include <unistd.h>
 #if defined(_WIN32)
 #include <Winsock2.h>
-#include<ws2tcpip.h>
+#include <ws2tcpip.h>
+// https://linux.die.net/man/2/sendto
+struct iovec {
+    size_t iov_len;
+    void *iov_base;
+};
+struct msghdr {
+    void         *msg_name;       /* optional address */
+    socklen_t     msg_namelen;    /* size of address */
+    struct iovec *msg_iov;        /* scatter/gather array */
+    size_t        msg_iovlen;     /* # elements in msg_iov */
+    void         *msg_control;    /* ancillary data, see below */
+    size_t        msg_controllen; /* ancillary data buffer len */
+    int           msg_flags;      /* flags on received message */
+};
+ssize_t sendmsg(int s, const struct msghdr *msg, int flags);
 #else
 #include <arpa/inet.h>
 #include <netdb.h>

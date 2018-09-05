@@ -1,10 +1,15 @@
 #include "lan-play.h"
 
+#define FORWARDER_TYPE_KEEPALIVE 0x00
+#define FORWARDER_TYPE_IPV4 0x01
 uint8_t BROADCAST_MAC[6] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
+
+int forwarder_send_keepalive(struct lan_play *lan_play);
+int forwarder_send_ipv4(struct lan_play *lan_play, void *dst_ip, const void *packet, uint16_t len);
 
 void forwarder_init(struct lan_play *lan_play)
 {
-    int ret;
+    ssize_t ret;
     int fd = socket(AF_INET, SOCK_DGRAM, 0);
     struct hostent *server_net;
     struct sockaddr_in *server_addr = &lan_play->server_addr;
@@ -13,6 +18,7 @@ void forwarder_init(struct lan_play *lan_play)
         fprintf(stderr, "Error socket %s\n", strerror(errno));
         exit(1);
     }
+    lan_play->f_fd = fd;
 
     server_net = gethostbyname(SERVER_ADDR);
     if (server_net == NULL) {
@@ -27,16 +33,13 @@ void forwarder_init(struct lan_play *lan_play)
     server_addr->sin_addr = *((struct in_addr *)server_net->h_addr);
     server_addr->sin_port = htons(SERVER_PORT);
 
-    // ret = connect(fd, (struct sockaddr *)&server_addr, sizeof(server_addr));
-    // if (ret != 0) {
-    //     fprintf(stderr, "Error connect %d\n", ret);
-    //     exit(1);
-    // }
-    uint32_t empty = 0;
-    sendto(fd, (char *)&empty, 4, 0, (struct sockaddr *)server_addr, sizeof(*server_addr));
+    ret = forwarder_send_keepalive(lan_play);
+    if (ret != 0) {
+        LLOG(LLOG_ERROR,  "Error forwarder keepalive %s\n", strerror(errno));
+        exit(1);
+    }
 
     puts("Forwarder connected");
-    lan_play->f_fd = fd;
 
     if (pthread_mutex_init(&lan_play->mutex, NULL) != 0) {
         fprintf(stderr, "Error pthread_mutex_init %s\n", strerror(errno));
@@ -81,9 +84,8 @@ void *forwarder_keepalive(void *p)
     int fd = lan_play->f_fd;
     struct sockaddr_in *server_addr = &lan_play->server_addr;
     while (1) {
-        uint32_t empty = 0;
-        sendto(fd, (char *)&empty, 4, 0, (struct sockaddr *)server_addr, sizeof(*server_addr));
         sleep(10);
+        forwarder_send_keepalive(lan_play);
     }
 }
 
@@ -91,9 +93,7 @@ void *forwarder_thread(void *p)
 {
     struct lan_play *lan_play = (struct lan_play *)p;
     uint8_t buffer[BUFFER_SIZE];
-    uint32_t buf_len = 0;
-    uint32_t recv_len = 0;
-    int32_t wait_len = -1;
+    ssize_t recv_len = 0;
     socklen_t fromlen;
     int fd = lan_play->f_fd;
     struct sockaddr_in *server_addr = &lan_play->server_addr;
@@ -103,7 +103,12 @@ void *forwarder_thread(void *p)
 
     while (1) {
         fromlen = sizeof(*server_addr);
-        recv_len = recvfrom(fd, buffer + buf_len, BUFFER_SIZE - buf_len, 0, (struct sockaddr *)server_addr, &fromlen);
+        recv_len = recvfrom(fd, buffer, BUFFER_SIZE, 0, (struct sockaddr *)server_addr, &fromlen);
+        if (recv_len == -1) {
+            LLOG(LLOG_ERROR,  "Error forwarder recvfrom %s", strerror(errno));
+            LLOG(LLOG_ERROR,  "Error forwarder recvfrom %d", WSAGetLastError());
+            break;
+        }
         if (recv_len >= 20) {
             forwarder_process(lan_play, buffer, recv_len);
         }
@@ -115,12 +120,43 @@ void *forwarder_thread(void *p)
     return NULL;
 }
 
-int forwarder_send(struct lan_play *lan_play, void *dst_ip, const void *packet, uint16_t len)
+int forwarder_send(struct lan_play *lan_play, const uint8_t type, const void *packet, uint16_t len)
+{
+    struct sockaddr_in *server_addr = &lan_play->server_addr;
+    struct msghdr msg;
+    struct iovec iov[2];
+
+    iov[0].iov_base = (void *)&type;
+    iov[0].iov_len = sizeof(type);
+
+    iov[1].iov_base = (void *)packet;
+    iov[1].iov_len = len;
+
+    msg.msg_name = server_addr;
+    msg.msg_namelen = sizeof(*server_addr);
+    msg.msg_iov = iov;
+    if (packet == NULL) {
+        msg.msg_iovlen = 1;
+    } else {
+        msg.msg_iovlen = 2;
+    }
+    msg.msg_control = NULL;
+    msg.msg_controllen = 0;
+    msg.msg_flags = 0;
+    int ret = sendmsg(lan_play->f_fd, &msg, 0);
+    return ret == -1 ? 1 : 0;
+}
+
+int forwarder_send_keepalive(struct lan_play *lan_play)
+{
+    return forwarder_send(lan_play, FORWARDER_TYPE_KEEPALIVE, NULL, 0);
+}
+
+int forwarder_send_ipv4(struct lan_play *lan_play, void *dst_ip, const void *packet, uint16_t len)
 {
     struct sockaddr_in *server_addr = &lan_play->server_addr;
 
-    uint8_t packet_len[4];
-    WRITE_NET32(packet_len, 0, len);
-    int ret = sendto(lan_play->f_fd, packet, len, 0, (struct sockaddr *)server_addr, sizeof(*server_addr));
-    return ret == -1 ? 1 : 0; // 0 on success
+    return forwarder_send(lan_play, FORWARDER_TYPE_IPV4, packet, len);
+    // int ret = sendto(lan_play->f_fd, packet, len, 0, (struct sockaddr *)server_addr, sizeof(*server_addr));
+    // return ret == -1 ? 1 : 0; // 0 on success
 }

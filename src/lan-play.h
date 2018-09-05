@@ -47,6 +47,6 @@ int process_ipv4(struct lan_play *arg, const struct ether_frame *ether);
 void *forwarder_thread(void *);
 void *forwarder_keepalive(void *);
 void forwarder_init(struct lan_play *lan_play);
-int forwarder_send(struct lan_play *lan_play, void *dst_ip, const void *packet, uint16_t len);
+int forwarder_send_ipv4(struct lan_play *lan_play, void *dst_ip, const void *packet, uint16_t len);
 
 #endif // _LAN_PLAY_H_
