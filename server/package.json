@@ -13,7 +13,7 @@
     "author": "spacemeowx2",
     "license": "MIT",
     "devDependencies": {
-        "@types/node": "^8.10.28",
-        "typescript": "^3.0.1"
+        "@types/node": "^8.10.29",
+        "typescript": "^3.0.3"
     }
 }

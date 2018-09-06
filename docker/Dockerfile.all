@@ -4,3 +4,4 @@ RUN sed -i 's/deb.debian.org/mirrors.ustc.edu.cn/g' /etc/apt/sources.list && sed
 
 RUN apt update
 RUN apt install -y libpcap0.8-dev cmake make
+RUN apt install -y mingw32

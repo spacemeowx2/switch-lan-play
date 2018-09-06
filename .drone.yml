@@ -1,16 +1,29 @@
 pipeline:
-  setup:
+  build-docker-linux:
     image: docker
     commands:
       - docker build --rm -t switch-lan-play-build:linux -f docker/Dockerfile.linux .
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-  lan-play:
-    group: build
+  build-docker-all:
+    image: docker
+    commands:
+      - docker build --rm -t switch-lan-play-build:all -f docker/Dockerfile.all .
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+  lan-play-linux:
+    group: build-bin
     image: switch-lan-play-build:linux
     commands:
-      - mkdir build && cd build
+      - mkdir build.linux && cd build.linux
       - cmake ..
+      - make
+  lan-play-windows:
+    group: build-bin
+    image: switch-lan-play-build:all
+    commands:
+      - mkdir build.win && cd build.win
+      - cmake -DCMAKE_TOOLCHAIN_FILE=../cmake/toolchain-mingw32.cmake ..
       - make
   server:
     group: build
@@ -23,7 +36,8 @@ pipeline:
     image: plugins/github-release
     secrets: [ github_token ]
     files:
-      - build/lan-play
+      - build.linux/lan-play
+      - build.win/lan-play.exe
     checksum:
        - sha1
     prerelease: true

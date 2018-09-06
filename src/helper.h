@@ -4,7 +4,7 @@
 #include <pcap.h>
 #include <unistd.h>
 #if defined(_WIN32)
-#include <Winsock2.h>
+#include <winsock2.h>
 #include <ws2tcpip.h>
 // https://linux.die.net/man/2/sendto
 struct iovec {
