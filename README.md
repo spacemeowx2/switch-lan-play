@@ -1,4 +1,7 @@
 # switch-lan-play
+[![Build status](https://drone.imspace.cn:444/api/badges/spacemeowx2/switch-lan-play/status.svg)](https://drone.imspace.cn:444/spacemeowx2/switch-lan-play)
+[![Chat on discord](https://img.shields.io/badge/chat-on%20discord-7289da.svg)](https://discord.gg/zEMCu5n)
+[![Chat on telegram](https://img.shields.io/badge/chat-on%20telegram-blue.svg)](https://t.me/joinchat/CBl2pxJCT-NtEME6ip6v5g)
 
 Make you and your friends play games like in a LAN.
 
