@@ -217,7 +217,7 @@ done:
             link = (struct sockaddr_dl*)a->addr->sa_data;
 
             caddr_t macaddr = LLADDR(link);
-            fprintf(stderr, "sdl_alen %d\n", link->sdl_alen);
+            // fprintf(stderr, "sdl_alen %d\n", link->sdl_alen);
 
             if (link->sdl_alen == 6) {
                 memcpy(mac_addr, macaddr, 6);
@@ -232,6 +232,67 @@ done:
 #else
     #error("platform not support");
 #endif
+}
+
+int parse_addr(const char *str, struct sockaddr_in *addr)
+{
+    int len = strlen(str);
+    if (len < 1 || len > 1000) {
+        return -1;
+    }
+
+    int addr_start;
+    int addr_len;
+    int port_start;
+    int port_len;
+
+    // find ':'
+    int i=0;
+    while (i < len && str[i] != ':') i++;
+    if (i >= len) {
+        return -1;
+    }
+    addr_start = 0;
+    addr_len = i - addr_start;
+    port_start = i + 1;
+    port_len = len - port_start;
+
+    char addr_str[128];
+    if (addr_len >= sizeof(addr_str)) {
+        return -1;
+    }
+    memcpy(addr_str, str + addr_start, addr_len);
+    addr_str[addr_len] = '\0';
+
+    char port_str[6];
+    if (port_len >= sizeof(port_str)) {
+        return 0;
+    }
+    memcpy(port_str, str + port_start, port_len);
+    port_str[port_len] = '\0';
+
+    // parse port
+    char *err;
+    long int conv_res = strtol(port_str, &err, 10);
+    if (port_str[0] == '\0' || *err != '\0') {
+        return -1;
+    }
+    if (conv_res < 0 || conv_res > UINT16_MAX) {
+        return -1;
+    }
+    uint16_t port = conv_res;
+
+    struct hostent *net;
+    net = gethostbyname(addr_str);
+    if (net == NULL) {
+        return -1;
+    }
+
+    addr->sin_family = AF_INET;
+    addr->sin_addr = *((struct in_addr *)net->h_addr);
+    addr->sin_port = htons(port);
+
+    return 0;
 }
 
 #if defined(_WIN32)

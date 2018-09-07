@@ -58,4 +58,5 @@ void *str2ip(const char *ip);
 void print_hex(const void *buf, int len);
 int set_immediate_mode(pcap_t *p);
 int get_mac_address(pcap_if_t *d, pcap_t *p, u_char mac_addr[6]);
+int parse_addr(const char *str, struct sockaddr_in *addr);
 #endif // _HELPER_H_

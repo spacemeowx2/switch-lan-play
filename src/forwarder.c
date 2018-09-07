@@ -13,27 +13,12 @@ void forwarder_init(struct lan_play *lan_play)
 {
     ssize_t ret;
     int fd = socket(AF_INET, SOCK_DGRAM, 0);
-    struct hostent *server_net;
-    struct sockaddr_in *server_addr = &lan_play->server_addr;
 
     if (fd < 0) {
         fprintf(stderr, "Error socket %s\n", strerror(errno));
         exit(1);
     }
     lan_play->f_fd = fd;
-
-    server_net = gethostbyname(SERVER_ADDR);
-    if (server_net == NULL) {
-        fprintf(stderr, "Error gethostbyname %s\n", strerror(errno));
-        exit(1);
-    }
-    // printf("Server IP: ");
-    // PRINT_IP(server_net->h_addr);
-    // putchar('\n');
-
-    server_addr->sin_family = AF_INET;
-    server_addr->sin_addr = *((struct in_addr *)server_net->h_addr);
-    server_addr->sin_port = htons(SERVER_PORT);
 
     ret = forwarder_send_keepalive(lan_play);
     if (ret != 0) {
@@ -42,6 +27,7 @@ void forwarder_init(struct lan_play *lan_play)
     }
 
     puts("Forwarder connected");
+    printf("Server IP: %s\n", ip2str(&lan_play->server_addr.sin_addr));
 
     if (pthread_mutex_init(&lan_play->mutex, NULL) != 0) {
         fprintf(stderr, "Error pthread_mutex_init %s\n", strerror(errno));
