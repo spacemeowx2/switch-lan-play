@@ -1,7 +1,9 @@
 #include "lan-play.h"
 
-#define FORWARDER_TYPE_KEEPALIVE 0x00
-#define FORWARDER_TYPE_IPV4 0x01
+enum forwarder_type {
+    FORWARDER_TYPE_KEEPALIVE = 0x00,
+    FORWARDER_TYPE_IPV4 = 0x01,
+};
 uint8_t BROADCAST_MAC[6] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
 
 int forwarder_send_keepalive(struct lan_play *lan_play);
@@ -157,9 +159,5 @@ int forwarder_send_keepalive(struct lan_play *lan_play)
 
 int forwarder_send_ipv4(struct lan_play *lan_play, void *dst_ip, const void *packet, uint16_t len)
 {
-    struct sockaddr_in *server_addr = &lan_play->server_addr;
-
     return forwarder_send(lan_play, FORWARDER_TYPE_IPV4, packet, len);
-    // int ret = sendto(lan_play->f_fd, packet, len, 0, (struct sockaddr *)server_addr, sizeof(*server_addr));
-    // return ret == -1 ? 1 : 0; // 0 on success
 }

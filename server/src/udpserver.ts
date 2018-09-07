@@ -1,9 +1,25 @@
 import {createSocket, Socket, AddressInfo} from 'dgram'
+type IPAddr = string
 const Timeout = 30 * 1000
+const IPV4_OFF_SRC = 12
+const IPV4_OFF_DST = 16
+
+enum ForwarderType {
+  Keepalive = 0,
+  Ipv4 = 1,
+}
 
 interface CacheItem {
-  time: number
+  expireAt: number
   rinfo: AddressInfo
+}
+function clearCacheItem<T> (map: Map<T, CacheItem>) {
+  const now = Date.now()
+  for (const [key, {expireAt}] of map) {
+    if (expireAt >= now) {
+      map.delete(key)
+    }
+  }
 }
 
 function addr2str (rinfo: AddressInfo) {
@@ -13,6 +29,7 @@ function addr2str (rinfo: AddressInfo) {
 class SLPServer {
   server: Socket
   clients: Map<string, CacheItem> = new Map()
+  ipCache: Map<number, CacheItem> = new Map()
   byteLastSec: number = 0
   constructor (port: number) {
     const server = createSocket('udp4')
@@ -32,10 +49,37 @@ class SLPServer {
   onMessage (msg: Buffer, rinfo: AddressInfo) {
     this.byteLastSec += msg.byteLength
     this.clients.set(addr2str(rinfo), {
-      time: Date.now(),
+      expireAt: Date.now() + Timeout,
       rinfo
     })
-    this.sendBroadcast(rinfo, msg)
+
+    const type: ForwarderType = msg.readUInt8(0)
+    this.onPacket(rinfo, type, msg.slice(1), msg)
+    // this.sendBroadcast(rinfo, msg)
+  }
+  onPacket (rinfo: AddressInfo, type: ForwarderType, payload: Buffer, msg: Buffer) {
+    switch (type) {
+      case ForwarderType.Keepalive:
+        break;
+      case ForwarderType.Ipv4:
+        this.onIpv4(rinfo, payload, msg)
+        break;
+    }
+  }
+  onIpv4 (fromAddr: AddressInfo, payload: Buffer, msg: Buffer) {
+    const src = payload.readInt32BE(IPV4_OFF_SRC)
+    const dst = payload.readInt32BE(IPV4_OFF_DST)
+
+    this.ipCache.set(src, {
+      rinfo: fromAddr,
+      expireAt: Date.now() + Timeout
+    })
+    if (this.ipCache.has(dst)) {
+      const { rinfo } = this.ipCache.get(dst)
+      this.sendTo(rinfo, msg)
+    } else {
+      this.sendBroadcast(fromAddr, msg)
+    }
   }
   onError (err: Error) {
     console.log(`server error:\n${err.stack}`)
@@ -47,26 +91,25 @@ class SLPServer {
   onClose () {
     console.log(`server closed`)
   }
+  sendTo (addr: AddressInfo, data: Buffer) {
+    const {address, port} = addr
+    this.byteLastSec += data.byteLength
+    this.server.send(data, port, address, (error, bytes) => {
+      if (error) {
+        this.clients.delete(addr2str(addr))
+      }
+    })
+  }
   sendBroadcast (except: AddressInfo, data: Buffer) {
     let exceptStr = addr2str(except)
-    for (let [key, {rinfo: {address, port}}] of this.clients) {
+    for (let [key, {rinfo}] of this.clients) {
       if (exceptStr === key) continue
-      this.byteLastSec += data.byteLength
-      this.server.send(data, port, address, (error, bytes) => {
-        if (error) {
-          this.clients.delete(key)
-        }
-      })
+      this.sendTo(rinfo, data)
     }
   }
   clearExpire () {
-    const clients = this.clients
-    const now = Date.now()
-    for (const [key, {time}] of clients) {
-      if (now - time > Timeout) {
-        clients.delete(key)
-      }
-    }
+    clearCacheItem(this.clients)
+    clearCacheItem(this.ipCache)
   }
 }
 let s = new SLPServer(11451)

@@ -49,8 +49,8 @@ struct packet {
 
 ```c
 enum type {
-    KEEPALIVE = 0;
-    IPV4 = 1;
+    KEEPALIVE = 0,
+    IPV4 = 1,
 };
 ```
 
