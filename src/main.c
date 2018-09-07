@@ -211,7 +211,7 @@ int parse_arguments(int argc, char **argv)
     }
     if (!options.relay_server_addr) {
         fprintf(stderr, "--relay-server-addr is required\n");
-        return -1;
+        // return -1;
     }
     if (options.username) {
         if (!options.password && !options.password_file) {
@@ -237,7 +237,7 @@ void print_help(const char *name)
         "        [--version]\n"
         // "        [--netif-ipaddr <ipaddr>] default: 10.13.37.1\n"
         // "        [--netif-netmask <ipnetmask>] default: 255.255.0.0\n"
-        "        --relay-server-addr <addr>\n"
+        "        [--relay-server-addr <addr>]\n"
         "        [--netif <netif>]\n"
         // "        [--socks-server-addr <addr>]\n"
         // "        [--username <username>]\n"
@@ -255,6 +255,7 @@ void print_version()
 
 int main(int argc, char **argv)
 {
+    char relay_server_addr[128];
     struct lan_play lan_play;
     pthread_t tid;
 
@@ -272,6 +273,12 @@ int main(int argc, char **argv)
     if (options.version) {
         print_version();
         return 0;
+    }
+
+    if (options.relay_server_addr == NULL) {
+        printf("Input the reply server address [ domain/ip:port ]:");
+        scanf("%100s", relay_server_addr);
+        options.relay_server_addr = relay_server_addr;
     }
 
     if (parse_addr(options.relay_server_addr, &lan_play.server_addr) != 0) {
