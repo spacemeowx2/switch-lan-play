@@ -6,11 +6,18 @@
 Make you and your friends play games like in a LAN.
 
 ```
-Switch <--------> PC <---> Server
-        ARP,IPv4      UDP
+                     Internet
+                        |
+                  [SOCKS5 Proxy] (optional)
+                        |
+        ARP,IPv4        |          LAN Packets
+Switch <-------->  PC(lan-play)  <-------------> Server
+                                       UDP
 ```
 
-**NOTE:** This project is in an early stage. The protocol may change frequently.
+**NOTE:**
+* This project is in an early stage. The protocol may change frequently.
+* The Internet part is WIP.
 
 # Build
 
