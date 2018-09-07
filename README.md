@@ -51,7 +51,7 @@ Select the interface which is in the same LAN with your Switch.
 
 ## Switch
 
-1. Go to your Switch settings page, set the IP address to static. The IP address can be any from `10.13.0.1` to `10.13.255.254`, excepting `10.13.37.1`. But don't use the same IP with your friend.
+1. Go to your Switch settings page, set the IP address to static. The IP address can be any from `10.13.0.1` to `10.13.255.254`, excepting `10.13.37.1`. But don't use the same IP address with your friend.
 
     <table>
         <tbody>
@@ -72,7 +72,7 @@ Select the interface which is in the same LAN with your Switch.
 
 2. Click save. Press B. Switch may not be able to connect to the Internet and refuse to connect to this setting, but it doesn't matter.
 
-3. Launch your game, press L+R+LStick to enter lan-play mode, Switch will try to connect the no Internet setting. Host or join a game, enjoy!
+3. Launch your game, hold L+R+LStick to enter lan-play mode, Switch will try to connect the no Internet setting. Host or join a game, enjoy!
 
 ## Server
 
@@ -107,6 +107,8 @@ npm install
 npm run build # build ts to js, only run it when code changed.
 npm start
 ```
+
+The server will listen to port 11451/udp,
 
 # Protocol
 
