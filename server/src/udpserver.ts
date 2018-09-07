@@ -16,7 +16,7 @@ interface CacheItem {
 function clearCacheItem<T> (map: Map<T, CacheItem>) {
   const now = Date.now()
   for (const [key, {expireAt}] of map) {
-    if (expireAt >= now) {
+    if (expireAt < now) {
       map.delete(key)
     }
   }
