@@ -56,15 +56,15 @@ Select the interface which is in the same LAN with your Switch.
     <table>
         <tbody>
             <tr>
-                <td>address</td>
+                <td>IP Address</td>
                 <td>10.13.?.?</td>
             </tr>
             <tr>
-                <td>netmask</td>
+                <td>Subnet Mask</td>
                 <td>255.255.0.0</td>
             </tr>
             <tr>
-                <td>gateway</td>
+                <td>Gateway</td>
                 <td>10.13.37.1</td>
             </tr>
         </tbody>
