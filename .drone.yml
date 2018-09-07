@@ -12,14 +12,14 @@ pipeline:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
   lan-play-linux:
-    group: build-bin
+    group: build
     image: switch-lan-play-build:linux
     commands:
       - mkdir build.linux && cd build.linux
       - cmake ..
       - make
   lan-play-windows:
-    group: build-bin
+    group: build
     image: switch-lan-play-build:all
     commands:
       - mkdir build.win && cd build.win
