@@ -32,7 +32,7 @@ int send_ether_ex(
 {
     uint8_t buffer[ETHER_HEADER_LEN];
     struct payload part;
-    
+
     part.ptr = buffer;
     part.len = ETHER_HEADER_LEN;
     part.next = payload;
@@ -64,7 +64,7 @@ void print_packet(int id, const struct pcap_pkthdr *pkthdr, const u_char *packet
     printf("id: %d\n", id);
     printf("Packet length: %d\n", pkthdr->len);
     printf("Number of bytes: %d\n", pkthdr->caplen);
-    printf("Recieved time: %s", ctime((const time_t *)&pkthdr->ts.tv_sec)); 
+    printf("Recieved time: %s", ctime((const time_t *)&pkthdr->ts.tv_sec));
 
     uint32_t i;
     for (i=0; i<pkthdr->len; ++i) {
@@ -82,18 +82,20 @@ int send_packet(struct lan_play *arg, int size)
     return pcap_sendpacket(arg->dev, arg->buffer, size);
 }
 
-void parse_ether(const u_char *packet, struct ether_frame *ether)
+void parse_ether(const u_char *packet, uint16_t len, struct ether_frame *ether)
 {
     CPY_MAC(ether->dst, packet + ETHER_OFF_DST);
     CPY_MAC(ether->src, packet + ETHER_OFF_SRC);
+    ether->raw = packet;
+    ether->raw_len = len;
     ether->type = READ_NET16(packet, ETHER_OFF_TYPE);
     ether->payload = packet + ETHER_OFF_END;
 }
 
-int process_ether(struct lan_play *arg, const u_char *packet)
+int process_ether(struct lan_play *arg, const u_char *packet, uint16_t len)
 {
     struct ether_frame ether;
-    parse_ether(packet, &ether);
+    parse_ether(packet, len, &ether);
 
     if (CMP_MAC(ether.src, arg->mac)) {
         return 0;
@@ -111,7 +113,11 @@ int process_ether(struct lan_play *arg, const u_char *packet)
 
 void get_packet(struct lan_play *arg, const struct pcap_pkthdr *pkthdr, const u_char *packet)
 {
-    if (process_ether(arg, packet) != 0) {
+    if (pkthdr->len >= 65536) {
+        print_packet(++arg->id, pkthdr, packet);
+        return;
+    }
+    if (process_ether(arg, packet, pkthdr->len) != 0) {
         print_packet(++arg->id, pkthdr, packet);
     }
 }

@@ -44,7 +44,7 @@
 #define PACK_STRUCT_END B_END_PACKED
 #define PACK_STRUCT_STRUCT B_PACKED
 
-#define LWIP_PLATFORM_DIAG(x) { fprintf(stderr, "%s", x); }
+#define LWIP_PLATFORM_DIAG(x) do {printf x;} while(0)
 #define LWIP_PLATFORM_ASSERT(x) { fprintf(stderr, "%s: lwip assertion failure: %s\n", __FUNCTION__, (x)); abort(); }
 
 #define lwip_htons(x) hton16(x)

@@ -22,7 +22,13 @@ void set_filter(pcap_t *dev)
 {
     char filter[100];
     static struct bpf_program bpf;
-    snprintf(filter, sizeof(filter), "net %s %s", SUBNET_NET, SUBNET_MASK);
+
+    uint32_t mask = READ_NET32(str2ip(SUBNET_MASK), 0);
+    int num;
+    for (num = 0; mask != 0 && num < 32; num++) mask <<= 1;
+
+    snprintf(filter, sizeof(filter), "net %s/%d", SUBNET_NET, num);
+    LLOG(LLOG_DEBUG, "filter: %s", filter);
     pcap_compile(dev, &bpf, filter, 1, 0);
     pcap_setfilter(dev, &bpf);
 }
@@ -253,9 +259,32 @@ void print_version()
     printf("switch-lan-play v0.0.0\n");
 }
 
+int proxy_send_packet(void *userdata, const void *data, uint16_t len)
+{
+    struct lan_play *lan_play = (struct lan_play *)userdata;
+    struct payload part;
+    uint8_t dst_mac[6];
+    const uint8_t *dst = data + IPV4_OFF_DST;
+
+    if (!arp_get_mac_by_ip(lan_play, dst_mac, dst)) {
+        return false;
+    }
+
+    part.ptr = data;
+    part.len = len;
+    part.next = NULL;
+
+    return send_ether(
+        lan_play,
+        dst_mac,
+        ETHER_TYPE_IPV4,
+        &part
+    );
+}
+
 int main(int argc, char **argv)
 {
-    char relay_server_addr[128];
+    char relay_server_addr[128] = { 0 };
     struct lan_play lan_play;
     pthread_t tid;
 
@@ -282,10 +311,10 @@ int main(int argc, char **argv)
     }
 
     if (parse_addr(options.relay_server_addr, &lan_play.server_addr) != 0) {
-        LLOG(LLOG_ERROR, "Failed to parse --relay-server-addr %s", options.relay_server_addr);
+        LLOG(LLOG_ERROR, "Failed to parse and get ip address of --relay-server-addr: %s", options.relay_server_addr);
     }
 
-    proxy_init();
+    proxy_init(&lan_play.proxy, proxy_send_packet, &lan_play);
 
     forwarder_init(&lan_play);
     pthread_create(&tid, NULL, forwarder_thread, &lan_play);

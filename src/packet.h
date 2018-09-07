@@ -42,6 +42,8 @@
 #define ARP_OPCODE_REPLY 2
 
 struct ether_frame {
+    const u_char *raw;
+    uint16_t raw_len;
     uint8_t dst[6];
     uint8_t src[6];
     uint16_t type;

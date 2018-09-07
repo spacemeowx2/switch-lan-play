@@ -110,6 +110,13 @@ int process_ipv4(struct lan_play *arg, const struct ether_frame *ether)
         } else {
             return forwarder_send_ipv4(arg, ipv4.dst, ipv4.ether->payload, ipv4.total_len);
         }
+    } else if (CMP_MAC(arg->mac, ether->dst)) {
+        // target ip is not us but target mac is us
+        // we are now a gateway
+
+        proxy_on_packet(&arg->proxy, ether->raw, ether->raw_len);
+
+        return 0;
     }
 
     return 0;

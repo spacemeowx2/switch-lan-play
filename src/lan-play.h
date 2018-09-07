@@ -38,6 +38,8 @@ struct lan_play {
     int u_fd;
     pthread_mutex_t mutex;
     struct sockaddr_in server_addr;
+
+    struct proxy proxy;
 };
 
 void get_packet(struct lan_play *arg, const struct pcap_pkthdr * pkthdr, const u_char * packet);

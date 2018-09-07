@@ -86,6 +86,8 @@ npm run server
 
 # Build
 
+# Ubuntu / Debian
+
 This project depends on libpcap, you can install libpcap0.8-dev on Ubuntu or Debian:
 
 `sudo apt install libpcap0.8-dev`
@@ -96,6 +98,24 @@ Prepare a cmake, gcc, and run like this:
 mkdir build
 cd build
 cmake ..
+make
+```
+
+# Windows
+
+Use [MSYS2](http://www.msys2.org/) to compile.
+
+```sh
+pacman -Sy
+pacman -S mingw-w64-i686-gcc mingw-w64-i686-cmake mingw-w64-i686-make cmake
+```
+
+Open `MSYS2 MinGW 32-bit`.
+
+```sh
+mkdir build
+cd build
+cmake -G "MSYS Makefiles" ..
 make
 ```
 
