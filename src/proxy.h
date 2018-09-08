@@ -3,7 +3,6 @@
 
 #include <lwip/netif.h>
 #include <uv.h>
-#include <pthread.h>
 
 #define PROXY_BUFFER_SIZE 2000
 
@@ -11,7 +10,7 @@ typedef int (*send_packet_func_t)(void *userdata, const void *data, uint16_t len
 struct proxy {
     struct netif netif;
     uv_loop_t loop;
-    pthread_t loop_thread;
+    uv_thread_t loop_thread;
 };
 struct something {
     int (*init)();

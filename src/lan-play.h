@@ -10,7 +10,6 @@
 #include <string.h>
 #include <errno.h>
 #include <stdbool.h>
-#include <pthread.h>
 #include <base/llog.h>
 #include <uv.h>
 
@@ -34,12 +33,12 @@ struct lan_play {
     time_t arp_ttl;
     bool stop;
     uv_loop_t loop;
+    uv_thread_t libpcap_thread;
+    uv_async_t get_packet_handle;
 
     // lan_client
     uv_udp_t client;
-    int f_fd;
-    int u_fd;
-    pthread_mutex_t mutex;
+    uv_timer_t client_keepalive_timer;
     struct sockaddr_in server_addr;
 
     struct proxy proxy;
@@ -49,8 +48,6 @@ void get_packet(struct lan_play *arg, const struct pcap_pkthdr * pkthdr, const u
 int send_packet(struct lan_play *arg, int size);
 int process_arp(struct lan_play *arg, const struct ether_frame *ether);
 int process_ipv4(struct lan_play *arg, const struct ether_frame *ether);
-void *lan_client_thread(void *);
-void *lan_client_keepalive(void *);
 void lan_client_init(struct lan_play *lan_play);
 int lan_client_send_ipv4(struct lan_play *lan_play, void *dst_ip, const void *packet, uint16_t len);
 

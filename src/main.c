@@ -141,10 +141,13 @@ void init_lan_play(struct lan_play *lan_play)
     lan_play->arp_ttl = 30;
 }
 
-void loop_lan_play(struct lan_play *lan_play)
+void lan_play_libpcap_thread(void *data)
 {
+    struct lan_play *lan_play = (struct lan_play *)data;
     puts("Loop start");
     pcap_loop(lan_play->dev, -1, (void(*)(u_char *, const struct pcap_pkthdr *, const u_char *))get_packet, (u_char*)lan_play);
+
+    pcap_close(lan_play->dev);
 }
 
 int parse_arguments(int argc, char **argv)
@@ -286,6 +289,7 @@ int main(int argc, char **argv)
 {
     char relay_server_addr[128] = { 0 };
     struct lan_play lan_play;
+    int ret;
 
     if (parse_arguments(argc, argv) != 0) {
         LLOG(LLOG_ERROR, "Failed to parse arguments");
@@ -314,18 +318,12 @@ int main(int argc, char **argv)
         return -1;
     }
 
-    uv_loop_init(&lan_play.loop);
-
-    proxy_init(&lan_play.proxy, proxy_send_packet, &lan_play);
-
+    ret = uv_loop_init(&lan_play.loop);
+    ret = proxy_init(&lan_play.proxy, proxy_send_packet, &lan_play);
     lan_client_init(&lan_play);
-
     init_lan_play(&lan_play);
 
-    uv_run(&lan_play.loop, UV_RUN_DEFAULT);
-    loop_lan_play(&lan_play);
+    ret = uv_thread_create(&lan_play.libpcap_thread, lan_play_libpcap_thread, &lan_play);
 
-    pcap_close(lan_play.dev);
-
-    return 0;
+    return uv_run(&lan_play.loop, UV_RUN_DEFAULT);;
 }

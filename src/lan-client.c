@@ -6,31 +6,45 @@ enum lan_client_type {
 };
 uint8_t BROADCAST_MAC[6] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
 
+void lan_client_on_recv(uv_udp_t* handle, ssize_t nread, const uv_buf_t* buf, const struct sockaddr* addr, unsigned flags);
+void lan_client_keepalive_timer(uv_timer_t* handle);
 int lan_client_send_keepalive(struct lan_play *lan_play);
 int lan_client_send_ipv4(struct lan_play *lan_play, void *dst_ip, const void *packet, uint16_t len);
+
+static void lan_client_alloc_cb(uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf)
+{
+  buf->base = malloc(suggested_size);
+  buf->len = suggested_size;
+  LLOG(LLOG_DEBUG, "lan_client_alloc_cb %p %d", handle, suggested_size);
+}
 
 void lan_client_init(struct lan_play *lan_play)
 {
     int ret;
+    uv_loop_t *loop = &lan_play->loop;
+    uv_udp_t *client = &lan_play->client;
+    uv_timer_t *timer = &lan_play->client_keepalive_timer;
 
-    ret = uv_udp_init(&lan_play->loop, &lan_play->client);
+    ret = uv_udp_init(loop, client);
     if (ret != 0) {
         LLOG(LLOG_ERROR, "uv_udp_init %d", ret);
     }
-
-    ret = lan_client_send_keepalive(lan_play);
+    client->data = lan_play;
+    
+    ret = uv_timer_init(loop, timer);
     if (ret != 0) {
-        LLOG(LLOG_ERROR,  "Error lan_client keepalive %s\n", strerror(errno));
-        exit(1);
+        LLOG(LLOG_ERROR, "uv_timer_init %d", ret);
     }
-
-    puts("Forwarder connected");
+    timer->data = lan_play;
+    
     printf("Server IP: %s\n", ip2str(&lan_play->server_addr.sin_addr));
 
-    if (pthread_mutex_init(&lan_play->mutex, NULL) != 0) {
-        fprintf(stderr, "Error pthread_mutex_init %s\n", strerror(errno));
-        exit(1);
+    ret = uv_timer_start(timer, lan_client_keepalive_timer, 0, 10 * 1000);
+    if (ret != 0) {
+        LLOG(LLOG_ERROR, "uv_timer_start %d", ret);
     }
+
+    ret = uv_udp_recv_start(client, lan_client_alloc_cb, lan_client_on_recv);
 }
 
 int lan_client_process(struct lan_play *lan_play, const uint8_t *packet, uint16_t len)
@@ -64,76 +78,48 @@ int lan_client_process(struct lan_play *lan_play, const uint8_t *packet, uint16_
     );
 }
 
-void *lan_client_keepalive(void *p)
+void lan_client_keepalive_timer(uv_timer_t* handle)
 {
-    struct lan_play *lan_play = (struct lan_play *)p;
-    int fd = lan_play->f_fd;
-    struct sockaddr_in *server_addr = &lan_play->server_addr;
-    while (1) {
-        sleep(10);
-        lan_client_send_keepalive(lan_play);
+    struct lan_play *lan_play = (struct lan_play *)handle->data;
+    lan_client_send_keepalive(lan_play);
+}
+
+void lan_client_on_recv(uv_udp_t* handle, ssize_t nread, const uv_buf_t* buf, const struct sockaddr* addr, unsigned flags)
+{
+    struct lan_play *lan_play = (struct lan_play *)handle->data;
+    uint16_t recv_len = buf->len;
+    uint8_t *buffer = buf->base;
+
+    switch (buffer[0]) { // type
+    case LAN_CLIENT_TYPE_KEEPALIVE:
+        break;
+    case LAN_CLIENT_TYPE_IPV4:
+        lan_client_process(lan_play, buffer + 1, recv_len);
+        break;
     }
 }
 
-void *lan_client_thread(void *p)
+void lan_client_on_sent(uv_udp_send_t* req, int status)
 {
-    struct lan_play *lan_play = (struct lan_play *)p;
-    uint8_t buffer[BUFFER_SIZE];
-    ssize_t recv_len = 0;
-    socklen_t fromlen;
-    int fd = lan_play->f_fd;
-    struct sockaddr_in *server_addr = &lan_play->server_addr;
-    pthread_t keepalive_tid;
 
-    pthread_create(&keepalive_tid, NULL, lan_client_keepalive, p);
-
-    while (1) {
-        fromlen = sizeof(*server_addr);
-        recv_len = recvfrom(fd, buffer, BUFFER_SIZE, 0, (struct sockaddr *)server_addr, &fromlen);
-        if (recv_len == -1) {
-            LLOG(LLOG_ERROR,  "Error lan_client recvfrom %s", strerror(errno));
-            break;
-        }
-        switch (buffer[0]) { // type
-        case LAN_CLIENT_TYPE_KEEPALIVE:
-            break;
-        case LAN_CLIENT_TYPE_IPV4:
-            lan_client_process(lan_play, buffer + 1, recv_len);
-            break;
-        }
-    }
-
-    fprintf(stderr, "Forwarder server disconnected\n");
-    exit(1);
-
-    return NULL;
 }
 
 int lan_client_send(struct lan_play *lan_play, const uint8_t type, const void *packet, uint16_t len)
 {
-    struct sockaddr_in *server_addr = &lan_play->server_addr;
-    struct msghdr msg;
-    struct iovec iov[2];
-
-    iov[0].iov_base = (void *)&type;
-    iov[0].iov_len = sizeof(type);
-
-    iov[1].iov_base = (void *)packet;
-    iov[1].iov_len = len;
-
-    msg.msg_name = server_addr;
-    msg.msg_namelen = sizeof(*server_addr);
-    msg.msg_iov = iov;
-    if (packet == NULL) {
-        msg.msg_iovlen = 1;
-    } else {
-        msg.msg_iovlen = 2;
+    struct sockaddr *server_addr = (struct sockaddr *)&lan_play->server_addr;
+    int ret;
+    uv_buf_t bufs[2];
+    int bufs_len = 1;
+    bufs[0] = uv_buf_init((char *)&type, sizeof(type));
+    if (packet) {
+        bufs[1] = uv_buf_init((char *)packet, len);
+        bufs_len = 2;
     }
-    msg.msg_control = NULL;
-    msg.msg_controllen = 0;
-    msg.msg_flags = 0;
-    int ret = sendmsg(lan_play->f_fd, &msg, 0);
-    return ret == -1 ? 1 : 0;
+
+    uv_udp_send_t req;
+    ret = uv_udp_send(&req, &lan_play->client, bufs, bufs_len, server_addr, lan_client_on_sent);
+
+    return ret;
 }
 
 int lan_client_send_keepalive(struct lan_play *lan_play)

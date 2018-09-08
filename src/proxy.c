@@ -122,16 +122,24 @@ err_t listener_accept_func (void *arg, struct tcp_pcb *newpcb, err_t err)
     return ERR_OK;
 }
 
-void *proxy_event_thread(void *data)
+void proxy_idle_cb(uv_idle_t *idle)
+{
+    sleep(1);
+}
+
+void proxy_event_thread(void *data)
 {
     struct proxy *proxy = (struct proxy *)data;
+    uv_loop_t *loop = &proxy->loop;
+    uv_idle_t idle;
+
+    uv_idle_init(loop, &idle);
+    uv_idle_start(&idle, proxy_idle_cb);
 
     LLOG(LLOG_DEBUG, "uv_run");
-    uv_run(&proxy->loop, UV_RUN_DEFAULT);
-    uv_loop_close(&proxy->loop);
+    uv_run(loop, UV_RUN_DEFAULT);
+    uv_loop_close(loop);
     LLOG(LLOG_DEBUG, "uv_loop_close");
-
-    return NULL;
 }
 
 int proxy_init(struct proxy *proxy, send_packet_func_t send_packet, void *userdata)
@@ -199,7 +207,8 @@ int proxy_init(struct proxy *proxy, send_packet_func_t send_packet, void *userda
     LLOG(LLOG_DEBUG, "proxy init netif_list %p", netif_list);
 
     uv_loop_init(&proxy->loop);
-    pthread_create(&proxy->loop_thread, NULL, proxy_event_thread, &proxy);
+    // pthread_create(&proxy->loop_thread, NULL, proxy_event_thread, &proxy);
+    uv_thread_create(&proxy->loop_thread, proxy_event_thread, proxy);
 
     return 0;
 fail:
