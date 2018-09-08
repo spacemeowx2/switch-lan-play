@@ -10,7 +10,6 @@
 #include <lwip/ip4_frag.h>
 #include <lwip/nd6.h>
 #include <lwip/ip6_frag.h>
-#include <event2/event.h>
 
 static send_packet_func_t proxy_send_packet;
 static void *proxy_send_userdata;
@@ -84,24 +83,25 @@ void addr_from_lwip(void *ip, const ip_addr_t *ip_addr)
 
 err_t listener_accept_func (void *arg, struct tcp_pcb *newpcb, err_t err)
 {
+    struct proxy *proxy = arg;
     uint8_t local_addr[4];
     uint8_t remote_addr[4];
+    struct sockaddr_in *target;
+
     addr_from_lwip(local_addr, &newpcb->local_ip);
     addr_from_lwip(remote_addr, &newpcb->remote_ip);
 
     LLOG(LLOG_DEBUG, "listener_accept_func");
     PRINT_IP(local_addr);
-    printf(" -> ");
+    printf(":%d <- ", newpcb->local_port);
     PRINT_IP(remote_addr);
-    printf("\n");
+    printf(":%d\n", newpcb->remote_port);
 
     return ERR_OK;
 }
 
 int proxy_init(struct proxy *proxy, send_packet_func_t send_packet, void *userdata)
 {
-    struct event_base *p_base;
-    struct bufferevent *p_event;
     struct netif *the_netif = &proxy->netif;
     proxy_send_userdata = userdata;
     proxy_send_packet = send_packet;
@@ -158,6 +158,7 @@ int proxy_init(struct proxy *proxy, send_packet_func_t send_packet, void *userda
         goto fail;
     }
 
+    tcp_arg(listener, proxy);
     // setup listener accept handler
     tcp_accept(listener, listener_accept_func);
 
