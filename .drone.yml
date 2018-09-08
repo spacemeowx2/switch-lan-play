@@ -17,14 +17,14 @@ pipeline:
     commands:
       - mkdir build.linux && cd build.linux
       - cmake ..
-      - make -j
+      - make -j$$(nproc)
   lan-play-windows:
     group: build
     image: switch-lan-play-build:win
     commands:
       - mkdir build.win && cd build.win
       - cmake -DCMAKE_TOOLCHAIN_FILE=../cmake/toolchain-mingw32.cmake ..
-      - make -j
+      - make -j$$(nproc)
   server:
     group: build
     image: node:alpine
