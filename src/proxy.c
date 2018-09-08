@@ -100,6 +100,17 @@ err_t listener_accept_func (void *arg, struct tcp_pcb *newpcb, err_t err)
     return ERR_OK;
 }
 
+void *proxy_event_thread(void *data)
+{
+    struct proxy *proxy = (struct proxy *)data;
+
+    uv_run(&proxy->loop, UV_RUN_DEFAULT);
+    uv_loop_close(&proxy->loop);
+    LLOG(LLOG_DEBUG, "uv_loop_close");
+
+    return NULL;
+}
+
 int proxy_init(struct proxy *proxy, send_packet_func_t send_packet, void *userdata)
 {
     struct netif *the_netif = &proxy->netif;
@@ -163,6 +174,8 @@ int proxy_init(struct proxy *proxy, send_packet_func_t send_packet, void *userda
     tcp_accept(listener, listener_accept_func);
 
     LLOG(LLOG_DEBUG, "proxy init netif_list %p", netif_list);
+
+    uv_loop_init(&proxy->loop);
 
     return 0;
 fail:

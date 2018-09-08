@@ -57,11 +57,11 @@ set(SOURCE_FILES
 )
 
 add_executable (lan-play ${SOURCE_FILES})
-target_link_libraries(lan-play lwip_lib ${PCAP_LIBRARY})
+target_link_libraries(lan-play lwip_lib libuv.a ${PCAP_LIBRARY})
 include_directories(lan-play ${PCAP_INCLUDE_DIR})
 if (WIN32)
     add_dependencies(lan-play winpcap)
-    target_link_libraries(lan-play ws2_32.lib iphlpapi.lib libwinpthread.a)
+    target_link_libraries(lan-play ws2_32.lib iphlpapi.lib libwinpthread.a psapi userenv.lib)
 else()
     target_link_libraries(lan-play pthread)
 endif()
