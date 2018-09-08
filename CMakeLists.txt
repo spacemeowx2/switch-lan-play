@@ -48,7 +48,7 @@ set(SOURCE_FILES
     src/packet.c
     src/arp.c
     src/helper.c
-    src/forwarder.c
+    src/lan-client.c
     src/proxy.c
     src/ipv4/ipv4.c
     src/ipv4/tcp.c

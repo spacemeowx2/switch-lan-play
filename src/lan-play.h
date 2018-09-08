@@ -12,6 +12,7 @@
 #include <stdbool.h>
 #include <pthread.h>
 #include <base/llog.h>
+#include <uv.h>
 
 struct lan_play;
 #include "packet.h"
@@ -32,8 +33,10 @@ struct lan_play {
     struct arp_item arp_list[ARP_CACHE_LEN];
     time_t arp_ttl;
     bool stop;
+    uv_loop_t loop;
 
-    // forwarder
+    // lan_client
+    uv_udp_t client;
     int f_fd;
     int u_fd;
     pthread_mutex_t mutex;
@@ -46,9 +49,9 @@ void get_packet(struct lan_play *arg, const struct pcap_pkthdr * pkthdr, const u
 int send_packet(struct lan_play *arg, int size);
 int process_arp(struct lan_play *arg, const struct ether_frame *ether);
 int process_ipv4(struct lan_play *arg, const struct ether_frame *ether);
-void *forwarder_thread(void *);
-void *forwarder_keepalive(void *);
-void forwarder_init(struct lan_play *lan_play);
-int forwarder_send_ipv4(struct lan_play *lan_play, void *dst_ip, const void *packet, uint16_t len);
+void *lan_client_thread(void *);
+void *lan_client_keepalive(void *);
+void lan_client_init(struct lan_play *lan_play);
+int lan_client_send_ipv4(struct lan_play *lan_play, void *dst_ip, const void *packet, uint16_t len);
 
 #endif // _LAN_PLAY_H_

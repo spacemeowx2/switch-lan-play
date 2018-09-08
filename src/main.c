@@ -286,7 +286,6 @@ int main(int argc, char **argv)
 {
     char relay_server_addr[128] = { 0 };
     struct lan_play lan_play;
-    pthread_t tid;
 
     if (parse_arguments(argc, argv) != 0) {
         LLOG(LLOG_ERROR, "Failed to parse arguments");
@@ -315,18 +314,18 @@ int main(int argc, char **argv)
         return -1;
     }
 
+    uv_loop_init(&lan_play.loop);
+
     proxy_init(&lan_play.proxy, proxy_send_packet, &lan_play);
 
-    forwarder_init(&lan_play);
-    pthread_create(&tid, NULL, forwarder_thread, &lan_play);
+    lan_client_init(&lan_play);
 
     init_lan_play(&lan_play);
 
+    uv_run(&lan_play.loop, UV_RUN_DEFAULT);
     loop_lan_play(&lan_play);
 
     pcap_close(lan_play.dev);
-
-    pthread_join(tid, NULL);
 
     return 0;
 }

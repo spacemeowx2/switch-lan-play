@@ -1,28 +1,26 @@
 #include "lan-play.h"
 
-enum forwarder_type {
-    FORWARDER_TYPE_KEEPALIVE = 0x00,
-    FORWARDER_TYPE_IPV4 = 0x01,
+enum lan_client_type {
+    LAN_CLIENT_TYPE_KEEPALIVE = 0x00,
+    LAN_CLIENT_TYPE_IPV4 = 0x01,
 };
 uint8_t BROADCAST_MAC[6] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
 
-int forwarder_send_keepalive(struct lan_play *lan_play);
-int forwarder_send_ipv4(struct lan_play *lan_play, void *dst_ip, const void *packet, uint16_t len);
+int lan_client_send_keepalive(struct lan_play *lan_play);
+int lan_client_send_ipv4(struct lan_play *lan_play, void *dst_ip, const void *packet, uint16_t len);
 
-void forwarder_init(struct lan_play *lan_play)
+void lan_client_init(struct lan_play *lan_play)
 {
-    ssize_t ret;
-    int fd = socket(AF_INET, SOCK_DGRAM, 0);
+    int ret;
 
-    if (fd < 0) {
-        fprintf(stderr, "Error socket %s\n", strerror(errno));
-        exit(1);
-    }
-    lan_play->f_fd = fd;
-
-    ret = forwarder_send_keepalive(lan_play);
+    ret = uv_udp_init(&lan_play->loop, &lan_play->client);
     if (ret != 0) {
-        LLOG(LLOG_ERROR,  "Error forwarder keepalive %s\n", strerror(errno));
+        LLOG(LLOG_ERROR, "uv_udp_init %d", ret);
+    }
+
+    ret = lan_client_send_keepalive(lan_play);
+    if (ret != 0) {
+        LLOG(LLOG_ERROR,  "Error lan_client keepalive %s\n", strerror(errno));
         exit(1);
     }
 
@@ -35,7 +33,7 @@ void forwarder_init(struct lan_play *lan_play)
     }
 }
 
-int forwarder_process(struct lan_play *lan_play, const uint8_t *packet, uint16_t len)
+int lan_client_process(struct lan_play *lan_play, const uint8_t *packet, uint16_t len)
 {
     if (len == 0) {
         return 0;
@@ -66,18 +64,18 @@ int forwarder_process(struct lan_play *lan_play, const uint8_t *packet, uint16_t
     );
 }
 
-void *forwarder_keepalive(void *p)
+void *lan_client_keepalive(void *p)
 {
     struct lan_play *lan_play = (struct lan_play *)p;
     int fd = lan_play->f_fd;
     struct sockaddr_in *server_addr = &lan_play->server_addr;
     while (1) {
         sleep(10);
-        forwarder_send_keepalive(lan_play);
+        lan_client_send_keepalive(lan_play);
     }
 }
 
-void *forwarder_thread(void *p)
+void *lan_client_thread(void *p)
 {
     struct lan_play *lan_play = (struct lan_play *)p;
     uint8_t buffer[BUFFER_SIZE];
@@ -87,20 +85,20 @@ void *forwarder_thread(void *p)
     struct sockaddr_in *server_addr = &lan_play->server_addr;
     pthread_t keepalive_tid;
 
-    pthread_create(&keepalive_tid, NULL, forwarder_keepalive, p);
+    pthread_create(&keepalive_tid, NULL, lan_client_keepalive, p);
 
     while (1) {
         fromlen = sizeof(*server_addr);
         recv_len = recvfrom(fd, buffer, BUFFER_SIZE, 0, (struct sockaddr *)server_addr, &fromlen);
         if (recv_len == -1) {
-            LLOG(LLOG_ERROR,  "Error forwarder recvfrom %s", strerror(errno));
+            LLOG(LLOG_ERROR,  "Error lan_client recvfrom %s", strerror(errno));
             break;
         }
         switch (buffer[0]) { // type
-        case FORWARDER_TYPE_KEEPALIVE:
+        case LAN_CLIENT_TYPE_KEEPALIVE:
             break;
-        case FORWARDER_TYPE_IPV4:
-            forwarder_process(lan_play, buffer + 1, recv_len);
+        case LAN_CLIENT_TYPE_IPV4:
+            lan_client_process(lan_play, buffer + 1, recv_len);
             break;
         }
     }
@@ -111,7 +109,7 @@ void *forwarder_thread(void *p)
     return NULL;
 }
 
-int forwarder_send(struct lan_play *lan_play, const uint8_t type, const void *packet, uint16_t len)
+int lan_client_send(struct lan_play *lan_play, const uint8_t type, const void *packet, uint16_t len)
 {
     struct sockaddr_in *server_addr = &lan_play->server_addr;
     struct msghdr msg;
@@ -138,12 +136,12 @@ int forwarder_send(struct lan_play *lan_play, const uint8_t type, const void *pa
     return ret == -1 ? 1 : 0;
 }
 
-int forwarder_send_keepalive(struct lan_play *lan_play)
+int lan_client_send_keepalive(struct lan_play *lan_play)
 {
-    return forwarder_send(lan_play, FORWARDER_TYPE_KEEPALIVE, NULL, 0);
+    return lan_client_send(lan_play, LAN_CLIENT_TYPE_KEEPALIVE, NULL, 0);
 }
 
-int forwarder_send_ipv4(struct lan_play *lan_play, void *dst_ip, const void *packet, uint16_t len)
+int lan_client_send_ipv4(struct lan_play *lan_play, void *dst_ip, const void *packet, uint16_t len)
 {
-    return forwarder_send(lan_play, FORWARDER_TYPE_IPV4, packet, len);
+    return lan_client_send(lan_play, LAN_CLIENT_TYPE_IPV4, packet, len);
 }
