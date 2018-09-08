@@ -73,97 +73,30 @@ err_t netif_init_func (struct netif *netif)
     return ERR_OK;
 }
 
+void addr_from_lwip(void *ip, const ip_addr_t *ip_addr)
+{
+    if (IP_IS_V6(ip_addr)) {
+        LLOG(LLOG_ERROR, "ipv6 not support now");
+        return;
+    } else {
+        CPY_IPV4(ip, &ip_addr->u_addr.ip4.addr);
+    }
+}
 
 err_t listener_accept_func (void *arg, struct tcp_pcb *newpcb, err_t err)
 {
+    uint8_t local_addr[4];
+    uint8_t remote_addr[4];
+    addr_from_lwip(local_addr, &newpcb->local_ip);
+    addr_from_lwip(remote_addr, &newpcb->remote_ip);
+
     LLOG(LLOG_DEBUG, "listener_accept_func");
+    PRINT_IP(local_addr);
+    printf(" -> ");
+    PRINT_IP(remote_addr);
+    printf("\n");
+
     return ERR_OK;
-//     // allocate client structure
-//     struct tcp_client *client = (struct tcp_client *)malloc(sizeof(*client));
-//     if (!client) {
-//         LLOG(LLOG_ERROR, "listener accept: malloc failed");
-//         goto fail0;
-//     }
-//     client->socks_username = NULL;
-
-//     SYNC_DECL
-//     SYNC_FROMHERE
-
-//     // read addresses
-//     client->local_addr = baddr_from_lwip(&newpcb->local_ip, newpcb->local_port);
-//     client->remote_addr = baddr_from_lwip(&newpcb->remote_ip, newpcb->remote_port);
-
-//     // get destination address
-//     BAddr addr = client->local_addr;
-// #ifdef OVERRIDE_DEST_ADDR
-//     ASSERT_FORCE(BAddr_Parse2(&addr, OVERRIDE_DEST_ADDR, NULL, 0, 1))
-// #endif
-
-//     // add source address to username if requested
-//     if (options.username && options.append_source_to_username) {
-//         char addr_str[BADDR_MAX_PRINT_LEN];
-//         BAddr_Print(&client->remote_addr, addr_str);
-//         client->socks_username = concat_strings(3, options.username, "@", addr_str);
-//         if (!client->socks_username) {
-//             goto fail1;
-//         }
-//         socks_auth_info[1].password.username = client->socks_username;
-//         socks_auth_info[1].password.username_len = strlen(client->socks_username);
-//     }
-
-//     // init SOCKS
-//     if (!BSocksClient_Init(&client->socks_client, socks_server_addr, socks_auth_info, socks_num_auth_info,
-//                            addr, (BSocksClient_handler)client_socks_handler, client, &ss)) {
-//         BLog(BLOG_ERROR, "listener accept: BSocksClient_Init failed");
-//         goto fail1;
-//     }
-
-//     // init aborted and dead_aborted
-//     client->aborted = 0;
-//     DEAD_INIT(client->dead_aborted);
-
-//     // add to linked list
-//     LinkedList1_Append(&tcp_clients, &client->list_node);
-
-//     // increment counter
-//     ASSERT(num_clients >= 0)
-//     num_clients++;
-
-//     // set pcb
-//     client->pcb = newpcb;
-
-//     // set client not closed
-//     client->client_closed = 0;
-
-//     // setup handler argument
-//     tcp_arg(client->pcb, client);
-
-//     // setup handlers
-//     tcp_err(client->pcb, client_err_func);
-//     tcp_recv(client->pcb, client_recv_func);
-
-//     // setup buffer
-//     client->buf_used = 0;
-
-//     // set SOCKS not up, not closed
-//     client->socks_up = 0;
-//     client->socks_closed = 0;
-
-//     client_log(client, BLOG_INFO, "accepted");
-
-//     DEAD_ENTER(client->dead_aborted)
-//     SYNC_COMMIT
-//     DEAD_LEAVE2(client->dead_aborted)
-
-//     // Return ERR_ABRT if and only if tcp_abort was called from this callback.
-//     return (DEAD_KILLED > 0) ? ERR_ABRT : ERR_OK;
-
-// fail1:
-//     SYNC_BREAK
-//     free(client->socks_username);
-//     free(client);
-// fail0:
-//     return ERR_MEM;
 }
 
 int proxy_init(struct proxy *proxy, send_packet_func_t send_packet, void *userdata)
@@ -177,12 +110,12 @@ int proxy_init(struct proxy *proxy, send_packet_func_t send_packet, void *userda
     ip4_addr_t addr;
     ip4_addr_t netmask;
     ip4_addr_t gw;
-    // ip4_addr_set_any(&addr);
-    // ip4_addr_set_any(&netmask);
-    // ip4_addr_set_any(&gw);
-    CPY_IPV4(&addr.addr, str2ip("10.13.37.1"));
-    CPY_IPV4(&netmask.addr, str2ip("255.255.0.0"));
+    ip4_addr_set_any(&addr);
+    ip4_addr_set_any(&netmask);
     ip4_addr_set_any(&gw);
+    // CPY_IPV4(&addr.addr, str2ip("10.13.37.1"));
+    // CPY_IPV4(&netmask.addr, str2ip("255.255.0.0"));
+    // ip4_addr_set_any(&gw);
     if (!netif_add(the_netif, &addr, &netmask, &gw, NULL, netif_init_func, netif_input_func)) {
         LLOG(LLOG_ERROR, "netif_add failed");
         exit(1);
