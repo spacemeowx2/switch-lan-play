@@ -30,13 +30,14 @@ if (WIN32)
         winpcap
         PREFIX ${CMAKE_BINARY_DIR}/winpcap
         URL "https://www.winpcap.org/install/bin/WpdPack_4_1_2.zip"
+        URL_MD5 "bae2236af062b0900ad1416b2c4878b9"
         CONFIGURE_COMMAND "" BUILD_COMMAND "" INSTALL_DIR "" INSTALL_COMMAND ""
         # LOG_DOWNLOAD ON
     )
     ExternalProject_Get_Property(winpcap SOURCE_DIR)
     set(PCAP_ROOT_DIR ${SOURCE_DIR})
     set(PCAP_INCLUDE_DIR ${SOURCE_DIR}/Include)
-    set(PCAP_LIBRARY ${SOURCE_DIR}/Lib/wpcap.lib)
+    set(PCAP_LIBRARY ${SOURCE_DIR}/Lib/x64/wpcap.lib)
     message("PCAP_ROOT_DIR = ${PCAP_ROOT_DIR} INCLUDE = ${PCAP_INCLUDE_DIR}")
 else()
     include(cmake/FindPCAP.cmake)

@@ -4,7 +4,7 @@ set(CMAKE_SHARED_LIBRARY_LINK_C_FLAGS "")
 set(CMAKE_SHARED_LIBRARY_LINK_CXX_FLAGS "")
 
 set(CMAKE_SYSTEM_NAME Windows)
-set(TOOLCHAIN_PREFIX i686-w64-mingw32)
+set(TOOLCHAIN_PREFIX i686-w64-mingw64)
 
 # cross compilers to use for C and C++
 set(CMAKE_C_COMPILER ${TOOLCHAIN_PREFIX}-gcc)

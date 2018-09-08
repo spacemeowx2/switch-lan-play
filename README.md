@@ -107,14 +107,12 @@ Use [MSYS2](http://www.msys2.org/) to compile.
 
 ```sh
 pacman -Sy
-pacman -S mingw-w64-i686-gcc \
-    mingw-w64-i686-cmake \
-    mingw-w64-i686-make \
-    mingw-w64-i686-libevent \
-    cmake
+pacman -S mingw-w64-x86_64-gcc \
+    mingw-w64-x86_64-cmake \
+    mingw-w64-x86_64-make
 ```
 
-Open `MSYS2 MinGW 32-bit`.
+Open `MSYS2 MinGW 64-bit`.
 
 ```sh
 mkdir build
