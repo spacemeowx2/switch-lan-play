@@ -107,7 +107,11 @@ Use [MSYS2](http://www.msys2.org/) to compile.
 
 ```sh
 pacman -Sy
-pacman -S mingw-w64-i686-gcc mingw-w64-i686-cmake mingw-w64-i686-make cmake
+pacman -S mingw-w64-i686-gcc \
+    mingw-w64-i686-cmake \
+    mingw-w64-i686-make \
+    mingw-w64-i686-libevent \
+    cmake
 ```
 
 Open `MSYS2 MinGW 32-bit`.

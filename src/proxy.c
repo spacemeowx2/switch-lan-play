@@ -1,6 +1,5 @@
 #include "proxy.h"
 #include "helper.h"
-#include "packet.h"
 #include <base/llog.h>
 #include <lwip/init.h>
 #include <lwip/netif.h>
@@ -11,6 +10,7 @@
 #include <lwip/ip4_frag.h>
 #include <lwip/nd6.h>
 #include <lwip/ip6_frag.h>
+#include <event2/event.h>
 
 static send_packet_func_t proxy_send_packet;
 static void *proxy_send_userdata;
@@ -64,7 +64,6 @@ err_t netif_output_func (struct netif *netif, struct pbuf *p, const ip4_addr_t *
 
 err_t netif_init_func (struct netif *netif)
 {
-    LLOG(LLOG_DEBUG, "netif_init_func %p", netif);
     netif->name[0] = 'h';
     netif->name[1] = 'o';
     netif->output = netif_output_func;
@@ -101,6 +100,8 @@ err_t listener_accept_func (void *arg, struct tcp_pcb *newpcb, err_t err)
 
 int proxy_init(struct proxy *proxy, send_packet_func_t send_packet, void *userdata)
 {
+    struct event_base *p_base;
+    struct bufferevent *p_event;
     struct netif *the_netif = &proxy->netif;
     proxy_send_userdata = userdata;
     proxy_send_packet = send_packet;
@@ -120,7 +121,6 @@ int proxy_init(struct proxy *proxy, send_packet_func_t send_packet, void *userda
         LLOG(LLOG_ERROR, "netif_add failed");
         exit(1);
     }
-    LLOG(LLOG_DEBUG, "netif_list %p netif %p next %p", netif_list, the_netif, the_netif->next);
 
     // set netif up
     netif_set_up(the_netif);

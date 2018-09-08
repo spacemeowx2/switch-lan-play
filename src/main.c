@@ -264,7 +264,7 @@ int proxy_send_packet(void *userdata, const void *data, uint16_t len)
     struct lan_play *lan_play = (struct lan_play *)userdata;
     struct payload part;
     uint8_t dst_mac[6];
-    const uint8_t *dst = data + IPV4_OFF_DST;
+    const uint8_t *dst = (uint8_t *)data + IPV4_OFF_DST;
 
     if (!arp_get_mac_by_ip(lan_play, dst_mac, dst)) {
         return false;
@@ -311,7 +311,8 @@ int main(int argc, char **argv)
     }
 
     if (parse_addr(options.relay_server_addr, &lan_play.server_addr) != 0) {
-        LLOG(LLOG_ERROR, "Failed to parse and get ip address of --relay-server-addr: %s", options.relay_server_addr);
+        LLOG(LLOG_ERROR, "Failed to parse and get ip address. --relay-server-addr: %s", options.relay_server_addr);
+        return -1;
     }
 
     proxy_init(&lan_play.proxy, proxy_send_packet, &lan_play);
