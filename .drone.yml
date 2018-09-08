@@ -23,7 +23,7 @@ pipeline:
     image: switch-lan-play-build:win
     commands:
       - mkdir build.win && cd build.win
-      - cmake -DCMAKE_TOOLCHAIN_FILE=../cmake/toolchain-mingw32.cmake ..
+      - cmake -DCMAKE_TOOLCHAIN_FILE=../cmake/toolchain-mingw64.cmake ..
       - make -j$$(nproc)
   server:
     group: build
