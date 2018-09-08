@@ -3,3 +3,4 @@ build/
 CMakeSettings.json
 .vscode
 .DS_Store
+run.sh

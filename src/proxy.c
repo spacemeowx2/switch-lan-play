@@ -81,12 +81,24 @@ void addr_from_lwip(void *ip, const ip_addr_t *ip_addr)
     }
 }
 
+void on_connect(uv_connect_t *req, int status) {
+    if (status < 0) {
+        fprintf(stderr, "connect failed error %s\n", uv_err_name(status));
+        free(req);
+        return;
+    }
+
+    LLOG(LLOG_DEBUG, "on_connect");
+    free(req);
+}
+
 err_t listener_accept_func (void *arg, struct tcp_pcb *newpcb, err_t err)
 {
     struct proxy *proxy = arg;
+    uv_loop_t *loop = &proxy->loop;
     uint8_t local_addr[4];
     uint8_t remote_addr[4];
-    struct sockaddr_in *target;
+    struct sockaddr_in dest;
 
     addr_from_lwip(local_addr, &newpcb->local_ip);
     addr_from_lwip(remote_addr, &newpcb->remote_ip);
@@ -97,6 +109,16 @@ err_t listener_accept_func (void *arg, struct tcp_pcb *newpcb, err_t err)
     PRINT_IP(remote_addr);
     printf(":%d\n", newpcb->remote_port);
 
+    dest.sin_family = AF_INET;
+    dest.sin_addr = *((struct in_addr *)local_addr);
+    dest.sin_port = htons(newpcb->local_port);
+
+    uv_tcp_t* socket = (uv_tcp_t*)malloc(sizeof(uv_tcp_t));
+    uv_connect_t* connect = (uv_connect_t*)malloc(sizeof(uv_connect_t));
+    uv_tcp_init(loop, socket);
+
+    uv_tcp_connect(connect, socket, (const struct sockaddr*)&dest, on_connect);
+
     return ERR_OK;
 }
 
@@ -104,6 +126,7 @@ void *proxy_event_thread(void *data)
 {
     struct proxy *proxy = (struct proxy *)data;
 
+    LLOG(LLOG_DEBUG, "uv_run");
     uv_run(&proxy->loop, UV_RUN_DEFAULT);
     uv_loop_close(&proxy->loop);
     LLOG(LLOG_DEBUG, "uv_loop_close");
@@ -176,6 +199,7 @@ int proxy_init(struct proxy *proxy, send_packet_func_t send_packet, void *userda
     LLOG(LLOG_DEBUG, "proxy init netif_list %p", netif_list);
 
     uv_loop_init(&proxy->loop);
+    pthread_create(&proxy->loop_thread, NULL, proxy_event_thread, &proxy);
 
     return 0;
 fail:
