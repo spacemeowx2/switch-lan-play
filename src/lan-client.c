@@ -18,7 +18,7 @@ static void lan_client_alloc_cb(uv_handle_t* handle, size_t suggested_size, uv_b
   LLOG(LLOG_DEBUG, "lan_client_alloc_cb %p %d", handle, suggested_size);
 }
 
-void lan_client_init(struct lan_play *lan_play)
+int lan_client_init(struct lan_play *lan_play)
 {
     int ret;
     uv_loop_t *loop = &lan_play->loop;
@@ -30,21 +30,28 @@ void lan_client_init(struct lan_play *lan_play)
         LLOG(LLOG_ERROR, "uv_udp_init %d", ret);
     }
     client->data = lan_play;
-    
+
     ret = uv_timer_init(loop, timer);
     if (ret != 0) {
         LLOG(LLOG_ERROR, "uv_timer_init %d", ret);
     }
     timer->data = lan_play;
-    
+
     printf("Server IP: %s\n", ip2str(&lan_play->server_addr.sin_addr));
 
     ret = uv_timer_start(timer, lan_client_keepalive_timer, 0, 10 * 1000);
     if (ret != 0) {
         LLOG(LLOG_ERROR, "uv_timer_start %d", ret);
+        return ret;
     }
 
     ret = uv_udp_recv_start(client, lan_client_alloc_cb, lan_client_on_recv);
+    if (ret != 0) {
+        LLOG(LLOG_ERROR, "uv_udp_recv_start %d", ret);
+        return ret;
+    }
+
+    return ret;
 }
 
 int lan_client_process(struct lan_play *lan_play, const uint8_t *packet, uint16_t len)
@@ -61,9 +68,9 @@ int lan_client_process(struct lan_play *lan_play, const uint8_t *packet, uint16_
         return 1;
     }
 
-    if (IS_BROADCAST(dst, lan_play->subnet_net, lan_play->subnet_mask)) {
+    if (IS_BROADCAST(dst, lan_play->packet_ctx.subnet_net, lan_play->packet_ctx.subnet_mask)) {
         CPY_MAC(dst_mac, BROADCAST_MAC);
-    } else if (!arp_get_mac_by_ip(lan_play, dst_mac, dst)) {
+    } else if (!arp_get_mac_by_ip(&lan_play->packet_ctx, dst_mac, dst)) {
         return 0;
     }
 
@@ -71,7 +78,7 @@ int lan_client_process(struct lan_play *lan_play, const uint8_t *packet, uint16_
     part.len = len;
     part.next = NULL;
     return send_ether(
-        lan_play,
+        &lan_play->packet_ctx,
         dst_mac,
         ETHER_TYPE_IPV4,
         &part

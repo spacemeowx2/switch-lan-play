@@ -22,7 +22,7 @@ void parse_arp(const struct ether_frame *ether, struct arp *arp)
 }
 
 int send_arp_ex(
-    struct lan_play *arg,
+    struct packet_ctx *self,
     const void *dst_mac,
     uint8_t opcode,
     const void *sender_mac,
@@ -50,7 +50,7 @@ int send_arp_ex(
     part.next = NULL;
 
     return send_ether(
-        arg,
+        self,
         dst_mac,
         ETHER_TYPE_ARP,
         &part
@@ -58,7 +58,7 @@ int send_arp_ex(
 }
 
 int send_arp(
-    struct lan_play *arg,
+    struct packet_ctx *self,
     uint8_t opcode,
     const void *sender_mac,
     const void *sender_ip,
@@ -67,7 +67,7 @@ int send_arp(
 )
 {
     return send_arp_ex(
-        arg,
+        self,
         target_mac,
         opcode,
         sender_mac,
@@ -78,7 +78,7 @@ int send_arp(
 }
 
 int send_arp_request(
-    struct lan_play *self,
+    struct packet_ctx *self,
     const void *target_ip
 )
 {
@@ -93,7 +93,7 @@ int send_arp_request(
     );
 }
 
-int arp_request(struct lan_play *self, const struct arp *arp)
+int arp_request(struct packet_ctx *self, const struct arp *arp)
 {
     if (IS_SUBNET(arp->target_ip, self->subnet_net, self->subnet_mask)) {
         if (CMP_IPV4(arp->target_ip, arp->sender_ip)) {
@@ -117,12 +117,12 @@ int arp_request(struct lan_play *self, const struct arp *arp)
     return 0;
 }
 
-int arp_reply(struct lan_play *self, const struct arp *arp)
+int arp_reply(struct packet_ctx *self, const struct arp *arp)
 {
     return 0;
 }
 
-int process_arp(struct lan_play *arg, const struct ether_frame *ether)
+int process_arp(struct packet_ctx *self, const struct ether_frame *ether)
 {
     struct arp arp;
     parse_arp(ether, &arp);
@@ -139,13 +139,13 @@ int process_arp(struct lan_play *arg, const struct ether_frame *ether)
         return -1;
     }
 
-    arp_set(arg, arp.sender_mac, arp.sender_ip);
+    arp_set(self, arp.sender_mac, arp.sender_ip);
 
     switch (arp.opcode) {
         case ARP_OPCODE_REQUEST:
-            return arp_request(arg, &arp);
+            return arp_request(self, &arp);
         case ARP_OPCODE_REPLY:
-            return arp_reply(arg, &arp);
+            return arp_reply(self, &arp);
     }
 
     return -1;
@@ -156,10 +156,10 @@ void arp_list_init(struct arp_item *list)
     memset(list, 0, ARP_CACHE_LEN * sizeof(*list));
 }
 
-bool arp_has_ip(struct lan_play *arg, const void *ip)
+bool arp_has_ip(struct packet_ctx *self, const void *ip)
 {
     int i;
-    struct arp_item *list = arg->arp_list;
+    struct arp_item *list = self->arp_list;
     struct arp_item *item;
     time_t now = time(NULL);
 
@@ -173,10 +173,10 @@ bool arp_has_ip(struct lan_play *arg, const void *ip)
     return false;
 }
 
-bool arp_get_mac_by_ip(struct lan_play *arg, void *mac, const void *ip)
+bool arp_get_mac_by_ip(struct packet_ctx *self, void *mac, const void *ip)
 {
     int i;
-    struct arp_item *list = arg->arp_list;
+    struct arp_item *list = self->arp_list;
     struct arp_item *item;
     time_t now = time(NULL);
 
@@ -188,15 +188,15 @@ bool arp_get_mac_by_ip(struct lan_play *arg, void *mac, const void *ip)
         }
     }
 
-    int ret = send_arp_request(arg, ip);
+    int ret = send_arp_request(self, ip);
     printf("mac not found %d\n", ret);
     return false;
 }
 
-bool arp_set(struct lan_play *arg, const void *mac, const void *ip)
+bool arp_set(struct packet_ctx *self, const void *mac, const void *ip)
 {
     int i;
-    struct arp_item *list = arg->arp_list;
+    struct arp_item *list = self->arp_list;
     struct arp_item *item;
     time_t now = time(NULL);
 
@@ -205,7 +205,7 @@ bool arp_set(struct lan_play *arg, const void *mac, const void *ip)
         if (CMP_IPV4(item->ip, NONE_IP) || CMP_IPV4(item->ip, ip) || item->expire_at < now) {
             CPY_IPV4(item->ip, ip);
             CPY_MAC(item->mac, mac);
-            item->expire_at = now + arg->arp_ttl;
+            item->expire_at = now + self->arp_ttl;
             return true;
         }
     }

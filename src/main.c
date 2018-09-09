@@ -17,6 +17,7 @@ struct {
 } options;
 
 uint8_t SEND_BUFFER[BUFFER_SIZE];
+int gateway_send_packet(void *userdata, const void *data, uint16_t len);
 
 void set_filter(pcap_t *dev)
 {
@@ -33,18 +34,18 @@ void set_filter(pcap_t *dev)
     pcap_setfilter(dev, &bpf);
 }
 
-void get_mac(struct lan_play *lan_play, pcap_if_t *d, pcap_t *p)
+void get_mac(void *mac, pcap_if_t *d, pcap_t *p)
 {
-    if (get_mac_address(d, p, lan_play->mac) != 0) {
+    if (get_mac_address(d, p, mac) != 0) {
         fprintf(stderr, "Error when getting the MAC address\n");
         exit(1);
     }
     printf("Get MAC: ");
-    PRINT_MAC(lan_play->mac);
+    PRINT_MAC(mac);
     putchar('\n');
 }
 
-void init_pcap(struct lan_play *lan_play)
+void init_pcap(struct lan_play *lan_play, void *mac)
 {
     pcap_t *dev;
     pcap_if_t *alldevs;
@@ -107,7 +108,7 @@ void init_pcap(struct lan_play *lan_play)
         exit(1);
     }
     set_filter(dev);
-    get_mac(lan_play, d, dev);
+    get_mac(mac, d, dev);
     if (set_immediate_mode(dev) == -1) {
         fprintf(stderr, "Error: set_immediate_mode failed %s\n", strerror(errno));
         exit(1);
@@ -118,27 +119,48 @@ void init_pcap(struct lan_play *lan_play)
     lan_play->dev = dev;
 }
 
-void init_lan_play(struct lan_play *lan_play)
+int lan_play_packet_send(struct lan_play *lan_play, void *data, int size)
 {
-    lan_play->mac[0] = 0x00;
-    lan_play->mac[1] = 0x00;
-    lan_play->mac[2] = 0x00;
-    lan_play->mac[3] = 0x00;
-    lan_play->mac[4] = 0x00;
-    lan_play->mac[5] = 0x00;
+    return pcap_sendpacket(lan_play->dev, data, size);
+}
+
+int lan_play_init(struct lan_play *lan_play)
+{
+    int ret = 0;
+    uint8_t ip[4];
+    uint8_t subnet_net[4];
+    uint8_t subnet_mask[4];
+    uint8_t mac[6];
+
     lan_play->dev = NULL;
     lan_play->stop = false;
 
-    init_pcap(lan_play);
+    init_pcap(lan_play, mac);
 
-    lan_play->id = 0;
-    lan_play->buffer = SEND_BUFFER;
-    lan_play->identification = 0;
-    CPY_IPV4(lan_play->ip, str2ip(SERVER_IP));
-    CPY_IPV4(lan_play->subnet_net, str2ip(SUBNET_NET));
-    CPY_IPV4(lan_play->subnet_mask, str2ip(SUBNET_MASK));
-    arp_list_init(lan_play->arp_list);
-    lan_play->arp_ttl = 30;
+
+    CPY_IPV4(ip, str2ip(SERVER_IP));
+    CPY_IPV4(subnet_net, str2ip(SUBNET_NET));
+    CPY_IPV4(subnet_mask, str2ip(SUBNET_MASK));
+    ret = packet_init(
+        &lan_play->packet_ctx,
+        lan_play_packet_send,
+        lan_play,
+        SEND_BUFFER,
+        sizeof(SEND_BUFFER),
+        ip,
+        subnet_net,
+        subnet_mask,
+        mac,
+        30,
+        &lan_play->gateway
+    );
+    if (ret != 0) return ret;
+    ret = lan_client_init(lan_play);
+    if (ret != 0) return ret;
+    ret = gateway_init(&lan_play->gateway, gateway_send_packet, &lan_play);
+    if (ret != 0) return ret;
+
+    return 0;
 }
 
 void lan_play_libpcap_thread(void *data)
@@ -262,14 +284,14 @@ void print_version()
     printf("switch-lan-play v0.0.0\n");
 }
 
-int proxy_send_packet(void *userdata, const void *data, uint16_t len)
+int gateway_send_packet(void *userdata, const void *data, uint16_t len)
 {
     struct lan_play *lan_play = (struct lan_play *)userdata;
     struct payload part;
     uint8_t dst_mac[6];
     const uint8_t *dst = (uint8_t *)data + IPV4_OFF_DST;
 
-    if (!arp_get_mac_by_ip(lan_play, dst_mac, dst)) {
+    if (!arp_get_mac_by_ip(&lan_play->packet_ctx, dst_mac, dst)) {
         return false;
     }
 
@@ -278,7 +300,7 @@ int proxy_send_packet(void *userdata, const void *data, uint16_t len)
     part.next = NULL;
 
     return send_ether(
-        lan_play,
+        &lan_play->packet_ctx,
         dst_mac,
         ETHER_TYPE_IPV4,
         &part
@@ -319,9 +341,7 @@ int main(int argc, char **argv)
     }
 
     ret = uv_loop_init(&lan_play.loop);
-    ret = proxy_init(&lan_play.proxy, proxy_send_packet, &lan_play);
-    lan_client_init(&lan_play);
-    init_lan_play(&lan_play);
+    ret = lan_play_init(&lan_play);
 
     ret = uv_thread_create(&lan_play.libpcap_thread, lan_play_libpcap_thread, &lan_play);
 

@@ -1,5 +1,6 @@
-#include "proxy.h"
+#include "gateway.h"
 #include "helper.h"
+#include "packet.h"
 #include <base/llog.h>
 #include <lwip/init.h>
 #include <lwip/netif.h>
@@ -11,8 +12,8 @@
 #include <lwip/nd6.h>
 #include <lwip/ip6_frag.h>
 
-static send_packet_func_t proxy_send_packet;
-static void *proxy_send_userdata;
+static send_packet_func_t gateway_send_packet;
+static void *gateway_send_userdata;
 
 // lwip TCP listener
 struct tcp_pcb *listener;
@@ -39,11 +40,11 @@ err_t netif_input_func(struct pbuf *p, struct netif *inp)
 
 err_t netif_output_func (struct netif *netif, struct pbuf *p, const ip4_addr_t *ipaddr)
 {
-    static uint8_t buffer[PROXY_BUFFER_SIZE];
+    static uint8_t buffer[GATEWAY_BUFFER_SIZE];
     int ret;
 
     if (!p->next) {
-        ret = proxy_send_packet(proxy_send_userdata, p->payload, p->len);
+        ret = gateway_send_packet(gateway_send_userdata, p->payload, p->len);
     } else {
         int len = 0;
         do {
@@ -51,11 +52,11 @@ err_t netif_output_func (struct netif *netif, struct pbuf *p, const ip4_addr_t *
             len += p->len;
         } while (p = p->next);
 
-        ret = proxy_send_packet(proxy_send_userdata, buffer, len);
+        ret = gateway_send_packet(gateway_send_userdata, buffer, len);
     }
 
     if (ret != 0) {
-        LLOG(LLOG_ERROR, "proxy_send_packet %d", ret);
+        LLOG(LLOG_ERROR, "gateway_send_packet %d", ret);
     }
 
     return ret == 0 ? ERR_OK : ERR_IF;
@@ -81,17 +82,17 @@ void addr_from_lwip(void *ip, const ip_addr_t *ip_addr)
     }
 }
 
-void proxy_on_alloc(uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf)
+void gateway_on_alloc(uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf)
 {
     buf->base = malloc(suggested_size);
     buf->len = suggested_size;
-    LLOG(LLOG_DEBUG, "proxy_on_alloc %p %d", handle, suggested_size);
+    LLOG(LLOG_DEBUG, "gateway_on_alloc %p %d", handle, suggested_size);
 }
 
-void proxy_write_cb(uv_write_t* req, int status)
+void gateway_write_cb(uv_write_t* req, int status)
 {
     if (status < 0) {
-        LLOG(LLOG_ERROR, "proxy_write_cb %d", status);
+        LLOG(LLOG_ERROR, "gateway_write_cb %d", status);
     }
     free(req);
 }
@@ -109,13 +110,13 @@ err_t client_recv_func (void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t e
         LLOG(LLOG_DEBUG, "client_recv_func %d", p->tot_len);
         pbuf_copy_partial(p, buff, p->tot_len, 0);
 
-        uv_write(req, (uv_stream_t *)socket, &buf, 1, proxy_write_cb);
+        uv_write(req, (uv_stream_t *)socket, &buf, 1, gateway_write_cb);
     }
 }
 
-void proxy_on_read(uv_stream_t *handle, ssize_t nread, const uv_buf_t *buf)
+void gateway_on_read(uv_stream_t *handle, ssize_t nread, const uv_buf_t *buf)
 {
-    LLOG(LLOG_DEBUG, "proxy_on_read");
+    LLOG(LLOG_DEBUG, "gateway_on_read");
     struct tcp_pcb *pcb = (struct tcp_pcb *)handle->data;
 
     tcp_write(pcb, buf->base, buf->len, TCP_WRITE_FLAG_COPY);
@@ -131,14 +132,14 @@ void on_connect(uv_connect_t *req, int status)
 
     LLOG(LLOG_DEBUG, "on_connect");
 
-    uv_read_start(req->handle, proxy_on_alloc, proxy_on_read);
+    uv_read_start(req->handle, gateway_on_alloc, gateway_on_read);
     free(req);
 }
 
 err_t listener_accept_func (void *arg, struct tcp_pcb *newpcb, err_t err)
 {
-    struct proxy *proxy = arg;
-    uv_loop_t *loop = &proxy->loop;
+    struct gateway *gateway = arg;
+    uv_loop_t *loop = &gateway->loop;
     uint8_t local_addr[4];
     uint8_t remote_addr[4];
     struct sockaddr_in dest;
@@ -173,19 +174,19 @@ err_t listener_accept_func (void *arg, struct tcp_pcb *newpcb, err_t err)
     return ERR_OK;
 }
 
-void proxy_idle_cb(uv_idle_t *idle)
+void gateway_idle_cb(uv_idle_t *idle)
 {
     sleep(1);
 }
 
-void proxy_event_thread(void *data)
+void gateway_event_thread(void *data)
 {
-    struct proxy *proxy = (struct proxy *)data;
-    uv_loop_t *loop = &proxy->loop;
+    struct gateway *gateway = (struct gateway *)data;
+    uv_loop_t *loop = &gateway->loop;
     uv_idle_t idle;
 
     uv_idle_init(loop, &idle);
-    uv_idle_start(&idle, proxy_idle_cb);
+    uv_idle_start(&idle, gateway_idle_cb);
 
     LLOG(LLOG_DEBUG, "uv_run");
     uv_run(loop, UV_RUN_DEFAULT);
@@ -193,11 +194,11 @@ void proxy_event_thread(void *data)
     LLOG(LLOG_DEBUG, "uv_loop_close");
 }
 
-int proxy_init(struct proxy *proxy, send_packet_func_t send_packet, void *userdata)
+int gateway_init(struct gateway *gateway, send_packet_func_t send_packet, void *userdata)
 {
-    struct netif *the_netif = &proxy->netif;
-    proxy_send_userdata = userdata;
-    proxy_send_packet = send_packet;
+    struct netif *the_netif = &gateway->netif;
+    gateway_send_userdata = userdata;
+    gateway_send_packet = send_packet;
     lwip_init();
 
     // make addresses for netif
@@ -251,24 +252,22 @@ int proxy_init(struct proxy *proxy, send_packet_func_t send_packet, void *userda
         goto fail;
     }
 
-    tcp_arg(listener, proxy);
+    tcp_arg(listener, gateway);
     // setup listener accept handler
     tcp_accept(listener, listener_accept_func);
 
-    LLOG(LLOG_DEBUG, "proxy init netif_list %p", netif_list);
+    LLOG(LLOG_DEBUG, "gateway init netif_list %p", netif_list);
 
-    uv_loop_init(&proxy->loop);
-    uv_thread_create(&proxy->loop_thread, proxy_event_thread, proxy);
+    uv_loop_init(&gateway->loop);
+    uv_thread_create(&gateway->loop_thread, gateway_event_thread, gateway);
 
     return 0;
 fail:
     exit(1);
 }
 
-int proxy_process_udp(const uint8_t *data, int data_len)
+int gateway_process_udp(const uint8_t *data, int data_len)
 {
-    #define IPV4_OFF_PROTOCOL 9
-    #define IPV4_PROTOCOL_UDP 17
     uint8_t ip_version = 0;
     if (data_len > 0) {
         ip_version = (data[0] >> 4);
@@ -276,15 +275,19 @@ int proxy_process_udp(const uint8_t *data, int data_len)
 
     if (ip_version == 4) {
         // ignore non-UDP packets
-        if (data[IPV4_OFF_PROTOCOL] != IPV4_PROTOCOL_UDP) {
+        if (data_len < IPV4_OFF_END || data[IPV4_OFF_PROTOCOL] != IPV4_PROTOCOL_UDP) {
             return -1;
         }
 
-        
+        uint8_t src[4];
+        uint8_t dst[4];
+
+        CPY_IPV4(src, data + IPV4_OFF_SRC);
+        CPY_IPV4(dst, data + IPV4_OFF_DST);
     }
 }
 
-void proxy_on_packet(struct proxy *proxy, const uint8_t *data, int data_len)
+void gateway_on_packet(struct gateway *gateway, const uint8_t *data, int data_len)
 {
     struct pbuf *p = pbuf_alloc(PBUF_RAW, data_len, PBUF_POOL);
 
@@ -293,7 +296,7 @@ void proxy_on_packet(struct proxy *proxy, const uint8_t *data, int data_len)
         return;
     }
 
-    if (proxy_process_udp(data, data_len) == 0) {
+    if (gateway_process_udp(data, data_len) == 0) {
         return;
     }
 
@@ -302,7 +305,7 @@ void proxy_on_packet(struct proxy *proxy, const uint8_t *data, int data_len)
         exit(1);
     }
 
-    if (proxy->netif.input(p, &proxy->netif) != ERR_OK) {
+    if (gateway->netif.input(p, &gateway->netif) != ERR_OK) {
         LLOG(LLOG_WARNING, "device read: input failed");
         pbuf_free(p);
     }

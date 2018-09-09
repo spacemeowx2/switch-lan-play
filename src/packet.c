@@ -1,11 +1,11 @@
 #include "lan-play.h"
 
 int send_payloads(
-    struct lan_play *arg,
+    struct packet_ctx *self,
     const struct payload *payload
 )
 {
-    uint8_t *buf = arg->buffer;
+    uint8_t *buf = self->buffer;
     const struct payload *part = payload;
     uint16_t total_len = 0;
 
@@ -19,11 +19,11 @@ int send_payloads(
 
     // print_hex(arg->buffer, total_len);
     // printf("total len %d\n", total_len);
-    return send_packet(arg, total_len);
+    return self->send_packet(self->arg, buf, total_len);
 }
 
 int send_ether_ex(
-    struct lan_play *arg,
+    struct packet_ctx *arg,
     const void *dst,
     const void *src,
     uint16_t type,
@@ -44,7 +44,7 @@ int send_ether_ex(
     return send_payloads(arg, &part);
 }
 int send_ether(
-    struct lan_play *arg,
+    struct packet_ctx *arg,
     const void *dst,
     uint16_t type,
     const struct payload *payload
@@ -59,9 +59,8 @@ int send_ether(
     );
 }
 
-void print_packet(int id, const struct pcap_pkthdr *pkthdr, const u_char *packet)
+void print_packet(const struct pcap_pkthdr *pkthdr, const u_char *packet)
 {
-    printf("id: %d\n", id);
     printf("Packet length: %d\n", pkthdr->len);
     printf("Number of bytes: %d\n", pkthdr->caplen);
     printf("Recieved time: %s", ctime((const time_t *)&pkthdr->ts.tv_sec));
@@ -77,9 +76,38 @@ void print_packet(int id, const struct pcap_pkthdr *pkthdr, const u_char *packet
     printf("\n\n");
 }
 
-int send_packet(struct lan_play *arg, int size)
+int packet_init(
+    struct packet_ctx *self,
+    int (*send_packet)(struct lan_play *arg, void *data, int size),
+    struct lan_play *arg,
+    void *buffer,
+    size_t buffer_len,
+
+    void *ip,
+    void *subnet_net,
+    void *subnet_mask,
+    void *mac,
+    time_t arp_ttl,
+    struct gateway *gateway
+)
 {
-    return pcap_sendpacket(arg->dev, arg->buffer, size);
+    self->send_packet = send_packet;
+    self->arg = arg;
+    self->buffer = buffer;
+    self->buffer_len = buffer_len;
+
+    CPY_IPV4(self->ip, ip);
+    CPY_IPV4(self->subnet_net, subnet_net);
+    CPY_IPV4(self->subnet_mask, subnet_mask);
+
+    CPY_MAC(self->mac, mac);
+
+    self->identification = 0;
+    arp_list_init(self->arp_list);
+    self->arp_ttl = arp_ttl;
+    self->gateway = gateway;
+
+    return 0;
 }
 
 void parse_ether(const u_char *packet, uint16_t len, struct ether_frame *ether)
@@ -92,7 +120,7 @@ void parse_ether(const u_char *packet, uint16_t len, struct ether_frame *ether)
     ether->payload = packet + ETHER_OFF_END;
 }
 
-int process_ether(struct lan_play *arg, const u_char *packet, uint16_t len)
+int process_ether(struct packet_ctx *arg, const u_char *packet, uint16_t len)
 {
     struct ether_frame ether;
     parse_ether(packet, len, &ether);
@@ -111,13 +139,13 @@ int process_ether(struct lan_play *arg, const u_char *packet, uint16_t len)
     }
 }
 
-void get_packet(struct lan_play *arg, const struct pcap_pkthdr *pkthdr, const u_char *packet)
+void get_packet(struct packet_ctx *arg, const struct pcap_pkthdr *pkthdr, const u_char *packet)
 {
     if (pkthdr->len >= 65536) {
-        print_packet(++arg->id, pkthdr, packet);
+        print_packet(pkthdr, packet);
         return;
     }
     if (process_ether(arg, packet, pkthdr->len) != 0) {
-        print_packet(++arg->id, pkthdr, packet);
+        print_packet(pkthdr, packet);
     }
 }

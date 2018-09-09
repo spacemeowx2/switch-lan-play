@@ -1,7 +1,7 @@
 #include "ipv4.h"
 
 int send_ipv4(
-    struct lan_play *arg,
+    struct packet_ctx *arg,
     const void *dst,
     uint8_t protocol,
     const struct payload *payload
@@ -16,7 +16,7 @@ int send_ipv4(
     );
 }
 int send_ipv4_ex(
-    struct lan_play *arg,
+    struct packet_ctx *arg,
     const void *src,
     const void *dst,
     uint8_t protocol,
@@ -85,7 +85,7 @@ void parse_ipv4(const struct ether_frame *ether, struct ipv4 *ipv4)
     ipv4->payload = packet + ipv4->header_len;
 }
 
-int process_ipv4(struct lan_play *arg, const struct ether_frame *ether)
+int process_ipv4(struct packet_ctx *arg, const struct ether_frame *ether)
 {
     struct ipv4 ipv4;
     parse_ipv4(ether, &ipv4);
@@ -98,7 +98,7 @@ int process_ipv4(struct lan_play *arg, const struct ether_frame *ether)
         }
     } else if (IS_SUBNET(ipv4.dst, arg->subnet_net, arg->subnet_mask)) {
         if (IS_BROADCAST(ipv4.dst, arg->subnet_net, arg->subnet_mask)) {
-            lan_client_send_ipv4(arg, ipv4.dst, ipv4.ether->payload, ipv4.total_len);
+            lan_client_send_ipv4(arg->arg, ipv4.dst, ipv4.ether->payload, ipv4.total_len);
         } else if (arp_has_ip(arg, ipv4.dst)) {
             uint8_t dst_mac[6];
             struct payload part;
@@ -108,13 +108,13 @@ int process_ipv4(struct lan_play *arg, const struct ether_frame *ether)
             part.next = NULL;
             return send_ether(arg, dst_mac, ETHER_TYPE_IPV4, &part);
         } else {
-            return lan_client_send_ipv4(arg, ipv4.dst, ipv4.ether->payload, ipv4.total_len);
+            return lan_client_send_ipv4(arg->arg, ipv4.dst, ipv4.ether->payload, ipv4.total_len);
         }
     } else if (CMP_MAC(arg->mac, ether->dst)) {
         // target ip is not us but target mac is us
         // we are now a gateway
 
-        proxy_on_packet(&arg->proxy, ether->raw, ether->raw_len);
+        gateway_on_packet(arg->gateway, ether->raw, ether->raw_len);
 
         return 0;
     }

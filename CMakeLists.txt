@@ -49,7 +49,7 @@ set(SOURCE_FILES
     src/arp.c
     src/helper.c
     src/lan-client.c
-    src/proxy.c
+    src/gateway.c
     src/ipv4/ipv4.c
     src/ipv4/tcp.c
     src/ipv4/udp.c

@@ -1,6 +1,8 @@
 #ifndef _PACKET_H_
 #define _PACKET_H_
 
+#include "arp.h"
+
 #define ETHER_OFF_DST 0
 #define ETHER_OFF_SRC 6
 #define ETHER_OFF_TYPE 12
@@ -101,15 +103,48 @@ struct payload {
     const struct payload *next;
 };
 
-int send_ether_ex(
+struct lan_play;
+struct packet_ctx {
+    int (*send_packet)(struct lan_play *arg, void *data, int size);
+    struct lan_play *arg;
+    void *buffer;
+    size_t buffer_len;
+
+    uint8_t ip[4];
+    uint8_t subnet_net[4];
+    uint8_t subnet_mask[4];
+    uint8_t mac[6];
+    uint16_t identification;
+    struct arp_item arp_list[ARP_CACHE_LEN];
+    time_t arp_ttl;
+    struct gateway *gateway;
+};
+
+int packet_init(
+    struct packet_ctx *self,
+    int (*send_packet)(struct lan_play *arg, void *data, int size),
     struct lan_play *arg,
+    void *buffer,
+    size_t buffer_len,
+
+    void *ip,
+    void *subnet_net,
+    void *subnet_mask,
+    void *mac,
+    time_t arp_ttl,
+    struct gateway *gateway
+);
+int process_arp(struct packet_ctx *arg, const struct ether_frame *ether);
+int process_ipv4(struct packet_ctx *arg, const struct ether_frame *ether);
+int send_ether_ex(
+    struct packet_ctx *arg,
     const void *dst,
     const void *src,
     uint16_t type,
     const struct payload *payload
 );
 int send_ether(
-    struct lan_play *arg,
+    struct packet_ctx *arg,
     const void *dst,
     uint16_t type,
     const struct payload *payload

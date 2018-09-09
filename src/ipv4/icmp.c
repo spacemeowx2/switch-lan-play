@@ -1,10 +1,9 @@
 #include "ipv4.h"
 
-int process_icmp(struct lan_play *arg, const struct ipv4 *ipv4)
+int process_icmp(struct packet_ctx *self, const struct ipv4 *ipv4)
 {
     uint8_t payload[BUFFER_SIZE];
     struct payload part;
-    void *buf = arg->buffer;
 
     int icmp_len = ipv4->total_len - ipv4->header_len;
     memcpy(payload, ipv4->payload, icmp_len);
@@ -17,7 +16,7 @@ int process_icmp(struct lan_play *arg, const struct ipv4 *ipv4)
     part.len = icmp_len;
     part.next = NULL;
     int ret = send_ipv4(
-        arg,
+        self,
         ipv4->src,
         IPV4_PROTOCOL_ICMP,
         &part
