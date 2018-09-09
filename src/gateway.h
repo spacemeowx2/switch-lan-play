@@ -7,6 +7,7 @@
 #include "packet.h"
 
 #define GATEWAY_BUFFER_SIZE 2000
+#define GATEWAY_PROXY_RECV_BUF_SIZE 8192
 
 typedef int (*send_packet_func_t)(void *userdata, const void *data, uint16_t len);
 struct gateway {
