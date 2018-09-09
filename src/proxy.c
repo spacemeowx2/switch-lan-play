@@ -81,7 +81,48 @@ void addr_from_lwip(void *ip, const ip_addr_t *ip_addr)
     }
 }
 
-void on_connect(uv_connect_t *req, int status) {
+void proxy_on_alloc(uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf)
+{
+    buf->base = malloc(suggested_size);
+    buf->len = suggested_size;
+    LLOG(LLOG_DEBUG, "proxy_on_alloc %p %d", handle, suggested_size);
+}
+
+void proxy_write_cb(uv_write_t* req, int status)
+{
+    if (status < 0) {
+        LLOG(LLOG_ERROR, "proxy_write_cb %d", status);
+    }
+    free(req);
+}
+
+err_t client_recv_func (void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t err)
+{
+    uv_tcp_t* socket = arg;
+    uv_write_t *req = (uv_write_t*)malloc(sizeof(uv_write_t));
+    uint8_t *buff = malloc(2048);
+    uv_buf_t buf;
+    buf.base = buff;
+    buf.len = p->tot_len;
+
+    if (p) {
+        LLOG(LLOG_DEBUG, "client_recv_func %d", p->tot_len);
+        pbuf_copy_partial(p, buff, p->tot_len, 0);
+
+        uv_write(req, (uv_stream_t *)socket, &buf, 1, proxy_write_cb);
+    }
+}
+
+void proxy_on_read(uv_stream_t *handle, ssize_t nread, const uv_buf_t *buf)
+{
+    LLOG(LLOG_DEBUG, "proxy_on_read");
+    struct tcp_pcb *pcb = (struct tcp_pcb *)handle->data;
+
+    tcp_write(pcb, buf->base, buf->len, TCP_WRITE_FLAG_COPY);
+}
+
+void on_connect(uv_connect_t *req, int status)
+{
     if (status < 0) {
         fprintf(stderr, "connect failed error %s\n", uv_err_name(status));
         free(req);
@@ -89,6 +130,8 @@ void on_connect(uv_connect_t *req, int status) {
     }
 
     LLOG(LLOG_DEBUG, "on_connect");
+
+    uv_read_start(req->handle, proxy_on_alloc, proxy_on_read);
     free(req);
 }
 
@@ -116,8 +159,16 @@ err_t listener_accept_func (void *arg, struct tcp_pcb *newpcb, err_t err)
     uv_tcp_t* socket = (uv_tcp_t*)malloc(sizeof(uv_tcp_t));
     uv_connect_t* connect = (uv_connect_t*)malloc(sizeof(uv_connect_t));
     uv_tcp_init(loop, socket);
+    socket->data = newpcb;
 
-    uv_tcp_connect(connect, socket, (const struct sockaddr*)&dest, on_connect);
+    // tcp_arg(newpcb, socket);
+    // tcp_recv(newpcb, client_recv_func);
+
+    // uv_tcp_connect(connect, socket, (const struct sockaddr*)&dest, on_connect);
+
+    char test[] = "HTTP/1.1 200 OK\nContent-Length: 2\n\nOK";
+
+    tcp_write(newpcb, test, strlen(test), TCP_WRITE_FLAG_COPY);
 
     return ERR_OK;
 }
@@ -207,12 +258,30 @@ int proxy_init(struct proxy *proxy, send_packet_func_t send_packet, void *userda
     LLOG(LLOG_DEBUG, "proxy init netif_list %p", netif_list);
 
     uv_loop_init(&proxy->loop);
-    // pthread_create(&proxy->loop_thread, NULL, proxy_event_thread, &proxy);
     uv_thread_create(&proxy->loop_thread, proxy_event_thread, proxy);
 
     return 0;
 fail:
     exit(1);
+}
+
+int proxy_process_udp(const uint8_t *data, int data_len)
+{
+    #define IPV4_OFF_PROTOCOL 9
+    #define IPV4_PROTOCOL_UDP 17
+    uint8_t ip_version = 0;
+    if (data_len > 0) {
+        ip_version = (data[0] >> 4);
+    }
+
+    if (ip_version == 4) {
+        // ignore non-UDP packets
+        if (data[IPV4_OFF_PROTOCOL] != IPV4_PROTOCOL_UDP) {
+            return -1;
+        }
+
+        
+    }
 }
 
 void proxy_on_packet(struct proxy *proxy, const uint8_t *data, int data_len)
@@ -221,6 +290,10 @@ void proxy_on_packet(struct proxy *proxy, const uint8_t *data, int data_len)
 
     if (!p) {
         LLOG(LLOG_WARNING, "device read: pbuf_alloc failed");
+        return;
+    }
+
+    if (proxy_process_udp(data, data_len) == 0) {
         return;
     }
 
