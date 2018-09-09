@@ -111,6 +111,7 @@ void gateway_write_cb(uv_write_t* req, int status)
     if (status < 0) {
         LLOG(LLOG_ERROR, "gateway_write_cb %d", status);
     }
+    free(req->data);
     free(req);
 }
 
@@ -146,13 +147,34 @@ int gateway_proxy_recv_send_out(tcp_connection_t *conn)
     }
 
     if (conn->proxy_recv_buf_sent == conn->proxy_recv_buf_used) {
+        conn->proxy_recv_buf_used = 0;
+    }
+
+    return 0;
+}
+
+err_t client_sent_func (void *arg, struct tcp_pcb *tpcb, u16_t len)
+{
+    tcp_connection_t *conn = arg;
+    uv_tcp_t* socket = &conn->socket;
+
+    ASSERT(!conn->closed)
+    // ASSERT(conn->socks_up)
+    ASSERT(len > 0)
+    ASSERT(len <= conn->proxy_recv_tcp_pending)
+
+    conn->proxy_recv_tcp_pending -= len;
+    if (conn->proxy_recv_buf_used > 0) {
+        ASSERT(conn->proxy_recv_buf_sent < conn->proxy_recv_buf_used)
+
+        int ret = gateway_proxy_recv_send_out(conn);
+    } else if (conn->proxy_recv_tcp_pending == 0) {
         conn->proxy_recv_buf = NULL;
         conn->proxy_recv_buf_used = 0;
         conn->proxy_recv_buf_sent = 0;
         uv_read_start((uv_stream_t *)&conn->socket, gateway_on_alloc, gateway_on_read);
+        LLOG(LLOG_DEBUG, "read restart");
     }
-
-    return 0;
 }
 
 void gateway_on_read(uv_stream_t *handle, ssize_t nread, const uv_buf_t *buf)
@@ -164,6 +186,7 @@ void gateway_on_read(uv_stream_t *handle, ssize_t nread, const uv_buf_t *buf)
     ASSERT(conn->proxy_recv_buf_sent == 0)
 
     uv_read_stop(handle);
+    LLOG(LLOG_DEBUG, "read stop");
 
     LLOG(LLOG_DEBUG, "gateway_on_read %d", nread);
     LLOG(LLOG_DEBUG, "conn %p", handle->data);
@@ -235,31 +258,12 @@ err_t client_recv_func (void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t e
 
         LLOG(LLOG_DEBUG, "client_recv_func %d", p->tot_len);
         pbuf_copy_partial(p, buff, p->tot_len, 0);
+        req->data = buff;
 
         uv_write(req, (uv_stream_t *)socket, &buf, 1, gateway_write_cb);
     } else {
         LLOG(LLOG_INFO, "client closed");
         client_free_client(connection);
-    }
-}
-
-err_t client_sent_func (void *arg, struct tcp_pcb *tpcb, u16_t len)
-{
-    tcp_connection_t *conn = arg;
-    uv_tcp_t* socket = &conn->socket;
-
-    ASSERT(!conn->closed)
-    // ASSERT(conn->socks_up)
-    ASSERT(len > 0)
-    ASSERT(len <= conn->proxy_recv_tcp_pending)
-
-    conn->proxy_recv_tcp_pending -= len;
-    if (conn->proxy_recv_buf_used > 0) {
-        LLOG(LLOG_DEBUG, "%d %d", conn->proxy_recv_buf_sent, conn->proxy_recv_buf_used);
-        ASSERT(conn->proxy_recv_buf_sent < conn->proxy_recv_buf_used)
-
-        int ret = gateway_proxy_recv_send_out(conn);
-
     }
 }
 
@@ -311,20 +315,21 @@ err_t listener_accept_func (void *arg, struct tcp_pcb *newpcb, err_t err)
     return ERR_OK;
 }
 
-void gateway_idle_cb(uv_idle_t *idle)
+void gateway_on_timer(uv_timer_t *timer)
 {
-    sleep(1);
+    struct gateway *gateway = (struct gateway *)timer->data;
+    tcp_tmr();
 }
 
 void gateway_event_thread(void *data)
 {
     struct gateway *gateway = (struct gateway *)data;
     uv_loop_t *loop = &gateway->loop;
-    uv_idle_t idle;
+    uv_timer_t timer;
 
-    uv_idle_init(loop, &idle);
-    uv_idle_start(&idle, gateway_idle_cb);
-
+    uv_timer_init(loop, &timer);
+    timer.data = gateway;
+    uv_timer_start(&timer, gateway_on_timer, 0, 250);
     LLOG(LLOG_DEBUG, "uv_run");
     uv_run(loop, UV_RUN_DEFAULT);
     uv_loop_close(loop);
@@ -429,7 +434,6 @@ int gateway_process_udp(struct gateway *gateway, const uint8_t *data, int data_l
         const void *payload;
         uint16_t len;
 
-        LLOG(LLOG_DEBUG, "gateway_process_udp %d", data_len);
         CPY_IPV4(src, data + IPV4_OFF_SRC);
         CPY_IPV4(dst, data + IPV4_OFF_DST);
         srcport = READ_NET16(udp_base, UDP_OFF_SRCPORT);
@@ -437,10 +441,10 @@ int gateway_process_udp(struct gateway *gateway, const uint8_t *data, int data_l
         payload = udp_base + UDP_OFF_END;
         len = data_len - ipv4_header_len - UDP_OFF_END;
 
-        PRINT_IP(src);
-        printf(":%d -> ", srcport);
-        PRINT_IP(dst);
-        printf(":%d\n", dstport);
+        // PRINT_IP(src);
+        // printf(":%d -> ", srcport);
+        // PRINT_IP(dst);
+        // printf(":%d\n", dstport);
 
         return gateway->proxy.udp(&gateway->proxy, src, srcport, dst, dstport, payload, len);;
     }

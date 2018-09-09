@@ -9,8 +9,6 @@
 struct proxy_udp_item {
     uint8_t src[4];
     uint16_t srcport;
-    uint8_t dst[4];
-    uint16_t dstport;
     uv_udp_t *udp;
     struct proxy *proxy;
     time_t expire_at;

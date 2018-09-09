@@ -9,7 +9,7 @@ static void proxy_alloc_cb(uv_handle_t* handle, size_t suggested_size, uv_buf_t*
 {
     buf->base = malloc(suggested_size);
     buf->len = suggested_size;
-    LLOG(LLOG_DEBUG, "proxy_alloc_cb %p %d %p", handle, suggested_size, buf->base);
+    // LLOG(LLOG_DEBUG, "proxy_alloc_cb %p %d %p", handle, suggested_size, buf->base);
 }
 
 void proxy_udp_send_cb(uv_udp_send_t *req, int status)
@@ -24,13 +24,19 @@ void proxy_udp_recv_cb(uv_udp_t *udp, ssize_t nread, const uv_buf_t *buf, const 
 {
     struct proxy_udp_item *item = (struct proxy_udp_item *)udp->data;
     struct payload part;
+    const struct sockaddr_in *addr_in = (const struct sockaddr_in *)addr;
+    const void *from_ip = &addr_in->sin_addr;
+    uint16_t from_port = ntohs(addr_in->sin_port);
 
-    LLOG(LLOG_DEBUG, "proxy_udp_recv_cb %p %d %p buf %d", udp, buf->len, buf->base, nread);
     part.ptr = buf->base;
     part.len = nread;
     part.next = NULL;
 
-    int ret = send_udp_ex(item->proxy->packet_ctx, item->dst, item->dstport, item->src, item->srcport, &part);
+    int ret = send_udp_ex(item->proxy->packet_ctx, from_ip, from_port, item->src, item->srcport, &part);
+    if (ret != 0) {
+        LLOG(LLOG_ERROR, "proxy_udp_recv_cb %d", ret);
+    }
+    free(buf->base);
 }
 
 // Get or add in the table, return NULL if failed
@@ -47,9 +53,8 @@ uv_udp_t *proxy_udp_get(struct proxy *proxy, uint8_t src[4], uint16_t srcport, u
             && (item->expire_at >= now)
             && CMP_IPV4(item->src, src)
             && item->srcport == srcport
-            && CMP_IPV4(item->dst, dst)
-            && item->dstport == dstport
         ) {
+            item->expire_at = now + PROXY_UDP_TABLE_TTL;
             return item->udp;
         }
     }
@@ -70,12 +75,10 @@ uv_udp_t *proxy_udp_get(struct proxy *proxy, uint8_t src[4], uint16_t srcport, u
 
             CPY_IPV4(item->src, src);
             item->srcport = srcport;
-            CPY_IPV4(item->dst, dst);
-            item->dstport = dstport;
+
             return item->udp;
         }
     }
-
 
     return NULL;
 }
