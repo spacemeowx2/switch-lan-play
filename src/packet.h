@@ -30,6 +30,13 @@
 #define IPV4_OFF_DST 16
 #define IPV4_OFF_END 20
 
+#define IPV4P_OFF_SRC 0
+#define IPV4P_OFF_DST 4
+#define IPV4P_OFF_ZERO 8
+#define IPV4P_OFF_PROTOCOL 9
+#define IPV4P_OFF_LENGTH 10
+#define IPV4P_OFF_END 12
+
 #define UDP_OFF_SRCPORT 0
 #define UDP_OFF_DSTPORT 2
 #define UDP_OFF_LENGTH 4
@@ -117,6 +124,7 @@ struct payload {
     uint16_t len;
     const struct payload *next;
 };
+uint16_t payload_total_len(const struct payload *payload);
 
 struct lan_play;
 struct packet_ctx {
@@ -147,6 +155,7 @@ int packet_init(
     time_t arp_ttl,
     struct gateway *gateway
 );
+struct pcap_pkthdr;
 void get_packet(struct packet_ctx *arg, const struct pcap_pkthdr * pkthdr, const u_char * packet);
 int process_arp(struct packet_ctx *arg, const struct ether_frame *ether);
 int process_ipv4(struct packet_ctx *arg, const struct ether_frame *ether);
@@ -163,5 +172,6 @@ int send_ether(
     uint16_t type,
     const struct payload *payload
 );
+void payload_print_hex(const struct payload *payload);
 
 #endif // _PACKET_H_

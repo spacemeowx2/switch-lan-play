@@ -16,4 +16,13 @@ int send_ipv4(
     uint8_t protocol,
     const struct payload *payload
 );
+int send_udp_ex(
+    struct packet_ctx *self,
+    const void *src,
+    uint16_t srcport,
+    const void *dst,
+    uint16_t dstport,
+    const struct payload *payload
+);
 uint16_t calc_checksum(const u_char *packet, int len);
+uint16_t calc_payload_checksum(const struct payload *payload);

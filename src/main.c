@@ -17,7 +17,6 @@ struct {
 } options;
 
 uint8_t SEND_BUFFER[BUFFER_SIZE];
-int gateway_send_packet(void *userdata, const void *data, uint16_t len);
 
 void set_filter(pcap_t *dev)
 {
@@ -161,7 +160,7 @@ int lan_play_init(struct lan_play *lan_play)
     if (ret != 0) return ret;
     ret = lan_client_init(lan_play);
     if (ret != 0) return ret;
-    ret = gateway_init(&lan_play->gateway, gateway_send_packet, lan_play);
+    ret = gateway_init(&lan_play->gateway, &lan_play->packet_ctx);
     if (ret != 0) return ret;
 
     return 0;
@@ -288,14 +287,13 @@ void print_version()
     printf("switch-lan-play v0.0.0\n");
 }
 
-int gateway_send_packet(void *userdata, const void *data, uint16_t len)
+int lan_play_gateway_send_packet(struct packet_ctx *packet_ctx, const void *data, uint16_t len)
 {
-    struct lan_play *lan_play = (struct lan_play *)userdata;
     struct payload part;
     uint8_t dst_mac[6];
     const uint8_t *dst = (uint8_t *)data + IPV4_OFF_DST;
 
-    if (!arp_get_mac_by_ip(&lan_play->packet_ctx, dst_mac, dst)) {
+    if (!arp_get_mac_by_ip(packet_ctx, dst_mac, dst)) {
         return false;
     }
 
@@ -304,7 +302,7 @@ int gateway_send_packet(void *userdata, const void *data, uint16_t len)
     part.next = NULL;
 
     return send_ether(
-        &lan_play->packet_ctx,
+        packet_ctx,
         dst_mac,
         ETHER_TYPE_IPV4,
         &part

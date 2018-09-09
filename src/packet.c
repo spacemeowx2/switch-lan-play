@@ -152,3 +152,35 @@ void get_packet(struct packet_ctx *self, const struct pcap_pkthdr *pkthdr, const
         print_packet(pkthdr, packet);
     }
 }
+
+uint16_t payload_total_len(const struct payload *payload)
+{
+    const struct payload *part = payload;
+    uint16_t total_len = 0;
+
+    while (part) {
+        total_len += part->len;
+        part = part->next;
+    }
+
+    return total_len;
+}
+
+void payload_print_hex(const struct payload *payload)
+{
+    const struct payload *part = payload;
+    int i;
+
+    while (part) {
+        for (int j = 0; j < part->len; j++) {
+            printf(" %02x", part->ptr[j]);
+            if ( ++i % 16 == 0 ) {
+                printf("\n");
+            }
+        }
+
+        part = part->next;
+    }
+
+    printf("\n\n");
+}

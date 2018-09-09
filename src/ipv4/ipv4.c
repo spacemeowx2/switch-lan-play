@@ -30,7 +30,7 @@ int send_ipv4_ex(
 
     WRITE_NET8(buf, IPV4_OFF_VER_LEN, 0x45);
     WRITE_NET8(buf, IPV4_OFF_DSCP_ECN, 0x00);
-    WRITE_NET16(buf, IPV4_OFF_TOTAL_LEN, IPV4_HEADER_LEN + payload->len);
+    WRITE_NET16(buf, IPV4_OFF_TOTAL_LEN, IPV4_HEADER_LEN + payload_total_len(payload));
     WRITE_NET16(buf, IPV4_OFF_ID, arg->identification++);
     WRITE_NET16(buf, IPV4_OFF_FLAGS_FRAG_OFFSET, 0);
     WRITE_NET8(buf, IPV4_OFF_TTL, 128);
@@ -136,5 +136,39 @@ uint16_t calc_checksum(const u_char *buffer, int len)
     while (sum > 0xffff) {
         sum -= 0xffff;
     }
+    return ~sum;
+}
+
+uint16_t calc_payload_checksum(const struct payload *payload)
+{
+    uint32_t sum = 0;
+    int offset = 0;
+    const struct payload *part = payload;
+
+    while (part) {
+        uint16_t *buf = (uint16_t *)part->ptr + offset;
+        int len = part->len - offset;
+        while (len > 1) {
+            sum += ntohs(*buf++);
+            len -= sizeof(uint16_t);
+        }
+
+        part = part->next;
+        if (len) {
+            if (part) {
+                sum += (READ_NET8(buf, 0) << 8) | (READ_NET8(part->ptr, 0));
+            } else {
+                sum += *(uint8_t *)buf;
+            }
+            offset = 1;
+        } else {
+            offset = 0;
+        }
+    }
+
+    while (sum > 0xffff) {
+        sum -= 0xffff;
+    }
+
     return ~sum;
 }

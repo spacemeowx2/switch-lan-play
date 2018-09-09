@@ -19,6 +19,7 @@ struct lan_play;
 #include "config.h"
 #include "arp.h"
 #include "gateway.h"
+#include "proxy.h"
 
 struct lan_play {
     pcap_t *dev;
@@ -39,6 +40,7 @@ struct lan_play {
 };
 
 int lan_play_send_packet(struct lan_play *lan_play, void *data, int size);
+int lan_play_gateway_send_packet(struct packet_ctx *packet_ctx, const void *data, uint16_t len);
 int lan_client_init(struct lan_play *lan_play);
 int lan_client_send_ipv4(struct lan_play *lan_play, void *dst_ip, const void *packet, uint16_t len);
 

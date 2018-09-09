@@ -13,8 +13,7 @@
 #include <lwip/nd6.h>
 #include <lwip/ip6_frag.h>
 
-static send_packet_func_t gateway_send_packet;
-static void *gateway_send_userdata;
+static struct packet_ctx *g_gateway_send_packet_ctx;
 
 // lwip TCP listener
 struct tcp_pcb *listener;
@@ -45,7 +44,7 @@ err_t netif_output_func (struct netif *netif, struct pbuf *p, const ip4_addr_t *
     int ret;
 
     if (!p->next) {
-        ret = gateway_send_packet(gateway_send_userdata, p->payload, p->len);
+        ret = lan_play_gateway_send_packet(g_gateway_send_packet_ctx, p->payload, p->len);
     } else {
         int len = 0;
         do {
@@ -53,7 +52,7 @@ err_t netif_output_func (struct netif *netif, struct pbuf *p, const ip4_addr_t *
             len += p->len;
         } while (p = p->next);
 
-        ret = gateway_send_packet(gateway_send_userdata, buffer, len);
+        ret = lan_play_gateway_send_packet(g_gateway_send_packet_ctx, buffer, len);
     }
 
     if (ret != 0) {
@@ -168,7 +167,7 @@ err_t listener_accept_func (void *arg, struct tcp_pcb *newpcb, err_t err)
 
     // uv_tcp_connect(connect, socket, (const struct sockaddr*)&dest, on_connect);
 
-    char test[] = "HTTP/1.1 200 OK\nContent-Length: 2\n\nOK";
+    char test[] = "HTTP/1.1 200 OK\r\nContent-Length: 2\r\nX-Organization: Nintendo\r\n\r\nok";
 
     tcp_write(newpcb, test, strlen(test), TCP_WRITE_FLAG_COPY);
 
@@ -195,11 +194,15 @@ void gateway_event_thread(void *data)
     LLOG(LLOG_DEBUG, "uv_loop_close");
 }
 
-int gateway_init(struct gateway *gateway, send_packet_func_t send_packet, void *userdata)
+int gateway_send_udp()
+{
+
+}
+
+int gateway_init(struct gateway *gateway, struct packet_ctx *packet_ctx)
 {
     struct netif *the_netif = &gateway->netif;
-    gateway_send_userdata = userdata;
-    gateway_send_packet = send_packet;
+    g_gateway_send_packet_ctx = packet_ctx;
     lwip_init();
 
     // make addresses for netif
@@ -260,6 +263,7 @@ int gateway_init(struct gateway *gateway, send_packet_func_t send_packet, void *
     LLOG(LLOG_DEBUG, "gateway init netif_list %p", netif_list);
 
     uv_loop_init(&gateway->loop);
+    proxy_direct_init(&gateway->proxy, &gateway->loop, packet_ctx);
     uv_thread_create(&gateway->loop_thread, gateway_event_thread, gateway);
 
     return 0;
@@ -275,7 +279,6 @@ int gateway_process_udp(struct gateway *gateway, const uint8_t *data, int data_l
     }
 
     if (ip_version == 4) {
-        LLOG(LLOG_DEBUG, "gateway_process_udp");
         // ignore non-UDP packets
         if (data_len < IPV4_OFF_END || data[IPV4_OFF_PROTOCOL] != IPV4_PROTOCOL_UDP) {
             return -1;
@@ -286,20 +289,23 @@ int gateway_process_udp(struct gateway *gateway, const uint8_t *data, int data_l
         uint8_t dst[4];
         uint16_t srcport;
         uint16_t dstport;
+        const void *payload;
+        uint16_t len;
 
+        LLOG(LLOG_DEBUG, "gateway_process_udp %d", data_len);
         CPY_IPV4(src, data + IPV4_OFF_SRC);
         CPY_IPV4(dst, data + IPV4_OFF_DST);
         srcport = READ_NET16(udp_base, UDP_OFF_SRCPORT);
         dstport = READ_NET16(udp_base, UDP_OFF_DSTPORT);
+        payload = udp_base + UDP_OFF_END;
+        len = data_len - ipv4_header_len - UDP_OFF_END;
 
-
-        LLOG(LLOG_DEBUG, "gateway_process_udp");
         PRINT_IP(src);
-        printf(":%d <- ", srcport);
+        printf(":%d -> ", srcport);
         PRINT_IP(dst);
         printf(":%d\n", dstport);
 
-        return 0;
+        return gateway->proxy.udp(&gateway->proxy, src, srcport, dst, dstport, payload, len);;
     }
 
     return -1;
@@ -308,6 +314,10 @@ int gateway_process_udp(struct gateway *gateway, const uint8_t *data, int data_l
 void gateway_on_packet(struct gateway *gateway, const uint8_t *data, int data_len)
 {
     struct pbuf *p = pbuf_alloc(PBUF_RAW, data_len, PBUF_POOL);
+
+    // ignore ethernet part
+    data += ETHER_OFF_END;
+    data_len -= ETHER_OFF_END;
 
     if (!p) {
         LLOG(LLOG_WARNING, "device read: pbuf_alloc failed");
@@ -318,7 +328,7 @@ void gateway_on_packet(struct gateway *gateway, const uint8_t *data, int data_le
         return;
     }
 
-    if (pbuf_take(p, data + 14, data_len - 14) != ERR_OK) {
+    if (pbuf_take(p, data, data_len) != ERR_OK) {
         LLOG(LLOG_ERROR, "pbuf_take");
         exit(1);
     }
