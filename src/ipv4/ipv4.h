@@ -1,6 +1,7 @@
 #include "../lan-play.h"
 
 void parse_ipv4(const struct ether_frame *ether, struct ipv4 *ipv4);
+void parse_udp(const struct ipv4 *ipv4, struct udp *udp);
 int process_icmp(struct packet_ctx *arg, const struct ipv4 *ipv4);
 int send_ipv4_ex(
     struct packet_ctx *arg,

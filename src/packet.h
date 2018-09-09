@@ -30,6 +30,12 @@
 #define IPV4_OFF_DST 16
 #define IPV4_OFF_END 20
 
+#define UDP_OFF_SRCPORT 0
+#define UDP_OFF_DSTPORT 2
+#define UDP_OFF_LENGTH 4
+#define UDP_OFF_CHECKSUM 6
+#define UDP_OFF_END 8
+
 #define ARP_OFF_HARDWARE 0
 #define ARP_OFF_PROTOCOL 2
 #define ARP_OFF_HARDWARE_SIZE 4
@@ -73,6 +79,15 @@ struct ipv4 {
     const u_char *payload;
 };
 
+struct udp {
+    const struct ipv4 *ipv4;
+    uint16_t srcport;
+    uint16_t dstport;
+    uint16_t length;
+    uint16_t checksum;
+    const u_char *payload;
+};
+
 struct arp {
     const struct ether_frame *ether;
     uint16_t hardware_type;
@@ -105,7 +120,6 @@ struct payload {
 
 struct lan_play;
 struct packet_ctx {
-    int (*send_packet)(struct lan_play *arg, void *data, int size);
     struct lan_play *arg;
     void *buffer;
     size_t buffer_len;
@@ -122,7 +136,6 @@ struct packet_ctx {
 
 int packet_init(
     struct packet_ctx *self,
-    int (*send_packet)(struct lan_play *arg, void *data, int size),
     struct lan_play *arg,
     void *buffer,
     size_t buffer_len,
@@ -134,6 +147,7 @@ int packet_init(
     time_t arp_ttl,
     struct gateway *gateway
 );
+void get_packet(struct packet_ctx *arg, const struct pcap_pkthdr * pkthdr, const u_char * packet);
 int process_arp(struct packet_ctx *arg, const struct ether_frame *ether);
 int process_ipv4(struct packet_ctx *arg, const struct ether_frame *ether);
 int send_ether_ex(

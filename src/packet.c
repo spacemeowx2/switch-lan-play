@@ -10,6 +10,11 @@ int send_payloads(
     uint16_t total_len = 0;
 
     while (part) {
+        if (buf - (uint8_t *)self->buffer + part->len >= self->buffer_len) {
+            LLOG(LLOG_ERROR, "send_payloads too large wanted: %d buffer_len: %d", buf - (uint8_t *)self->buffer + part->len, self->buffer_len);
+            LLOG(LLOG_DEBUG, "send_payloads buffer: %p", self->buffer);
+            return -1;
+        }
         memcpy(buf, part->ptr, part->len);
         buf += part->len;
         total_len += part->len;
@@ -17,9 +22,9 @@ int send_payloads(
         part = part->next;
     }
 
-    // print_hex(arg->buffer, total_len);
+    // print_hex(self->buffer, total_len);
     // printf("total len %d\n", total_len);
-    return self->send_packet(self->arg, buf, total_len);
+    return lan_play_send_packet(self->arg, self->buffer, total_len);
 }
 
 int send_ether_ex(
@@ -78,7 +83,6 @@ void print_packet(const struct pcap_pkthdr *pkthdr, const u_char *packet)
 
 int packet_init(
     struct packet_ctx *self,
-    int (*send_packet)(struct lan_play *arg, void *data, int size),
     struct lan_play *arg,
     void *buffer,
     size_t buffer_len,
@@ -91,7 +95,6 @@ int packet_init(
     struct gateway *gateway
 )
 {
-    self->send_packet = send_packet;
     self->arg = arg;
     self->buffer = buffer;
     self->buffer_len = buffer_len;
@@ -139,13 +142,13 @@ int process_ether(struct packet_ctx *arg, const u_char *packet, uint16_t len)
     }
 }
 
-void get_packet(struct packet_ctx *arg, const struct pcap_pkthdr *pkthdr, const u_char *packet)
+void get_packet(struct packet_ctx *self, const struct pcap_pkthdr *pkthdr, const u_char *packet)
 {
     if (pkthdr->len >= 65536) {
         print_packet(pkthdr, packet);
         return;
     }
-    if (process_ether(arg, packet, pkthdr->len) != 0) {
+    if (process_ether(self, packet, pkthdr->len) != 0) {
         print_packet(pkthdr, packet);
     }
 }

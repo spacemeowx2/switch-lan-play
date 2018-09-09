@@ -1,6 +1,7 @@
 #include "gateway.h"
 #include "helper.h"
 #include "packet.h"
+#include "ipv4/ipv4.h"
 #include <base/llog.h>
 #include <lwip/init.h>
 #include <lwip/netif.h>
@@ -266,7 +267,7 @@ fail:
     exit(1);
 }
 
-int gateway_process_udp(const uint8_t *data, int data_len)
+int gateway_process_udp(struct gateway *gateway, const uint8_t *data, int data_len)
 {
     uint8_t ip_version = 0;
     if (data_len > 0) {
@@ -274,17 +275,34 @@ int gateway_process_udp(const uint8_t *data, int data_len)
     }
 
     if (ip_version == 4) {
+        LLOG(LLOG_DEBUG, "gateway_process_udp");
         // ignore non-UDP packets
         if (data_len < IPV4_OFF_END || data[IPV4_OFF_PROTOCOL] != IPV4_PROTOCOL_UDP) {
             return -1;
         }
-
+        uint16_t ipv4_header_len = (data[0] & 0xF) * 4;
+        const uint8_t *udp_base = data + ipv4_header_len;
         uint8_t src[4];
         uint8_t dst[4];
+        uint16_t srcport;
+        uint16_t dstport;
 
         CPY_IPV4(src, data + IPV4_OFF_SRC);
         CPY_IPV4(dst, data + IPV4_OFF_DST);
+        srcport = READ_NET16(udp_base, UDP_OFF_SRCPORT);
+        dstport = READ_NET16(udp_base, UDP_OFF_DSTPORT);
+
+
+        LLOG(LLOG_DEBUG, "gateway_process_udp");
+        PRINT_IP(src);
+        printf(":%d <- ", srcport);
+        PRINT_IP(dst);
+        printf(":%d\n", dstport);
+
+        return 0;
     }
+
+    return -1;
 }
 
 void gateway_on_packet(struct gateway *gateway, const uint8_t *data, int data_len)
@@ -296,7 +314,7 @@ void gateway_on_packet(struct gateway *gateway, const uint8_t *data, int data_le
         return;
     }
 
-    if (gateway_process_udp(data, data_len) == 0) {
+    if (gateway_process_udp(gateway, data, data_len) == 0) {
         return;
     }
 

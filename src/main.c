@@ -119,9 +119,13 @@ void init_pcap(struct lan_play *lan_play, void *mac)
     lan_play->dev = dev;
 }
 
-int lan_play_packet_send(struct lan_play *lan_play, void *data, int size)
+int lan_play_send_packet(struct lan_play *lan_play, void *data, int size)
 {
-    return pcap_sendpacket(lan_play->dev, data, size);
+    int ret = pcap_sendpacket(lan_play->dev, data, size);
+    if (ret != 0) {
+        LLOG(LLOG_ERROR, "lan_play_packet_send %d", ret);
+    }
+    return ret;
 }
 
 int lan_play_init(struct lan_play *lan_play)
@@ -141,9 +145,9 @@ int lan_play_init(struct lan_play *lan_play)
     CPY_IPV4(ip, str2ip(SERVER_IP));
     CPY_IPV4(subnet_net, str2ip(SUBNET_NET));
     CPY_IPV4(subnet_mask, str2ip(SUBNET_MASK));
+    LLOG(LLOG_DEBUG, "packet init buffer %p", SEND_BUFFER);
     ret = packet_init(
         &lan_play->packet_ctx,
-        lan_play_packet_send,
         lan_play,
         SEND_BUFFER,
         sizeof(SEND_BUFFER),
@@ -157,7 +161,7 @@ int lan_play_init(struct lan_play *lan_play)
     if (ret != 0) return ret;
     ret = lan_client_init(lan_play);
     if (ret != 0) return ret;
-    ret = gateway_init(&lan_play->gateway, gateway_send_packet, &lan_play);
+    ret = gateway_init(&lan_play->gateway, gateway_send_packet, lan_play);
     if (ret != 0) return ret;
 
     return 0;
@@ -167,7 +171,7 @@ void lan_play_libpcap_thread(void *data)
 {
     struct lan_play *lan_play = (struct lan_play *)data;
     puts("Loop start");
-    pcap_loop(lan_play->dev, -1, (void(*)(u_char *, const struct pcap_pkthdr *, const u_char *))get_packet, (u_char*)lan_play);
+    pcap_loop(lan_play->dev, -1, (void(*)(u_char *, const struct pcap_pkthdr *, const u_char *))get_packet, (u_char*)&lan_play->packet_ctx);
 
     pcap_close(lan_play->dev);
 }

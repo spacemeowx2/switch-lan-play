@@ -38,7 +38,7 @@ struct lan_play {
     struct gateway gateway;
 };
 
-void get_packet(struct packet_ctx *arg, const struct pcap_pkthdr * pkthdr, const u_char * packet);
+int lan_play_send_packet(struct lan_play *lan_play, void *data, int size);
 int lan_client_init(struct lan_play *lan_play);
 int lan_client_send_ipv4(struct lan_play *lan_play, void *dst_ip, const void *packet, uint16_t len);
 
