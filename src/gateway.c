@@ -1,3 +1,4 @@
+#include <lwip/netif.h>
 #include "gateway.h"
 #include "helper.h"
 #include "packet.h"
@@ -5,7 +6,6 @@
 #include <base/llog.h>
 #include <math.h>
 #include <lwip/init.h>
-#include <lwip/netif.h>
 #include <lwip/ip.h>
 #include <lwip/ip_addr.h>
 #include <lwip/priv/tcp_priv.h>
@@ -20,7 +20,7 @@ struct tcp_connection {
     uv_tcp_t socket;
     int closed;
 
-    uint8_t *proxy_recv_buf;
+    const uint8_t *proxy_recv_buf;
     int proxy_recv_buf_used;
     int proxy_recv_buf_sent;
     int proxy_recv_tcp_pending;
@@ -67,7 +67,7 @@ err_t netif_output_func (struct netif *netif, struct pbuf *p, const ip4_addr_t *
         do {
             memcpy(buffer + len, p->payload, p->len);
             len += p->len;
-        } while (p = p->next);
+        } while ((p = p->next));
 
         ret = lan_play_gateway_send_packet(g_gateway_send_packet_ctx, buffer, len);
     }
@@ -127,7 +127,7 @@ int gateway_proxy_recv_send_out(tcp_connection_t *conn)
 
     err_t err;
     do {
-        int to_write = min(sndbuf, conn->proxy_recv_buf_used - conn->proxy_recv_buf_sent);
+        int to_write = LMIN(sndbuf, conn->proxy_recv_buf_used - conn->proxy_recv_buf_sent);
         err = tcp_write(pcb, conn->proxy_recv_buf + conn->proxy_recv_buf_sent, to_write, TCP_WRITE_FLAG_COPY);
         if (err != ERR_OK) {
             if (err == ERR_MEM) {
@@ -175,6 +175,8 @@ err_t client_sent_func (void *arg, struct tcp_pcb *tpcb, u16_t len)
         uv_read_start((uv_stream_t *)&conn->socket, gateway_on_alloc, gateway_on_read);
         LLOG(LLOG_DEBUG, "read restart");
     }
+
+    return ERR_OK;
 }
 
 void gateway_on_read(uv_stream_t *handle, ssize_t nread, const uv_buf_t *buf)
@@ -194,7 +196,7 @@ void gateway_on_read(uv_stream_t *handle, ssize_t nread, const uv_buf_t *buf)
     if (nread <= 0) {
         // client_free_client(conn);
     } else {
-        conn->proxy_recv_buf = buf->base;
+        conn->proxy_recv_buf = (const uint8_t *)buf->base;
         conn->proxy_recv_buf_used = nread;
 
         gateway_proxy_recv_send_out(conn);
@@ -238,7 +240,7 @@ void client_free_client (tcp_connection_t *conn)
     }
 
     // stop_uv
-    int ret = uv_read_stop(&conn->socket);
+    int ret = uv_read_stop((uv_stream_t *)&conn->socket);
     if (ret != 0) {
         LLOG(LLOG_ERROR, "uv_read_stop (%d)", ret);
     }
@@ -253,7 +255,7 @@ err_t client_recv_func (void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t e
 
     if (p) {
         uv_buf_t buf;
-        buf.base = buff;
+        buf.base = (char *)buff;
         buf.len = p->tot_len;
 
         LLOG(LLOG_DEBUG, "client_recv_func %d", p->tot_len);
@@ -265,6 +267,8 @@ err_t client_recv_func (void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t e
         LLOG(LLOG_INFO, "client closed");
         client_free_client(connection);
     }
+
+    return ERR_OK;
 }
 
 void client_err_func (void *arg, err_t err)
@@ -336,14 +340,10 @@ void gateway_event_thread(void *data)
     LLOG(LLOG_DEBUG, "uv_loop_close");
 }
 
-int gateway_send_udp()
-{
-
-}
-
 int gateway_init(struct gateway *gateway, struct packet_ctx *packet_ctx)
 {
-    struct netif *the_netif = &gateway->netif;
+    gateway->netif = (struct netif *)malloc(sizeof(struct netif));
+    struct netif *the_netif = gateway->netif;
     g_gateway_send_packet_ctx = packet_ctx;
     lwip_init();
 
@@ -474,7 +474,7 @@ void gateway_on_packet(struct gateway *gateway, const uint8_t *data, int data_le
         exit(1);
     }
 
-    if (gateway->netif.input(p, &gateway->netif) != ERR_OK) {
+    if (gateway->netif->input(p, gateway->netif) != ERR_OK) {
         LLOG(LLOG_WARNING, "device read: input failed");
         pbuf_free(p);
     }

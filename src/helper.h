@@ -25,6 +25,7 @@ ssize_t sendmsg(int s, const struct msghdr *msg, int flags);
 #include <arpa/inet.h>
 #include <netdb.h>
 #endif
+#define LMIN(a, b) ((a) < (b) ? (a) : (b))
 #define READ_NET8(packet, offset) (*(uint8_t*)((uint8_t*)packet + offset))
 #define READ_NET16(packet, offset) ntohs(*(uint16_t*)((uint8_t*)packet + offset))
 #define READ_NET32(packet, offset) ntohl(*(uint32_t*)((uint8_t*)packet + offset))
