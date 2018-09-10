@@ -4,7 +4,6 @@
 #include "packet.h"
 #include "ipv4/ipv4.h"
 #include <base/llog.h>
-#include <math.h>
 #include <lwip/init.h>
 #include <lwip/ip.h>
 #include <lwip/ip_addr.h>
@@ -18,6 +17,8 @@
 struct tcp_connection {
     struct tcp_pcb *pcb;
     uv_tcp_t socket;
+
+    int proxy_up;
     int closed;
 
     const uint8_t *proxy_recv_buf;
@@ -33,7 +34,7 @@ static struct packet_ctx *g_gateway_send_packet_ctx;
 struct tcp_pcb *listener;
 
 void gateway_on_read(uv_stream_t *handle, ssize_t nread, const uv_buf_t *buf);
-void client_free_client (tcp_connection_t *connection);
+void client_free_client (tcp_connection_t *conn);
 
 err_t netif_input_func(struct pbuf *p, struct netif *inp)
 {
@@ -159,7 +160,7 @@ err_t client_sent_func (void *arg, struct tcp_pcb *tpcb, u16_t len)
     uv_tcp_t* socket = &conn->socket;
 
     ASSERT(!conn->closed)
-    // ASSERT(conn->socks_up)
+    ASSERT(conn->proxy_up)
     ASSERT(len > 0)
     ASSERT(len <= conn->proxy_recv_tcp_pending)
 
@@ -205,6 +206,7 @@ void gateway_on_read(uv_stream_t *handle, ssize_t nread, const uv_buf_t *buf)
 
 void gateway_on_connect(uv_connect_t *req, int status)
 {
+    tcp_connection_t *conn = req->handle->data;
     if (status < 0) {
         fprintf(stderr, "connect failed error %s\n", uv_err_name(status));
         free(req);
@@ -213,7 +215,7 @@ void gateway_on_connect(uv_connect_t *req, int status)
 
     LLOG(LLOG_DEBUG, "on_connect");
 
-    tcp_connection_t *conn = req->handle->data;
+    conn->proxy_up = 1;
     conn->proxy_recv_buf = NULL;
     conn->proxy_recv_buf_used = 0;
     conn->proxy_recv_buf_sent = 0;
@@ -248,8 +250,8 @@ void client_free_client (tcp_connection_t *conn)
 
 err_t client_recv_func (void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t err)
 {
-    tcp_connection_t *connection = arg;
-    uv_tcp_t* socket = &connection->socket;
+    tcp_connection_t *conn = arg;
+    uv_tcp_t* socket = &conn->socket;
     uv_write_t *req = (uv_write_t*)malloc(sizeof(uv_write_t));
     uint8_t *buff = malloc(2048);
 
@@ -265,7 +267,7 @@ err_t client_recv_func (void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t e
         uv_write(req, (uv_stream_t *)socket, &buf, 1, gateway_write_cb);
     } else {
         LLOG(LLOG_INFO, "client closed");
-        client_free_client(connection);
+        client_free_client(conn);
     }
 
     return ERR_OK;
@@ -273,7 +275,7 @@ err_t client_recv_func (void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t e
 
 void client_err_func (void *arg, err_t err)
 {
-    tcp_connection_t *connection = arg;
+    tcp_connection_t *conn = arg;
 
     LLOG(LLOG_INFO, "client err %d", (int)err);
 }
@@ -299,16 +301,16 @@ err_t listener_accept_func (void *arg, struct tcp_pcb *newpcb, err_t err)
     dest.sin_addr = *((struct in_addr *)local_addr);
     dest.sin_port = htons(newpcb->local_port);
 
-    tcp_connection_t *connection = (tcp_connection_t *)malloc(sizeof(tcp_connection_t));
-    uv_tcp_t* socket = &connection->socket;
+    tcp_connection_t *conn = (tcp_connection_t *)malloc(sizeof(tcp_connection_t));
+    uv_tcp_t* socket = &conn->socket;
     uv_connect_t* connect = (uv_connect_t*)malloc(sizeof(uv_connect_t));
     uv_tcp_init(loop, socket);
 
-    connection->closed = 0;
-    connection->pcb = newpcb;
-    socket->data = connection;
-    tcp_arg(newpcb, connection);
-    LLOG(LLOG_DEBUG, "socket->data %p", connection);
+    conn->proxy_up = 0;
+    conn->closed = 0;
+    conn->pcb = newpcb;
+    socket->data = conn;
+    tcp_arg(newpcb, conn);
 
     tcp_err(newpcb, client_err_func);
     tcp_recv(newpcb, client_recv_func);

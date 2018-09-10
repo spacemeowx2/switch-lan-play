@@ -28,7 +28,7 @@ void proxy_udp_recv_cb(uv_udp_t *udp, ssize_t nread, const uv_buf_t *buf, const 
     const void *from_ip = &addr_in->sin_addr;
     uint16_t from_port = ntohs(addr_in->sin_port);
 
-    part.ptr = buf->base;
+    part.ptr = (const u_char *)buf->base;
     part.len = nread;
     part.next = NULL;
 

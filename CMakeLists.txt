@@ -21,6 +21,7 @@ include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}
     lwip/custom
     lwip/src/include
+    src
 )
 add_subdirectory(lwip)
 
@@ -55,14 +56,25 @@ set(SOURCE_FILES
     src/ipv4/tcp.c
     src/ipv4/udp.c
     src/ipv4/icmp.c
+
+    src/uv_lwip.c
 )
 
-add_executable (lan-play ${SOURCE_FILES})
+add_executable(lan-play ${SOURCE_FILES})
 target_link_libraries(lan-play lwip_lib libuv.a ${PCAP_LIBRARY})
 include_directories(lan-play ${PCAP_INCLUDE_DIR})
+
+add_executable(uvl_test src/uv_lwip.c test/uv_lwip_test.c)
+target_link_libraries(uvl_test lwip_lib libuv.a ${PCAP_LIBRARY})
+
 if (WIN32)
     add_dependencies(lan-play winpcap)
     target_link_libraries(lan-play ws2_32.lib iphlpapi.lib libwinpthread.a psapi userenv.lib)
+
+    add_dependencies(uvl_test winpcap)
+    target_link_libraries(uvl_test ws2_32.lib iphlpapi.lib libwinpthread.a psapi userenv.lib)
 else()
     target_link_libraries(lan-play pthread)
+
+    target_link_libraries(uvl_test pthread)
 endif()

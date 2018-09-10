@@ -347,5 +347,5 @@ int main(int argc, char **argv)
 
     ret = uv_thread_create(&lan_play.libpcap_thread, lan_play_libpcap_thread, &lan_play);
 
-    return uv_run(&lan_play.loop, UV_RUN_DEFAULT);;
+    return uv_run(&lan_play.loop, UV_RUN_DEFAULT);
 }

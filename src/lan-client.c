@@ -95,7 +95,7 @@ void lan_client_on_recv(uv_udp_t* handle, ssize_t nread, const uv_buf_t* buf, co
 {
     struct lan_play *lan_play = (struct lan_play *)handle->data;
     uint16_t recv_len = buf->len;
-    uint8_t *buffer = buf->base;
+    uint8_t *buffer = (uint8_t *)buf->base;
 
     switch (buffer[0]) { // type
     case LAN_CLIENT_TYPE_KEEPALIVE:
