@@ -2,6 +2,7 @@
 #define _GATEWAY_H_
 
 #include <uv.h>
+#include <uv_lwip.h>
 #include "proxy.h"
 #include "packet.h"
 
@@ -14,6 +15,8 @@ struct gateway {
     uv_loop_t loop;
     uv_thread_t loop_thread;
     struct proxy proxy;
+
+    uvl_t uvl;
 };
 
 int gateway_init(struct gateway *gateway, struct packet_ctx *packet_ctx);

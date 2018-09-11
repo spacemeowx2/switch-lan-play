@@ -42,6 +42,7 @@ static uv_once_t uvl_init_once = UV_ONCE_INIT;
 #define LMIN(a, b) ( ((a) < (b)) ? (a) : (b) )
 
 static void uvl_imp_write_to_tcp(uvl_tcp_t *client);
+static int uvl_new_connection_req(uvl_t *handle);
 
 static void addr_from_lwip(void *ip, const ip_addr_t *ip_addr)
 {
@@ -111,6 +112,7 @@ static void uvl_async_tcp_read_cb(uv_async_t *req)
         } else {
             memcpy(b.base, buf->recv_buf, buf->recv_used);
             tcp_recved(client->pcb, buf->recv_used);
+            status = buf->recv_used;
             buf->recv_used = 0;
         }
     } else {
@@ -138,6 +140,8 @@ static void uvl_async_tcp_write_cb(uv_async_t *async)
 static int uvl_imp_write_buf_to_tcp(uvl_tcp_t *client, uvl_write_t *req)
 {
     const   uv_buf_t *buf = &req->send_bufs[req->sent_bufs];
+
+    if (req->sent_bufs == req->send_nbufs) goto next;
 
     do {
         int to_write = LMIN(buf->len - req->sent, tcp_sndbuf(client->pcb));
@@ -168,19 +172,21 @@ next:
 /**
  * This function will be called in pool thread
  * or called from tcp_sent's callback.
- */ 
+ */
 static void uvl_imp_write_to_tcp(uvl_tcp_t *client)
 {
     ASSERT(client->cur_write)
 
     uvl_write_t *req = client->cur_write;
-
-
-    while (req->sent_bufs == req->send_nbufs) {
+// TODO bugs here
+    while (req) {
+        if (req->sent_bufs < req->send_nbufs) {
+            break;
+        }
         req = req->next;
     }
 
-    while (req->sent_bufs < req->send_nbufs) {
+    while (req) {
         if (uvl_imp_write_buf_to_tcp(client, req)) {
             break;
         }
@@ -290,6 +296,7 @@ static err_t uvl_listener_accept_func (void *arg, struct tcp_pcb *newpcb, err_t 
     if (ret) goto fail;
     ret = uv_async_send(&req->async);
     if (ret) goto fail;
+    req->newpcb = newpcb;
 
     return ERR_OK;
 fail:
@@ -519,6 +526,11 @@ int uvl_init(uv_loop_t *loop, uvl_t *handle)
     handle->listener = NULL;
     handle->waiting_pcb = NULL;
 
+    int ret;
+
+    ret = uv_async_init(loop, &handle->listen, NULL); // TODO
+    if (ret) return ret;
+
     return uvl_init_lwip(handle);
 }
 
@@ -552,6 +564,7 @@ int uvl_input(uvl_t *handle, const uv_buf_t buf)
     input->async.data = handle;
     ret = uv_async_send(&input->async);
     if (ret) goto fail;
+    input->p = p;
 
     return 0;
 fail:
@@ -562,6 +575,7 @@ fail_malloc:
 
 int uvl_listen(uvl_t *handle, uvl_connection_cb connection_cb)
 {
+
     handle->connection_cb = connection_cb;
 
     // init listener

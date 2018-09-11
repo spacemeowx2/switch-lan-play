@@ -27,6 +27,7 @@ typedef void (*uvl_shutdown_cb)(uvl_shutdown_t *req, int status);
 typedef void (*uvl_tcp_close_cb)(uvl_tcp_t *handle);
 
 struct uvl_tcp_buf;
+struct uvl_connection_req;
 struct uvl {
     UVL_FIELDS
 
@@ -35,6 +36,7 @@ struct uvl {
     struct netif *the_netif;
     struct tcp_pcb *listener;
     struct tcp_pcb *waiting_pcb;
+    uv_async_t listen;
 };
 struct uvl_tcp {
     UVL_FIELDS
