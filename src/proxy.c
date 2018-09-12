@@ -3,6 +3,7 @@
 #include "gateway.h"
 #include "packet.h"
 #include "ipv4/ipv4.h"
+#include <assert.h>
 #include <base/llog.h>
 
 static void proxy_alloc_cb(uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf)
@@ -22,6 +23,11 @@ void proxy_udp_send_cb(uv_udp_send_t *req, int status)
 
 void proxy_udp_recv_cb(uv_udp_t *udp, ssize_t nread, const uv_buf_t *buf, const struct sockaddr *addr, unsigned int flags)
 {
+    if (nread <= 0) {
+        LLOG(LLOG_DEBUG, "proxy_udp_recv_cb nread: %d", nread);
+        return;
+    }
+
     struct proxy_udp_item *item = (struct proxy_udp_item *)udp->data;
     struct payload part;
     const struct sockaddr_in *addr_in = (const struct sockaddr_in *)addr;

@@ -1,6 +1,10 @@
 cmake_minimum_required(VERSION 3.0)
 project (SwitchLanPlay)
 
+add_compile_options(
+    "-g3" "-ggdb" "-g"
+)
+
 include(TestBigEndian)
 test_big_endian(BIG_ENDIAN)
 if (BIG_ENDIAN)

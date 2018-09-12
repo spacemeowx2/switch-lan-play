@@ -47,6 +47,9 @@ err_t netif_output_func (struct netif *netif, struct pbuf *p, const ip4_addr_t *
     } else {
         int len = 0;
         do {
+            if (len + p->len > GATEWAY_BUFFER_SIZE) {
+                return ERR_IF;
+            }
             memcpy(buffer + len, p->payload, p->len);
             len += p->len;
         } while ((p = p->next));
@@ -143,10 +146,12 @@ void gateway_event_thread(void *data)
     LLOG(LLOG_DEBUG, "uv_loop_close");
 }
 
-
-void write_cb()
+void write_cb(uvl_write_t *req, int status)
 {
     puts("write_cb");
+
+    free(req->data);
+    free(req);
 }
 
 void read_cb(uvl_tcp_t *handle, ssize_t nread, const uv_buf_t *buf)
@@ -158,13 +163,14 @@ void read_cb(uvl_tcp_t *handle, ssize_t nread, const uv_buf_t *buf)
     puts(p);
 
     uvl_write_t *req = malloc(sizeof(uvl_write_t));
-    uv_buf_t b;
+    uv_buf_t *b = malloc(sizeof(uv_buf_t));
 
     char resp[] = "HTTP/1.1 200 OK\r\nContent-Length: 2\r\nX-Organization: Nintendo\r\n\r\nok";
-    b.base = resp;
-    b.len = strlen(resp);
+    b->base = resp;
+    b->len = strlen(resp);
+    req->data = b;
 
-    uvl_write(req, handle, &b, 1, write_cb);
+    uvl_write(req, handle, b, 1, write_cb);
 }
 
 void alloc_cb(uvl_tcp_t *handle, size_t suggested_size, uv_buf_t* buf)
@@ -190,8 +196,8 @@ int gateway_uvl_output(uvl_t *handle, const uv_buf_t bufs[], unsigned int nbufs)
 {
     uint8_t buffer[8192];
     uint8_t *buf = buffer;
-    uint32_t len;
-    
+    uint32_t len = 0;
+
     for (int i = 0; i < nbufs; i++) {
         memcpy(buf, bufs[i].base, bufs[i].len);
         buf += bufs[i].len;
@@ -271,7 +277,7 @@ void gateway_on_packet(struct gateway *gateway, const uint8_t *data, int data_le
 
     uv_buf_t b;
 
-    b.base = data;
+    b.base = (char *)data;
     b.len = data_len;
 
     uvl_input(&gateway->uvl, b);

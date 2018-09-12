@@ -58,16 +58,33 @@ static void client_abort_client(uvl_tcp_t *client){
     //
 }
 
+static void uvl_async_input_close_cb(uv_handle_t *handle)
+{
+    uv_async_t *req = (uv_async_t *)handle;
+    struct uvl_input_req *ipt_req = CONTAINER_OF(req, struct uvl_input_req, async);
+
+    free(ipt_req);
+}
 // make netif->input run in loop thread
 static void uvl_async_input_cb(uv_async_t *req)
 {
-    struct uvl_input_req *conn_req = CONTAINER_OF(req, struct uvl_input_req, async);
+    struct uvl_input_req *ipt_req = CONTAINER_OF(req, struct uvl_input_req, async);
     uvl_t *handle = (uvl_t *)req->data;
+    ASSERT(handle->the_netif)
+    ASSERT(ipt_req->p)
 
-    if (handle->the_netif->input(conn_req->p, handle->the_netif) != ERR_OK) {
+    if (handle->the_netif->input(ipt_req->p, handle->the_netif) != ERR_OK) {
         LLOG(LLOG_WARNING, "device read: input failed");
-        pbuf_free(conn_req->p);
+        pbuf_free(ipt_req->p);
     }
+
+    uv_close((uv_handle_t *)&ipt_req->async, uvl_async_input_close_cb);
+}
+
+static void uvl_async_connection_close_cb(uv_handle_t *handle)
+{
+    uv_async_t *req = (uv_async_t *)handle;
+    struct uvl_connection_req *conn_req = CONTAINER_OF(req, struct uvl_connection_req, async);
 
     free(conn_req);
 }
@@ -90,7 +107,7 @@ static void uvl_async_connection_cb(uv_async_t *req)
         handle->waiting_pcb = NULL;
     }
 
-    free(conn_req);
+    uv_close((uv_handle_t *)req, uvl_async_connection_close_cb);
 }
 
 static void uvl_async_tcp_read_cb(uv_async_t *req)
@@ -129,19 +146,17 @@ static void uvl_async_tcp_read_cb(uv_async_t *req)
 }
 
 // TODO: complete this function
-static void uvl_async_tcp_write_cb(uv_async_t *async)
+static void uvl_async_tcp_write_cb(uv_async_t *write_req)
 {
-    uvl_write_t *req = (uvl_write_t *)async->data;
-    uvl_tcp_t *client = req->client;
+    uvl_tcp_t *client = (uvl_tcp_t *)write_req->data;
 
     uvl_imp_write_to_tcp(client);
 }
 
 static int uvl_imp_write_buf_to_tcp(uvl_tcp_t *client, uvl_write_t *req)
 {
-    const   uv_buf_t *buf = &req->send_bufs[req->sent_bufs];
-
-    if (req->sent_bufs == req->send_nbufs) goto next;
+    LLOG(LLOG_DEBUG, "write_buf_to_tcp %d / %d", req->sent_bufs, req->send_nbufs);
+    const uv_buf_t *buf = &req->send_bufs[req->sent_bufs];
 
     do {
         int to_write = LMIN(buf->len - req->sent, tcp_sndbuf(client->pcb));
@@ -166,7 +181,7 @@ static int uvl_imp_write_buf_to_tcp(uvl_tcp_t *client, uvl_write_t *req)
 next:
     req->sent = 0;
     req->sent_bufs++;
-    return 0;
+    return 1;
 }
 
 /**
@@ -176,9 +191,10 @@ next:
 static void uvl_imp_write_to_tcp(uvl_tcp_t *client)
 {
     ASSERT(client->cur_write)
+    ASSERT(client->pcb)
 
     uvl_write_t *req = client->cur_write;
-// TODO bugs here
+
     while (req) {
         if (req->sent_bufs < req->send_nbufs) {
             break;
@@ -187,8 +203,15 @@ static void uvl_imp_write_to_tcp(uvl_tcp_t *client)
     }
 
     while (req) {
-        if (uvl_imp_write_buf_to_tcp(client, req)) {
+        int ret = uvl_imp_write_buf_to_tcp(client, req);
+        if (ret == 0) {
             break;
+        }
+        if (req->sent_bufs == req->send_nbufs) {
+            req = req->next;
+        }
+        if (ret == -1) {
+            return;
         }
     }
 
@@ -269,6 +292,11 @@ static err_t uvl_client_sent_func (void *arg, struct tcp_pcb *tpcb, u16_t len)
 
     client->cur_write = req;
 
+    int ret = uv_async_send(&client->write_req);
+    if (ret) {
+        LLOG(LLOG_ERROR, "sent_func async_send");
+    }
+
     return ERR_OK;
 }
 
@@ -289,19 +317,24 @@ static err_t uvl_listener_accept_func (void *arg, struct tcp_pcb *newpcb, err_t 
     int ret;
 
     struct uvl_connection_req *req = (struct uvl_connection_req *)malloc(sizeof(struct uvl_connection_req));
-    if (req == NULL) goto fail_malloc;
+    if (req == NULL) goto fail_abort;
 
     req->async.data = handle;
-    ret = uv_async_init(loop, &req->async, uvl_async_connection_cb);
-    if (ret) goto fail;
-    ret = uv_async_send(&req->async);
-    if (ret) goto fail;
     req->newpcb = newpcb;
 
+    ret = uv_async_init(loop, &req->async, uvl_async_connection_cb);
+    if (ret) {
+        free(req);
+        goto fail_abort;
+    }
+    ret = uv_async_send(&req->async);
+    if (ret) goto fail_close;
+
     return ERR_OK;
-fail:
-    free(req);
-fail_malloc:
+fail_close:
+    // req will be freed in close_cb
+    uv_close((uv_handle_t *)&req->async, uvl_async_connection_close_cb);
+fail_abort:
     tcp_abort(newpcb);
     return ERR_ABRT;
 }
@@ -557,19 +590,22 @@ int uvl_input(uvl_t *handle, const uv_buf_t buf)
 
     struct uvl_input_req *input = (struct uvl_input_req *)malloc(sizeof(struct uvl_input_req));
     int ret;
-    if (input == NULL) goto fail_malloc;
+    if (input == NULL) goto fail;
 
-    ret = uv_async_init(handle->loop, &input->async, uvl_async_input_cb);
-    if (ret) goto fail;
     input->async.data = handle;
-    ret = uv_async_send(&input->async);
-    if (ret) goto fail;
     input->p = p;
 
+    ret = uv_async_init(handle->loop, &input->async, uvl_async_input_cb);
+    if (ret) goto fail_free;
+    ret = uv_async_send(&input->async);
+    if (ret) goto fail_close;
+
     return 0;
-fail:
+fail_close:
+    uv_close((uv_handle_t *)&input->async, uvl_async_input_close_cb);
+fail_free:
     free(input);
-fail_malloc:
+fail:
     return -1;
 }
 

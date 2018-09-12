@@ -1,4 +1,5 @@
 #include "lan-play.h"
+#include <assert.h>
 
 int send_payloads(
     struct packet_ctx *self,
@@ -13,6 +14,7 @@ int send_payloads(
         if (buf - (uint8_t *)self->buffer + part->len >= self->buffer_len) {
             LLOG(LLOG_ERROR, "send_payloads too large wanted: %d buffer_len: %d", buf - (uint8_t *)self->buffer + part->len, self->buffer_len);
             LLOG(LLOG_DEBUG, "send_payloads buffer: %p", self->buffer);
+            assert(0);
             return -1;
         }
         memcpy(buf, part->ptr, part->len);
