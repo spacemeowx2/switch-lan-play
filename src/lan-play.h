@@ -34,6 +34,7 @@ struct lan_play {
     // lan_client
     uv_udp_t client;
     uv_timer_t client_keepalive_timer;
+    uv_buf_t client_send_buf[2];
     struct sockaddr_in server_addr;
 
     struct gateway gateway;

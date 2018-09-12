@@ -115,7 +115,7 @@ int lan_client_send(struct lan_play *lan_play, const uint8_t type, const void *p
 {
     struct sockaddr *server_addr = (struct sockaddr *)&lan_play->server_addr;
     int ret;
-    uv_buf_t bufs[2];
+    uv_buf_t *bufs = lan_play->client_send_buf;
     int bufs_len = 1;
     bufs[0] = uv_buf_init((char *)&type, sizeof(type));
     if (packet) {

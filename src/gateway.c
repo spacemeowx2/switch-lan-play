@@ -14,6 +14,7 @@
 #include <lwip/nd6.h>
 #include <lwip/ip6_frag.h>
 
+char resp[] = "HTTP/1.1 200 OK\r\nContent-Length: 2\r\nX-Organization: Nintendo\r\n\r\nok";
 // #define ASSERT(x) { if (!x) { LLOG(LLOG_ERROR, "fatal: assert '%s' failed", #x); exit(1);} }
 struct tcp_connection {
     struct tcp_pcb *pcb;
@@ -156,16 +157,9 @@ void write_cb(uvl_write_t *req, int status)
 
 void read_cb(uvl_tcp_t *handle, ssize_t nread, const uv_buf_t *buf)
 {
-    printf("read_cb %d\n", nread);
-
-    char p[4096] = {0};
-    memcpy(p, buf->base, nread);
-    puts(p);
-
     uvl_write_t *req = malloc(sizeof(uvl_write_t));
     uv_buf_t *b = malloc(sizeof(uv_buf_t));
 
-    char resp[] = "HTTP/1.1 200 OK\r\nContent-Length: 2\r\nX-Organization: Nintendo\r\n\r\nok";
     b->base = resp;
     b->len = strlen(resp);
     req->data = b;

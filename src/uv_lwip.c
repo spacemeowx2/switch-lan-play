@@ -155,7 +155,7 @@ static void uvl_async_tcp_write_cb(uv_async_t *write_req)
 
 static int uvl_imp_write_buf_to_tcp(uvl_tcp_t *client, uvl_write_t *req)
 {
-    LLOG(LLOG_DEBUG, "write_buf_to_tcp %d / %d", req->sent_bufs, req->send_nbufs);
+    // LLOG(LLOG_DEBUG, "write_buf_to_tcp %d / %d", req->sent_bufs, req->send_nbufs);
     const uv_buf_t *buf = &req->send_bufs[req->sent_bufs];
 
     do {
