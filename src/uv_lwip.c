@@ -78,7 +78,7 @@ static void uvl_async_input_cb(uv_async_t *req)
         pbuf_free(ipt_req->p);
     }
 
-    uv_close((uv_handle_t *)&ipt_req->async, uvl_async_input_close_cb);
+    uv_close((uv_handle_t *)req, uvl_async_input_close_cb);
 }
 
 static void uvl_async_connection_close_cb(uv_handle_t *handle)
@@ -164,7 +164,7 @@ static int uvl_imp_write_buf_to_tcp(uvl_tcp_t *client, uvl_write_t *req)
             goto next;
         }
 
-        err_t err = tcp_write(client->pcb, buf->base + req->sent, to_write, 0);
+        err_t err = tcp_write(client->pcb, buf->base + req->sent, to_write, TCP_WRITE_FLAG_COPY);
         if (err != ERR_OK) {
             if (err == ERR_MEM) {
                 return 0;
@@ -351,6 +351,7 @@ static err_t uvl_netif_output_func (struct netif *netif, struct pbuf *p, const i
         bufs[i].len = p->len;
         i += 1;
     } while ((p = p->next));
+    assert(i < UVL_NBUF_LEN);
 
     ret = handle->output(handle, bufs, i);
 

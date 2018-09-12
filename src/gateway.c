@@ -139,7 +139,7 @@ void gateway_on_connect(uv_connect_t *req, int status)
 void gateway_event_thread(void *data)
 {
     struct gateway *gateway = (struct gateway *)data;
-    uv_loop_t *loop = &gateway->loop;
+    uv_loop_t *loop = gateway->loop;
 
     LLOG(LLOG_DEBUG, "uv_run");
     uv_run(loop, UV_RUN_DEFAULT);
@@ -205,14 +205,15 @@ int gateway_init(struct gateway *gateway, struct packet_ctx *packet_ctx)
 {
     g_gateway_send_packet_ctx = packet_ctx;
 
-    uv_loop_init(&gateway->loop);
+    // uv_loop_init(&gateway->loop);
+    gateway->loop = packet_ctx->arg->loop;
 
-    ASSERT(uvl_init(&gateway->loop, &gateway->uvl) == 0);
+    ASSERT(uvl_init(gateway->loop, &gateway->uvl) == 0);
     ASSERT(uvl_bind(&gateway->uvl, gateway_uvl_output) == 0);
     ASSERT(uvl_listen(&gateway->uvl, on_connect) == 0);
     gateway->uvl.data = gateway;
 
-    proxy_direct_init(&gateway->proxy, &gateway->loop, packet_ctx);
+    proxy_direct_init(&gateway->proxy, gateway->loop, packet_ctx);
     uv_thread_create(&gateway->loop_thread, gateway_event_thread, gateway);
 
     return 0;

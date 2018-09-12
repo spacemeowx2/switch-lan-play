@@ -1,6 +1,7 @@
 #ifndef _LAN_PLAY_H_
 #define _LAN_PLAY_H_
 
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -27,9 +28,12 @@ struct lan_play {
     struct packet_ctx packet_ctx;
 
     bool stop;
-    uv_loop_t loop;
+    uv_loop_t *loop;
     uv_thread_t libpcap_thread;
-    uv_async_t get_packet_handle;
+    uv_async_t get_packet_async;
+    uv_sem_t get_packet_sem;
+    const struct pcap_pkthdr *pkthdr;
+    const u_char *packet;
 
     // lan_client
     uv_udp_t client;
@@ -38,6 +42,7 @@ struct lan_play {
     struct sockaddr_in server_addr;
 
     struct gateway gateway;
+    uv_loop_t real_loop;
 };
 
 int lan_play_send_packet(struct lan_play *lan_play, void *data, int size);

@@ -140,7 +140,6 @@ int lan_play_init(struct lan_play *lan_play)
 
     init_pcap(lan_play, mac);
 
-
     CPY_IPV4(ip, str2ip(SERVER_IP));
     CPY_IPV4(subnet_net, str2ip(SUBNET_NET));
     CPY_IPV4(subnet_mask, str2ip(SUBNET_MASK));
@@ -164,15 +163,6 @@ int lan_play_init(struct lan_play *lan_play)
     if (ret != 0) return ret;
 
     return 0;
-}
-
-void lan_play_libpcap_thread(void *data)
-{
-    struct lan_play *lan_play = (struct lan_play *)data;
-    puts("Loop start");
-    pcap_loop(lan_play->dev, -1, (void(*)(u_char *, const struct pcap_pkthdr *, const u_char *))get_packet, (u_char*)&lan_play->packet_ctx);
-
-    pcap_close(lan_play->dev);
 }
 
 int parse_arguments(int argc, char **argv)
@@ -287,6 +277,38 @@ void print_version()
     printf("switch-lan-play v0.0.0\n");
 }
 
+void lan_play_get_packet(u_char *arg, const struct pcap_pkthdr *hdr, const u_char *packet)
+{
+    struct lan_play *lan_play = (struct lan_play *)arg;
+
+    lan_play->pkthdr = hdr;
+    lan_play->packet = packet;
+
+    if (uv_async_send(&lan_play->get_packet_async)) {
+        LLOG(LLOG_WARNING, "lan_play_get_packet uv_async_send");
+    }
+
+    uv_sem_wait(&lan_play->get_packet_sem);
+}
+
+void lan_play_libpcap_thread(void *data)
+{
+    struct lan_play *lan_play = (struct lan_play *)data;
+    puts("Loop start");
+    pcap_loop(lan_play->dev, -1, lan_play_get_packet, (u_char*)lan_play);
+
+    pcap_close(lan_play->dev);
+}
+
+void lan_play_get_packet_async_cb(uv_async_t *async)
+{
+    struct lan_play *lan_play = (struct lan_play *)async->data;
+
+    get_packet(&lan_play->packet_ctx, lan_play->pkthdr, lan_play->packet);
+
+    uv_sem_post(&lan_play->get_packet_sem);
+}
+
 int lan_play_gateway_send_packet(struct packet_ctx *packet_ctx, const void *data, uint16_t len)
 {
     struct payload part;
@@ -315,6 +337,8 @@ int main(int argc, char **argv)
     struct lan_play lan_play;
     int ret;
 
+    lan_play.loop = &lan_play.real_loop;
+
     if (parse_arguments(argc, argv) != 0) {
         LLOG(LLOG_ERROR, "Failed to parse arguments");
         print_help(argv[0]);
@@ -342,10 +366,14 @@ int main(int argc, char **argv)
         return -1;
     }
 
-    ret = uv_loop_init(&lan_play.loop);
-    ret = lan_play_init(&lan_play);
+    assert(uv_loop_init(lan_play.loop) == 0);
+    assert(uv_async_init(lan_play.loop, &lan_play.get_packet_async, lan_play_get_packet_async_cb) == 0);
+    assert(uv_sem_init(&lan_play.get_packet_sem, 0) == 0);
+    lan_play.get_packet_async.data = &lan_play;
+
+    assert(lan_play_init(&lan_play) == 0);
 
     ret = uv_thread_create(&lan_play.libpcap_thread, lan_play_libpcap_thread, &lan_play);
 
-    return uv_run(&lan_play.loop, UV_RUN_DEFAULT);
+    return uv_run(lan_play.loop, UV_RUN_DEFAULT);
 }

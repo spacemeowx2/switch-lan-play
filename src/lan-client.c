@@ -21,7 +21,7 @@ static void lan_client_alloc_cb(uv_handle_t* handle, size_t suggested_size, uv_b
 int lan_client_init(struct lan_play *lan_play)
 {
     int ret;
-    uv_loop_t *loop = &lan_play->loop;
+    uv_loop_t *loop = lan_play->loop;
     uv_udp_t *client = &lan_play->client;
     uv_timer_t *timer = &lan_play->client_keepalive_timer;
 
