@@ -36,7 +36,8 @@ struct uvl {
     struct netif *the_netif;
     struct tcp_pcb *listener;
     struct tcp_pcb *waiting_pcb;
-    uv_async_t listen;
+    uv_timer_t timer;
+    int tcp_timer_mod4;
 };
 struct uvl_tcp {
     UVL_FIELDS
@@ -55,6 +56,9 @@ struct uvl_tcp {
     struct tcp_pcb *pcb;
     struct sockaddr_in local_addr;
     struct sockaddr_in remote_addr;
+
+    uint32_t sent_bytes;
+    uint32_t recv_bytes;
 };
 struct uvl_write {
     UVL_FIELDS
@@ -64,6 +68,7 @@ struct uvl_write {
     uint32_t sent_bufs;
     uint32_t sent;
     uint32_t pending;
+    uint32_t total_sent;
     uint32_t total_len;
     uvl_write_cb write_cb;
 

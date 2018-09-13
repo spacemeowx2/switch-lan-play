@@ -14,8 +14,13 @@
 #include <lwip/nd6.h>
 #include <lwip/ip6_frag.h>
 
-char resp[] = "HTTP/1.1 200 OK\r\nContent-Length: 2\r\nX-Organization: Nintendo\r\n\r\nok";
-
+#if 0
+#define malloc(size) ({ \
+    void *__ptr = malloc(size); \
+    LLOG(LLOG_DEBUG, "[malloc] %p %d", __ptr, __LINE__); \
+    __ptr; \
+})
+#endif
 typedef struct {
     uv_tcp_t dtcp;
     uvl_tcp_t stcp;
@@ -92,8 +97,10 @@ static void conn_kill(conn_t *conn)
 void p_write_cb(uv_write_t *req, int status)
 {
     conn_t *conn = req->data;
-    printf("write_cb %d\n", status);
-    // free(req);
+    if (status != 0) {
+        printf("p_write_cb %d %s\n", status, uv_strerror(status));
+    }
+    free(req);
 
     assert(uvl_read_start(&conn->stcp, alloc_cb, read_cb) == 0);
 }
@@ -101,14 +108,21 @@ void p_write_cb(uv_write_t *req, int status)
 void write_cb(uvl_write_t *req, int status)
 {
     conn_t *conn = req->data;
-    printf("write_cb %d\n", status);
-    // free(req);
+    if (status) {
+        printf("write_cb %d\n", status);
+    }
+    free(req);
 
     assert(uv_read_start((uv_stream_t *)&conn->dtcp, p_alloc_cb, p_read_cb) == 0);
 }
 
 void p_read_cb(uv_stream_t *handle, ssize_t nread, const uv_buf_t *buf)
 {
+    if (p_read_cb <= 0) {
+        LLOG(LLOG_DEBUG, "p_read_cb %d", nread);
+        printf("p_read_cb %d %s\n", nread, uv_strerror(nread));
+        return;
+    }
     conn_t *conn = handle->data;
     if (nread <= 0) {
         conn_kill(conn);
@@ -118,7 +132,8 @@ void p_read_cb(uv_stream_t *handle, ssize_t nread, const uv_buf_t *buf)
     uvl_write_t *req = malloc(sizeof(uvl_write_t) + sizeof(uv_buf_t));
     uv_buf_t *b = (uv_buf_t *)((uint8_t *)req + sizeof(*req));
 
-    *b = *buf;
+    b->base = buf->base;
+    b->len = nread;
     req->data = conn;
 
     uvl_write(req, &conn->stcp, b, 1, write_cb);
@@ -137,7 +152,8 @@ void read_cb(uvl_tcp_t *handle, ssize_t nread, const uv_buf_t *buf)
     uv_write_t *req = malloc(sizeof(uv_write_t) + sizeof(uv_buf_t));
     uv_buf_t *b = (uv_buf_t *)((uint8_t *)req + sizeof(*req));
 
-    *b = *buf;
+    b->base = buf->base;
+    b->len = nread;
     req->data = conn;
 
     uv_write(req, (uv_stream_t *)&conn->dtcp, b, 1, p_write_cb);
@@ -160,6 +176,7 @@ static void p_on_connect(uv_connect_t *req, int status)
     conn_t *conn = req->data;
     if (status) {
         conn_kill(conn);
+        return;
     }
 
     int ret;
@@ -173,7 +190,7 @@ void on_connect(uvl_t *handle, int status)
 {
     assert(status == 0);
 
-    conn_t *conn = malloc(sizeof(conn));
+    conn_t *conn = malloc(sizeof(conn_t));
     uv_connect_t *req = malloc(sizeof(uv_connect_t));
     uvl_tcp_t *client = &conn->stcp;
 
@@ -186,8 +203,11 @@ void on_connect(uvl_t *handle, int status)
 
     assert(uv_tcp_init(handle->loop, &conn->dtcp) == 0);
 
-    uv_tcp_connect(req, &conn->dtcp, (struct sockaddr *)&client->remote_addr, p_on_connect);
-    puts("accept, connect the other side");
+    printf("%p accept, connect the other side ", client);
+    PRINT_IP(&client->local_addr.sin_addr);
+    printf(" %d ", ntohs(client->local_addr.sin_port));
+    putchar('\n');
+    uv_tcp_connect(req, &conn->dtcp, (struct sockaddr *)&client->local_addr, p_on_connect);
 }
 
 int gateway_uvl_output(uvl_t *handle, const uv_buf_t bufs[], unsigned int nbufs)

@@ -10,24 +10,13 @@
 #include <lwip/ip6_frag.h>
 #include <string.h>
 
+#define _DEBUG
 #define UVL_TCP_RECV_BUF_LEN TCP_WND
 #define UVL_TCP_SEND_BUF_LEN 8192
 
 struct uvl_tcp_buf {
     uint8_t recv_buf[UVL_TCP_RECV_BUF_LEN];
     uint16_t recv_used;
-    uint8_t send_buf[UVL_TCP_RECV_BUF_LEN];
-    uint16_t send_used;
-};
-
-struct uvl_connection_req {
-    uv_async_t async;
-    struct tcp_pcb *newpcb;
-};
-
-struct uvl_input_req {
-    uv_async_t async;
-    struct pbuf *p;
 };
 
 static uv_once_t uvl_init_once = UV_ONCE_INIT;
@@ -54,56 +43,9 @@ static void client_abort_client(uvl_tcp_t *client){
     //
 }
 
-static void uvl_async_input_close_cb(uv_handle_t *handle)
+static void uvl_async_never(uv_async_t *req)
 {
-    uv_async_t *req = (uv_async_t *)handle;
-    struct uvl_input_req *ipt_req = CONTAINER_OF(req, struct uvl_input_req, async);
-
-    free(ipt_req);
-}
-// make netif->input run in loop thread
-static void uvl_async_input_cb(uv_async_t *req)
-{
-    struct uvl_input_req *ipt_req = CONTAINER_OF(req, struct uvl_input_req, async);
-    uvl_t *handle = (uvl_t *)req->data;
-    ASSERT(handle->the_netif)
-    ASSERT(ipt_req->p)
-
-    if (handle->the_netif->input(ipt_req->p, handle->the_netif) != ERR_OK) {
-        LLOG(LLOG_WARNING, "device read: input failed");
-        pbuf_free(ipt_req->p);
-    }
-
-    uv_close((uv_handle_t *)req, uvl_async_input_close_cb);
-}
-
-static void uvl_async_connection_close_cb(uv_handle_t *handle)
-{
-    uv_async_t *req = (uv_async_t *)handle;
-    struct uvl_connection_req *conn_req = CONTAINER_OF(req, struct uvl_connection_req, async);
-
-    free(conn_req);
-}
-
-static void uvl_async_connection_cb(uv_async_t *req)
-{
-    struct uvl_connection_req *conn_req = CONTAINER_OF(req, struct uvl_connection_req, async);
-    struct tcp_pcb *newpcb = conn_req->newpcb;
-    uvl_t *handle = (uvl_t *)req->data;
-
-    ASSERT(handle->waiting_pcb == NULL)
-
-    handle->waiting_pcb = newpcb;
-    handle->connection_cb(handle, 0);
-
-    // not accept?
-    if (handle->waiting_pcb != NULL) {
-        // send rst
-        tcp_abort(newpcb);
-        handle->waiting_pcb = NULL;
-    }
-
-    uv_close((uv_handle_t *)req, uvl_async_connection_close_cb);
+    ASSERT(0);
 }
 
 static void uvl_async_tcp_read_cb(uv_async_t *req)
@@ -111,23 +53,24 @@ static void uvl_async_tcp_read_cb(uv_async_t *req)
     uvl_tcp_t *client = (uvl_tcp_t *)req->data;
     struct uvl_tcp_buf *buf = client->buf;
     uv_buf_t b;
-    int status = 0;
+    int nnread = 0;
+    ASSERT(buf->recv_used < sizeof(buf->recv_buf))
 
     if (client->read_cb) {
         if (buf->recv_used > 0) {
             client->alloc_cb(client, 65536, &b);
 
             if (b.base == NULL || b.len < buf->recv_used) {
-                status = UV_ENOBUFS;
+                nnread = UV_ENOBUFS;
             } else {
+                LLOG(LLOG_DEBUG, "[-] recv_buf %d / %d", buf->recv_used, sizeof(buf->recv_buf));
                 memcpy(b.base, buf->recv_buf, buf->recv_used);
                 tcp_recved(client->pcb, buf->recv_used);
-                status = buf->recv_used;
+                nnread = buf->recv_used;
                 buf->recv_used = 0;
             }
+            client->read_cb(client, nnread, &b);
         }
-
-        client->read_cb(client, status, &b);
     }
 }
 
@@ -135,6 +78,8 @@ static void uvl_async_tcp_read_cb(uv_async_t *req)
 static void uvl_async_tcp_write_cb(uv_async_t *write_req)
 {
     uvl_tcp_t *client = (uvl_tcp_t *)write_req->data;
+
+    LLOG(LLOG_DEBUG, "%p uvl_async_tcp_write_cb", client);
 
     uvl_imp_write_to_tcp(client);
 }
@@ -147,7 +92,7 @@ static int uvl_imp_write_buf_to_tcp(uvl_tcp_t *client, uvl_write_t *req)
     do {
         int to_write = LMIN(buf->len - req->sent, tcp_sndbuf(client->pcb));
         if (to_write == 0) {
-            goto next;
+            goto may_next; // tcp_sndbuf may be 0
         }
 
         err_t err = tcp_write(client->pcb, buf->base + req->sent, to_write, TCP_WRITE_FLAG_COPY);
@@ -162,12 +107,19 @@ static int uvl_imp_write_buf_to_tcp(uvl_tcp_t *client, uvl_write_t *req)
         }
         req->sent += to_write;
         req->pending += to_write;
+        req->total_sent += to_write;
+        client->recv_bytes += to_write;
     } while (req->sent < buf->len);
 
-next:
-    req->sent = 0;
-    req->sent_bufs++;
-    return 1;
+may_next:
+    // LLOG(LLOG_DEBUG, "go next buf: %d/%d, total: %d/%d, sndbuf: %d", req->sent, buf->len, req->total_sent, req->total_len, tcp_sndbuf(client->pcb));
+    if (tcp_sndbuf(client->pcb) == 0) {
+        return 0;
+    } else {
+        req->sent = 0;
+        req->sent_bufs++;
+        return 1;
+    }
 }
 
 /**
@@ -181,23 +133,39 @@ static void uvl_imp_write_to_tcp(uvl_tcp_t *client)
 
     uvl_write_t *req = client->cur_write;
 
+#ifdef _DEBUG
+    int total = 0;
+    int i = 1;
+
     while (req) {
+        req = req->next;
+        total++;
+    }
+    req = client->cur_write;
+#endif
+
+    while (req) {
+        // LLOG(LLOG_DEBUG, "fuck %d / %d", req->sent_bufs, req->send_nbufs);
         if (req->sent_bufs < req->send_nbufs) {
             break;
         }
         req = req->next;
+        i++;
     }
 
+    LLOG(LLOG_DEBUG, "%p block %d / %d", client, i, total);
     while (req) {
+        LLOG(LLOG_DEBUG, "%p block %d / %d", client, i, total);
         int ret = uvl_imp_write_buf_to_tcp(client, req);
         if (ret == 0) {
             break;
         }
-        if (req->sent_bufs == req->send_nbufs) {
-            req = req->next;
-        }
         if (ret == -1) {
             return;
+        }
+        if (req->sent_bufs == req->send_nbufs) {
+            req = req->next;
+            i++;
         }
     }
 
@@ -207,6 +175,20 @@ static void uvl_imp_write_to_tcp(uvl_tcp_t *client)
 
         client_abort_client(client);
         return;
+    }
+}
+
+static void uvl_client_freed(uvl_tcp_t *client)
+{
+    LLOG(LLOG_DEBUG, "%p uvl_client_freed", client);
+
+    client->pcb = NULL;
+    client->closed = 1;
+
+    if (client->read_cb) {
+        uv_buf_t null_buf = uv_buf_init(NULL, 0);
+        client->read_cb(client, UV_EOF, &null_buf);
+        client->read_cb = NULL;
     }
 }
 
@@ -223,22 +205,10 @@ static err_t uvl_client_abort (uvl_tcp_t *client)
 
     // abort
     tcp_abort(client->pcb);
-    client->pcb = NULL;
+
+    uvl_client_freed(client);
 
     return ERR_ABRT;
-}
-
-static void uvl_client_freed(uvl_tcp_t *client)
-{
-    LLOG(LLOG_DEBUG, "uvl_client_freed");
-
-    client->closed = 1;
-
-    if (client->read_cb) {
-        uv_buf_t null_buf = uv_buf_init(NULL, 0);
-        client->read_cb(client, UV_EOF, &null_buf);
-        client->read_cb = NULL;
-    }
 }
 
 static err_t uvl_client_close_func (uvl_tcp_t *client)
@@ -248,13 +218,11 @@ static err_t uvl_client_close_func (uvl_tcp_t *client)
     err_t err = tcp_close(client->pcb);
 
     if (err == ERR_OK) {
-        client->pcb = NULL;
+        uvl_client_freed(client);
     } else {
         LLOG(LLOG_ERROR, "tcp_close failed (%d)", err);
         err = uvl_client_abort(client);
     }
-
-    uvl_client_freed(client);
 
     return err;
 }
@@ -275,12 +243,17 @@ static err_t uvl_client_recv_func (void *arg, struct tcp_pcb *tpcb, struct pbuf 
 
         struct uvl_tcp_buf *buf = client->buf;
 
-        if (p->tot_len > sizeof(buf->recv_buf) - buf->recv_used) {
-            LLOG(LLOG_ERROR, "no buffer for data !?!");
+        if (p->tot_len > (sizeof(buf->recv_buf) - buf->recv_used)) {
+            LLOG(LLOG_ERROR, "no buffer for data !?! %d, %d / %d, remain %d",
+                p->tot_len,
+                buf->recv_used,
+                sizeof(buf->recv_buf),
+                (sizeof(buf->recv_buf) - buf->recv_used));
 
-            return ERR_MEM;
+            return uvl_client_abort(client);
         }
 
+        LLOG(LLOG_DEBUG, "[+] recv_buf %d + %d / %d", buf->recv_used, p->tot_len, sizeof(buf->recv_buf));
         ASSERT(pbuf_copy_partial(p, buf->recv_buf + buf->recv_used, p->tot_len, 0) == p->tot_len)
         buf->recv_used += p->tot_len;
 
@@ -297,8 +270,20 @@ static err_t uvl_client_sent_func (void *arg, struct tcp_pcb *tpcb, u16_t len)
     uvl_tcp_t *client = (uvl_tcp_t *)arg;
     uvl_write_t *req = client->cur_write;
 
+#ifdef _DEBUG
+    int total = 0;
+    int pre_total = 0;
+    while (req) {
+        req = req->next;
+        pre_total++;
+    }
+    req = client->cur_write;
+#endif
+
     ASSERT(!client->closed)
     ASSERT(len > 0)
+
+    client->sent_bytes += len;
 
     while (len > 0) {
         int to_sub = LMIN(req->pending, len);
@@ -309,7 +294,7 @@ static err_t uvl_client_sent_func (void *arg, struct tcp_pcb *tpcb, u16_t len)
 
     req = client->cur_write;
 
-    while (req->sent == req->total_len && req->pending == 0) {
+    while (req && (req->total_sent == req->total_len) && (req->pending == 0)) {
         // should call the callback
         req->write_cb(req, 0);
 
@@ -318,11 +303,32 @@ static err_t uvl_client_sent_func (void *arg, struct tcp_pcb *tpcb, u16_t len)
 
     client->cur_write = req;
 
-    LLOG(LLOG_DEBUG, "uvl_client_sent_func uv_async_send");
-    int ret = uv_async_send(&client->write_req);
-    if (ret) {
-        LLOG(LLOG_ERROR, "sent_func async_send");
+    if (client->cur_write == NULL) {
+        client->tail_write = NULL;
+        LLOG(LLOG_DEBUG, "%p uvl_client_sent_func cur_write null", client);
+    } else {
+        LLOG(LLOG_DEBUG, "%p uvl_client_sent_func uv_async_send", client);
+        int ret = uv_async_send(&client->write_req);
+        if (ret) {
+            LLOG(LLOG_ERROR, "sent_func async_send");
+        }
     }
+
+#ifdef _DEBUG
+    while (req) {
+        req = req->next;
+        total++;
+    }
+    req = client->cur_write;
+    LLOG(LLOG_DEBUG, "%p consume block len: %d -> %d. TS: %d RS: %d", client, pre_total, total, client->sent_bytes, client->recv_bytes);
+
+    int i = 1;
+    while (req) {
+        LLOG(LLOG_DEBUG, "[%d] total: %d/%d pending: %d", i, req->total_sent, req->total_len, req->pending);
+
+        req = req->next;
+    }
+#endif
 
     return ERR_OK;
 }
@@ -347,24 +353,17 @@ static err_t uvl_listener_accept_func (void *arg, struct tcp_pcb *newpcb, err_t 
     uv_loop_t *loop = handle->loop;
     int ret;
 
-    struct uvl_connection_req *req = (struct uvl_connection_req *)malloc(sizeof(struct uvl_connection_req));
-    if (req == NULL) goto fail_abort;
+    handle->waiting_pcb = newpcb;
+    handle->connection_cb(handle, 0);
 
-    req->async.data = handle;
-    req->newpcb = newpcb;
-
-    ret = uv_async_init(loop, &req->async, uvl_async_connection_cb);
-    if (ret) {
-        free(req);
-        goto fail_abort;
+    // not accept?
+    if (handle->waiting_pcb != NULL) {
+        // send rst
+        tcp_abort(newpcb);
+        handle->waiting_pcb = NULL;
     }
-    ret = uv_async_send(&req->async);
-    if (ret) goto fail_close;
 
     return ERR_OK;
-fail_close:
-    // req will be freed in close_cb
-    uv_close((uv_handle_t *)&req->async, uvl_async_connection_close_cb);
 fail_abort:
     tcp_abort(newpcb);
     return ERR_ABRT;
@@ -470,6 +469,7 @@ int uvl_write(uvl_write_t *req, uvl_tcp_t *client, const uv_buf_t bufs[], unsign
     req->sent = 0;
     req->pending = 0;
     req->sent_bufs = 0;
+    req->total_sent = 0;
     req->total_len = 0;
     req->write_cb = cb;
 
@@ -515,6 +515,9 @@ int uvl_accept(uvl_t *handle, uvl_tcp_t *client)
     client->remote_addr.sin_addr = *((struct in_addr *)remote_addr);
     client->remote_addr.sin_port = htons(newpcb->remote_port);
 
+    client->sent_bytes = 0;
+    client->recv_bytes = 0;
+
     tcp_arg(newpcb, client);
 
     tcp_err(newpcb, uvl_client_err_func);
@@ -556,6 +559,8 @@ static int uvl_init_lwip(uvl_t *handle)
         goto fail;
     }
 
+    // the_netif->mtu = 200;
+
     // set netif up
     netif_set_up(the_netif);
 
@@ -584,11 +589,12 @@ int uvl_tcp_init(uv_loop_t *loop, uvl_tcp_t *client)
     client->close_cb = NULL;
     client->buf = (struct uvl_tcp_buf *)malloc(sizeof(struct uvl_tcp_buf));
     client->buf->recv_used = 0;
-    client->buf->send_used = 0;
     client->cur_write = NULL;
     client->tail_write = NULL;
     client->pcb = NULL;
     client->closed = 0;
+
+    LLOG(LLOG_DEBUG, "buffer size %d", sizeof(client->buf->recv_buf));
 
     ret = uv_async_init(loop, &client->read_req, uvl_async_tcp_read_cb);
     if (ret) return ret;
@@ -617,6 +623,31 @@ int uvl_tcp_close(uvl_tcp_t *client, uvl_tcp_close_cb close_cb)
     return 0;
 }
 
+static void uvl_timer(uv_timer_t *timer)
+{
+    uvl_t *handle = timer->data;
+
+    handle->tcp_timer_mod4 = (handle->tcp_timer_mod4 + 1) % 4;
+    tcp_tmr();
+
+    if (handle->tcp_timer_mod4 == 0) {
+#if IP_REASSEMBLY
+        ASSERT(IP_TMR_INTERVAL == 4 * TCP_TMR_INTERVAL)
+        ip_reass_tmr();
+#endif
+
+#if LWIP_IPV6
+        ASSERT(ND6_TMR_INTERVAL == 4 * TCP_TMR_INTERVAL)
+        nd6_tmr();
+#endif
+
+#if LWIP_IPV6 && LWIP_IPV6_REASS
+        ASSERT(IP6_REASS_TMR_INTERVAL == 4 * TCP_TMR_INTERVAL)
+        ip6_reass_tmr();
+#endif
+    }
+}
+
 int uvl_init(uv_loop_t *loop, uvl_t *handle)
 {
     handle->loop = loop;
@@ -628,7 +659,10 @@ int uvl_init(uv_loop_t *loop, uvl_t *handle)
 
     int ret;
 
-    ret = uv_async_init(loop, &handle->listen, NULL); // TODO
+    ret = uv_timer_init(loop, &handle->timer);
+    if (ret) return ret;
+    handle->timer.data = handle;
+    ret = uv_timer_start(&handle->timer, uvl_timer, 0, 250);
     if (ret) return ret;
 
     return uvl_init_lwip(handle);
@@ -655,23 +689,12 @@ int uvl_input(uvl_t *handle, const uv_buf_t buf)
         return -1;
     }
 
-    struct uvl_input_req *input = (struct uvl_input_req *)malloc(sizeof(struct uvl_input_req));
-    int ret;
-    if (input == NULL) goto fail;
-
-    input->async.data = handle;
-    input->p = p;
-
-    ret = uv_async_init(handle->loop, &input->async, uvl_async_input_cb);
-    if (ret) goto fail_free;
-    ret = uv_async_send(&input->async);
-    if (ret) goto fail_close;
+    if (handle->the_netif->input(p, handle->the_netif) != ERR_OK) {
+        LLOG(LLOG_WARNING, "device read: input failed");
+        pbuf_free(p);
+    }
 
     return 0;
-fail_close:
-    uv_close((uv_handle_t *)&input->async, uvl_async_input_close_cb);
-fail_free:
-    free(input);
 fail:
     return -1;
 }
