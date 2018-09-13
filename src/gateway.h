@@ -4,7 +4,6 @@
 #include <uv.h>
 #include <uv_lwip.h>
 #include "proxy.h"
-#include "packet.h"
 
 #define GATEWAY_BUFFER_SIZE 2000
 #define GATEWAY_PROXY_RECV_BUF_SIZE 8192

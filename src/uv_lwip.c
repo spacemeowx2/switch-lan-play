@@ -112,24 +112,21 @@ static void uvl_async_tcp_read_cb(uv_async_t *req)
     struct uvl_tcp_buf *buf = client->buf;
     uv_buf_t b;
     int status = 0;
-    int call_cb = 1;
 
-    if (client->read_cb && buf->recv_used > 0) {
-        client->alloc_cb(client, 65536, &b);
+    if (client->read_cb) {
+        if (buf->recv_used > 0) {
+            client->alloc_cb(client, 65536, &b);
 
-        if (b.base == NULL || b.len < buf->recv_used) {
-            status = UV_ENOBUFS;
-        } else {
-            memcpy(b.base, buf->recv_buf, buf->recv_used);
-            tcp_recved(client->pcb, buf->recv_used);
-            status = buf->recv_used;
-            buf->recv_used = 0;
+            if (b.base == NULL || b.len < buf->recv_used) {
+                status = UV_ENOBUFS;
+            } else {
+                memcpy(b.base, buf->recv_buf, buf->recv_used);
+                tcp_recved(client->pcb, buf->recv_used);
+                status = buf->recv_used;
+                buf->recv_used = 0;
+            }
         }
-    } else {
-        call_cb = 0;
-    }
 
-    if (call_cb) {
         client->read_cb(client, status, &b);
     }
 }
@@ -432,10 +429,20 @@ int uvl_read_start(uvl_tcp_t *client, uvl_alloc_cb alloc_cb, uvl_read_cb read_cb
         return UV_EALREADY;
     }
 
-    client->alloc_cb = alloc_cb;
-    client->read_cb = read_cb;
+    if (client->closed) {
+        uv_buf_t null_buf = uv_buf_init(NULL, 0);
+        read_cb(client, UV_EOF, &null_buf);
+        return 0;
+    }
 
-    return uv_async_send(&client->read_req);
+    int err = uv_async_send(&client->read_req);
+
+    if (!err) {
+        client->alloc_cb = alloc_cb;
+        client->read_cb = read_cb;
+    }
+
+    return err;
 }
 
 int uvl_read_stop(uvl_tcp_t *client)
@@ -599,7 +606,7 @@ int uvl_tcp_init(uv_loop_t *loop, uvl_tcp_t *client)
 
 int uvl_tcp_close(uvl_tcp_t *client, uvl_tcp_close_cb close_cb)
 {
-    ASSERT(client->close_cb == NULL)
+    // ASSERT(client->close_cb == NULL)
 
     if (!client->closed) {
         uvl_client_close_func(client);
@@ -671,7 +678,6 @@ fail:
 
 int uvl_listen(uvl_t *handle, uvl_connection_cb connection_cb)
 {
-
     handle->connection_cb = connection_cb;
 
     // init listener

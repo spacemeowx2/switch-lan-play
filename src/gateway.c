@@ -16,27 +16,25 @@
 
 char resp[] = "HTTP/1.1 200 OK\r\nContent-Length: 2\r\nX-Organization: Nintendo\r\n\r\nok";
 
-struct tcp_connection {
-    struct tcp_pcb *pcb;
-    uv_tcp_t socket;
-
-    int proxy_up;
-    int closed;
-
-    const uint8_t *proxy_recv_buf;
-    int proxy_recv_buf_used;
-    int proxy_recv_buf_sent;
-    int proxy_recv_tcp_pending;
-};
-typedef struct tcp_connection tcp_connection_t;
-
+typedef struct {
+    uv_tcp_t dtcp;
+    uvl_tcp_t stcp;
+} conn_t;
 static struct packet_ctx *g_gateway_send_packet_ctx;
 
 // lwip TCP listener
 struct tcp_pcb *listener;
 
 void gateway_on_read(uv_stream_t *handle, ssize_t nread, const uv_buf_t *buf);
-void client_free_client (tcp_connection_t *conn);
+void close_cb(uvl_tcp_t *client);
+void p_close_cb(uv_handle_t *handle);
+static void conn_kill(conn_t *conn);
+void p_write_cb(uv_write_t *req, int status);
+void write_cb(uvl_write_t *req, int status);
+void p_read_cb(uv_stream_t *handle, ssize_t nread, const uv_buf_t *buf);
+void read_cb(uvl_tcp_t *handle, ssize_t nread, const uv_buf_t *buf);
+void p_alloc_cb(uv_handle_t *handle, size_t suggested_size, uv_buf_t* buf);
+void alloc_cb(uvl_tcp_t *handle, size_t suggested_size, uv_buf_t* buf);
 
 err_t netif_output_func (struct netif *netif, struct pbuf *p, const ip4_addr_t *ipaddr)
 {
@@ -75,97 +73,80 @@ void addr_from_lwip(void *ip, const ip_addr_t *ip_addr)
     }
 }
 
-void gateway_on_alloc(uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf)
-{
-    buf->base = malloc(suggested_size);
-    buf->len = suggested_size;
-    LLOG(LLOG_DEBUG, "gateway_on_alloc %p %d", handle, suggested_size);
-}
-
-void gateway_write_cb(uv_write_t* req, int status)
-{
-    if (status < 0) {
-        LLOG(LLOG_ERROR, "gateway_write_cb %d", status);
-    }
-    free(req->data);
-    free(req);
-}
-
-void gateway_on_read(uv_stream_t *handle, ssize_t nread, const uv_buf_t *buf)
-{
-    tcp_connection_t *conn = (tcp_connection_t *)handle->data;
-    ASSERT(conn->proxy_recv_buf == NULL)
-    ASSERT(!conn->closed)
-    ASSERT(conn->proxy_recv_buf_used == 0)
-    ASSERT(conn->proxy_recv_buf_sent == 0)
-
-    uv_read_stop(handle);
-    LLOG(LLOG_DEBUG, "read stop");
-
-    LLOG(LLOG_DEBUG, "gateway_on_read %d", nread);
-    LLOG(LLOG_DEBUG, "conn %p", handle->data);
-
-    if (nread <= 0) {
-        // client_free_client(conn);
-    } else {
-        conn->proxy_recv_buf = (const uint8_t *)buf->base;
-        conn->proxy_recv_buf_used = nread;
-
-        // gateway_proxy_recv_send_out(conn);
-    }
-}
-
-void gateway_on_connect(uv_connect_t *req, int status)
-{
-    tcp_connection_t *conn = req->handle->data;
-    if (status < 0) {
-        fprintf(stderr, "connect failed error %s\n", uv_err_name(status));
-        free(req);
-        return;
-    }
-
-    LLOG(LLOG_DEBUG, "on_connect");
-
-    conn->proxy_up = 1;
-    conn->proxy_recv_buf = NULL;
-    conn->proxy_recv_buf_used = 0;
-    conn->proxy_recv_buf_sent = 0;
-    conn->proxy_recv_tcp_pending = 0;
-
-    uv_read_start(req->handle, gateway_on_alloc, gateway_on_read);
-    free(req);
-}
-
 void close_cb(uvl_tcp_t *client)
 {
     puts("close_cb");
 }
+void p_close_cb(uv_handle_t *handle)
+{
+    puts("p_close_cb");
+}
+
+static void conn_kill(conn_t *conn)
+{
+    assert(conn);
+    // uvl_tcp_close(&conn->stcp, close_cb);
+    // uv_close((uv_handle_t *)&conn->dtcp, p_close_cb);
+}
+
+void p_write_cb(uv_write_t *req, int status)
+{
+    conn_t *conn = req->data;
+    printf("write_cb %d\n", status);
+    // free(req);
+
+    assert(uvl_read_start(&conn->stcp, alloc_cb, read_cb) == 0);
+}
 
 void write_cb(uvl_write_t *req, int status)
 {
+    conn_t *conn = req->data;
     printf("write_cb %d\n", status);
+    // free(req);
 
-    assert(uvl_tcp_close(req->client, close_cb) == 0);
+    assert(uv_read_start((uv_stream_t *)&conn->dtcp, p_alloc_cb, p_read_cb) == 0);
+}
 
-    free(req->data);
-    free(req);
+void p_read_cb(uv_stream_t *handle, ssize_t nread, const uv_buf_t *buf)
+{
+    conn_t *conn = handle->data;
+    if (nread <= 0) {
+        conn_kill(conn);
+        return;
+    }
+
+    uvl_write_t *req = malloc(sizeof(uvl_write_t) + sizeof(uv_buf_t));
+    uv_buf_t *b = (uv_buf_t *)((uint8_t *)req + sizeof(*req));
+
+    *b = *buf;
+    req->data = conn;
+
+    uvl_write(req, &conn->stcp, b, 1, write_cb);
 }
 
 void read_cb(uvl_tcp_t *handle, ssize_t nread, const uv_buf_t *buf)
 {
     LLOG(LLOG_DEBUG, "read_cb %d", nread);
+    conn_t *conn = handle->data;
     if (nread <= 0) {
-        uvl_tcp_close(handle, close_cb);
+        conn_kill(conn);
         return;
     }
-    uvl_write_t *req = malloc(sizeof(uvl_write_t));
-    uv_buf_t *b = malloc(sizeof(uv_buf_t));
+    uvl_read_stop(handle);
 
-    b->base = resp;
-    b->len = strlen(resp);
-    req->data = b;
+    uv_write_t *req = malloc(sizeof(uv_write_t) + sizeof(uv_buf_t));
+    uv_buf_t *b = (uv_buf_t *)((uint8_t *)req + sizeof(*req));
 
-    uvl_write(req, handle, b, 1, write_cb);
+    *b = *buf;
+    req->data = conn;
+
+    uv_write(req, (uv_stream_t *)&conn->dtcp, b, 1, p_write_cb);
+}
+
+void p_alloc_cb(uv_handle_t *handle, size_t suggested_size, uv_buf_t* buf)
+{
+    buf->base = malloc(suggested_size);
+    buf->len = suggested_size;
 }
 
 void alloc_cb(uvl_tcp_t *handle, size_t suggested_size, uv_buf_t* buf)
@@ -174,17 +155,39 @@ void alloc_cb(uvl_tcp_t *handle, size_t suggested_size, uv_buf_t* buf)
     buf->len = suggested_size;
 }
 
+static void p_on_connect(uv_connect_t *req, int status)
+{
+    conn_t *conn = req->data;
+    if (status) {
+        conn_kill(conn);
+    }
+
+    int ret;
+    ret = uv_read_start((uv_stream_t *)&conn->dtcp, p_alloc_cb, p_read_cb);
+    LLOG(LLOG_DEBUG, "p_on_connect %d", ret);
+    assert(ret == 0);
+    assert(uvl_read_start(&conn->stcp, alloc_cb, read_cb) == 0);
+}
+
 void on_connect(uvl_t *handle, int status)
 {
     assert(status == 0);
 
-    uvl_tcp_t *client = malloc(sizeof(uvl_tcp_t));
+    conn_t *conn = malloc(sizeof(conn));
+    uv_connect_t *req = malloc(sizeof(uv_connect_t));
+    uvl_tcp_t *client = &conn->stcp;
+
+    conn->stcp.data = conn;
+    conn->dtcp.data = conn;
+    req->data = conn;
 
     assert(uvl_tcp_init(handle->loop, client) == 0);
     assert(uvl_accept(handle, client) == 0);
 
-    uvl_read_start(client, alloc_cb, read_cb);
-    puts("accept, read start");
+    assert(uv_tcp_init(handle->loop, &conn->dtcp) == 0);
+
+    uv_tcp_connect(req, &conn->dtcp, (struct sockaddr *)&client->remote_addr, p_on_connect);
+    puts("accept, connect the other side");
 }
 
 int gateway_uvl_output(uvl_t *handle, const uv_buf_t bufs[], unsigned int nbufs)
@@ -254,7 +257,8 @@ int gateway_process_udp(struct gateway *gateway, const uint8_t *data, int data_l
         // PRINT_IP(dst);
         // printf(":%d\n", dstport);
 
-        return gateway->proxy.udp(&gateway->proxy, src, srcport, dst, dstport, payload, len);;
+        gateway->proxy.udp(&gateway->proxy, src, srcport, dst, dstport, payload, len);
+        return 0;
     }
 
     return -1;
