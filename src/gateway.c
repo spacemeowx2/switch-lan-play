@@ -26,13 +26,13 @@ typedef struct {
     uvl_tcp_t stcp;
     int dclosed;
     int sclosed;
+
+    uvl_write_t uvl_req;
+    uv_buf_t uvl_buf;
+    uv_write_t uv_req;
+    uv_buf_t uv_buf;
 } conn_t;
 static struct packet_ctx *g_gateway_send_packet_ctx;
-
-struct uvl_pipe_req {
-    conn_t *conn;
-    uv_buf_t buf;
-};
 
 // lwip TCP listener
 struct tcp_pcb *listener;
@@ -88,7 +88,8 @@ void addr_from_lwip(void *ip, const ip_addr_t *ip_addr)
 void conn_free(conn_t *conn)
 {
     if (conn->sclosed && conn->dclosed) {
-        free(conn);
+        LLOG(LLOG_DEBUG, "conn_kill %p done", conn);
+        // free(conn);
     }
 }
 
@@ -111,6 +112,7 @@ void p_close_cb(uv_handle_t *handle)
 static void conn_kill(conn_t *conn)
 {
     assert(conn);
+    LLOG(LLOG_DEBUG, "conn_kill %p", conn);
     if (!conn->sclosed) {
         uvl_read_stop(&conn->stcp);
         uvl_tcp_close(&conn->stcp, close_cb);
@@ -123,30 +125,29 @@ static void conn_kill(conn_t *conn)
 
 void p_write_cb(uv_write_t *req, int status)
 {
-    struct uvl_pipe_req *r = req->data;
-    conn_t *conn = r->conn;
+    conn_t *conn = req->data;
     if (status != 0) {
         printf("p_write_cb %d %s\n", status, uv_strerror(status));
     }
 
-    free(r->buf.base);
-    free(req);
+    free(conn->uv_buf.base);
 
     assert(uvl_read_start(&conn->stcp, alloc_cb, read_cb) == 0);
 }
 
 void write_cb(uvl_write_t *req, int status)
 {
-    struct uvl_pipe_req *r = req->data;
-    conn_t *conn = r->conn;
+    conn_t *conn = req->data;
     if (status) {
         printf("write_cb %d\n", status);
     }
 
-    free(r->buf.base);
-    free(req);
+    free(conn->uvl_buf.base);
 
-    uv_read_start((uv_stream_t *)&conn->dtcp, p_alloc_cb, p_read_cb);
+    int ret = uv_read_start((uv_stream_t *)&conn->dtcp, p_alloc_cb, p_read_cb);
+    if (ret) {
+        LLOG(LLOG_ERROR, "write_cb uv_read_start %d %s", ret, uv_strerror(ret));
+    }
 }
 
 void p_read_cb(uv_stream_t *handle, ssize_t nread, const uv_buf_t *buf)
@@ -156,43 +157,38 @@ void p_read_cb(uv_stream_t *handle, ssize_t nread, const uv_buf_t *buf)
         printf("p_read_cb %d %s\n", nread, uv_strerror(nread));
         return;
     }
+    uv_read_stop(handle);
+
     conn_t *conn = handle->data;
     if (nread <= 0) {
         conn_kill(conn);
         return;
     }
 
-    uvl_write_t *req = malloc(sizeof(uvl_write_t) + sizeof(struct uvl_pipe_req));
-    struct uvl_pipe_req *r = (struct uvl_pipe_req *)((uint8_t *)req + sizeof(*req));
+    uvl_write_t *req = &conn->uvl_req;
 
-    r->conn = conn;
-    r->buf.base = buf->base;
-    r->buf.len = nread;
-    req->data = r;
+    conn->uvl_buf.base = buf->base;
+    conn->uvl_buf.len = nread;
 
-    uvl_write(req, &conn->stcp, &r->buf, 1, write_cb);
+    uvl_write(req, &conn->stcp, &conn->uvl_buf, 1, write_cb);
 }
 
 void read_cb(uvl_tcp_t *handle, ssize_t nread, const uv_buf_t *buf)
 {
-    LLOG(LLOG_DEBUG, "read_cb %d", nread);
     conn_t *conn = handle->data;
     if (nread <= 0) {
+        LLOG(LLOG_DEBUG, "read_cb %d", nread);
         conn_kill(conn);
         return;
     }
     uvl_read_stop(handle);
 
+    uv_write_t *req = &conn->uv_req;
 
-    uv_write_t *req = malloc(sizeof(uv_write_t) + sizeof(struct uvl_pipe_req));
-    struct uvl_pipe_req *r = (struct uvl_pipe_req *)((uint8_t *)req + sizeof(*req));
+    conn->uv_buf.base = buf->base;
+    conn->uv_buf.len = nread;
 
-    r->conn = conn;
-    r->buf.base = buf->base;
-    r->buf.len = nread;
-    req->data = r;
-
-    uv_write(req, (uv_stream_t *)&conn->dtcp, &r->buf, 1, p_write_cb);
+    uv_write(req, (uv_stream_t *)&conn->dtcp, &conn->uv_buf, 1, p_write_cb);
 }
 
 void p_alloc_cb(uv_handle_t *handle, size_t suggested_size, uv_buf_t* buf)
@@ -235,6 +231,9 @@ void on_connect(uvl_t *handle, int status)
     req->data = conn;
     conn->sclosed = 0;
     conn->dclosed = 0;
+
+    conn->uv_req.data = conn;
+    conn->uvl_req.data = conn;
 
     assert(uvl_tcp_init(handle->loop, client) == 0);
     assert(uvl_accept(handle, client) == 0);

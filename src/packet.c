@@ -1,6 +1,9 @@
 #include "lan-play.h"
 #include <assert.h>
 
+void *g_debug1 = (void *)0x1234;
+void *g_debug2 = (void *)0x12345;
+
 int send_payloads(
     struct packet_ctx *self,
     const struct payload *payload

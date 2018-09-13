@@ -5,7 +5,13 @@
 #include "ipv4/ipv4.h"
 #include <assert.h>
 #include <base/llog.h>
-
+#if 1
+#define malloc(size) ({ \
+    void *__ptr = malloc(size); \
+    LLOG(LLOG_DEBUG, "[malloc] %p %d %d", __ptr, size, __LINE__); \
+    __ptr; \
+})
+#endif
 static void proxy_alloc_cb(uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf)
 {
     buf->base = malloc(suggested_size);
@@ -76,8 +82,8 @@ static uv_udp_t *proxy_udp_get(struct proxy *proxy, uint8_t src[4], uint16_t src
             item->expire_at = now + PROXY_UDP_TABLE_TTL;
             item->proxy = proxy;
 
-            uv_udp_init(proxy->loop, item->udp);
-            uv_udp_recv_start(item->udp, proxy_alloc_cb, proxy_udp_recv_cb);
+            assert(uv_udp_init(proxy->loop, item->udp) == 0);
+            assert(uv_udp_recv_start(item->udp, proxy_alloc_cb, proxy_udp_recv_cb) == 0);
             item->udp->data = item;
 
             CPY_IPV4(item->src, src);
@@ -101,16 +107,20 @@ static int direct_udp(struct proxy *proxy, uint8_t src[4], uint16_t srcport, uin
     }
 
     uv_udp_send_t *req = (uv_udp_send_t *)malloc(sizeof(uv_udp_send_t));
-    uv_buf_t *buf = (uv_buf_t *)malloc(sizeof(uv_buf_t));
+    req->data = malloc(data_len);
+    memcpy(req->data, data, data_len);
+
+    uv_buf_t buf;
     struct sockaddr_in addr;
 
-    buf->base = (char *)data;
-    buf->len = data_len;
-    req->data = buf;
+    buf.base = (char *)req->data;
+    buf.len = data_len;
+
     addr.sin_family = AF_INET;
     CPY_IPV4(&addr.sin_addr, dst);
     addr.sin_port = htons(dstport);
-    return uv_udp_send(req, udp, buf, 1, (struct sockaddr *)&addr, proxy_udp_send_cb);
+
+    return uv_udp_send(req, udp, &buf, 1, (struct sockaddr *)&addr, proxy_udp_send_cb);
 }
 
 static proxy_tcp_t *direct_tcp_new(struct proxy *proxy)

@@ -15,6 +15,7 @@ struct {
     char *password;
     char *password_file;
 } options;
+struct lan_play real_lan_play;
 
 uint8_t SEND_BUFFER[BUFFER_SIZE];
 
@@ -95,6 +96,10 @@ void init_pcap(struct lan_play *lan_play, void *mac)
             if (!strcmp(d->name, options.netif)) {
                 break;
             }
+        }
+        if (d == NULL) {
+            LLOG(LLOG_ERROR, "failed to find --netif: %s", options.netif);
+            exit(1);
         }
     }
 
@@ -303,6 +308,7 @@ void lan_play_libpcap_thread(void *data)
 void lan_play_get_packet_async_cb(uv_async_t *async)
 {
     struct lan_play *lan_play = (struct lan_play *)async->data;
+    assert(lan_play == &real_lan_play);
 
     get_packet(&lan_play->packet_ctx, lan_play->pkthdr, lan_play->packet);
 
@@ -334,10 +340,10 @@ int lan_play_gateway_send_packet(struct packet_ctx *packet_ctx, const void *data
 int main(int argc, char **argv)
 {
     char relay_server_addr[128] = { 0 };
-    struct lan_play lan_play;
+    struct lan_play *lan_play = &real_lan_play;
     int ret;
 
-    lan_play.loop = &lan_play.real_loop;
+    lan_play->loop = &lan_play->real_loop;
 
     if (parse_arguments(argc, argv) != 0) {
         LLOG(LLOG_ERROR, "Failed to parse arguments");
@@ -361,19 +367,19 @@ int main(int argc, char **argv)
         options.relay_server_addr = relay_server_addr;
     }
 
-    if (parse_addr(options.relay_server_addr, &lan_play.server_addr) != 0) {
+    if (parse_addr(options.relay_server_addr, &lan_play->server_addr) != 0) {
         LLOG(LLOG_ERROR, "Failed to parse and get ip address. --relay-server-addr: %s", options.relay_server_addr);
         return -1;
     }
 
-    assert(uv_loop_init(lan_play.loop) == 0);
-    assert(uv_async_init(lan_play.loop, &lan_play.get_packet_async, lan_play_get_packet_async_cb) == 0);
-    assert(uv_sem_init(&lan_play.get_packet_sem, 0) == 0);
-    lan_play.get_packet_async.data = &lan_play;
+    assert(uv_loop_init(lan_play->loop) == 0);
+    assert(uv_async_init(lan_play->loop, &lan_play->get_packet_async, lan_play_get_packet_async_cb) == 0);
+    assert(uv_sem_init(&lan_play->get_packet_sem, 0) == 0);
+    lan_play->get_packet_async.data = lan_play;
 
-    assert(lan_play_init(&lan_play) == 0);
+    assert(lan_play_init(lan_play) == 0);
 
-    ret = uv_thread_create(&lan_play.libpcap_thread, lan_play_libpcap_thread, &lan_play);
+    ret = uv_thread_create(&lan_play->libpcap_thread, lan_play_libpcap_thread, lan_play);
 
-    return uv_run(lan_play.loop, UV_RUN_DEFAULT);
+    return uv_run(lan_play->loop, UV_RUN_DEFAULT);
 }
