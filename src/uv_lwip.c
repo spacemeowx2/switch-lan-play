@@ -141,7 +141,6 @@ static void uvl_async_tcp_read_cb(uv_async_t *req)
 
     if (call_cb) {
         client->read_cb(client, status, &b);
-        client->read_cb = NULL;
     }
 }
 
@@ -224,6 +223,53 @@ static void uvl_imp_write_to_tcp(uvl_tcp_t *client)
     }
 }
 
+static err_t uvl_client_abort (uvl_tcp_t *client)
+{
+    ASSERT(client->pcb)
+    ASSERT(!client->closed)
+
+//     // remove callbacks
+//     tcp_err(client->pcb, NULL);
+//     tcp_recv(client->pcb, NULL);
+//     tcp_sent(client->pcb, NULL);
+
+    // abort
+    tcp_abort(client->pcb);
+    client->pcb = NULL;
+
+    return ERR_ABRT;
+}
+
+static void uvl_client_freed(uvl_tcp_t *client)
+{
+    ASSERT(!client->closed)
+
+    client->closed = 1;
+
+    if (client->read_cb) {
+        uv_buf_t null_buf = uv_buf_init(NULL, 0);
+        client->read_cb(client, UV_EOF, &null_buf);
+    }
+}
+
+static err_t uvl_client_close_func (uvl_tcp_t *client)
+{
+    ASSERT(!client->closed)
+
+    err_t err = tcp_close(client->pcb);
+
+    if (err == ERR_OK) {
+        client->pcb = NULL;
+    } else {
+        LLOG(LLOG_ERROR, "tcp_close failed (%d)", err);
+        err = uvl_client_abort(client);
+    }
+
+    uvl_client_freed(client);
+
+    return err;
+}
+
 static err_t uvl_client_recv_func (void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t err)
 {
     uvl_tcp_t *client = (uvl_tcp_t *)arg;
@@ -234,7 +280,7 @@ static err_t uvl_client_recv_func (void *arg, struct tcp_pcb *tpcb, struct pbuf 
     if (!p) {
         // close
 
-        return ERR_OK;
+        return uvl_client_close_func(client);
     } else {
         ASSERT(p->tot_len > 0)
 
@@ -300,9 +346,11 @@ static err_t uvl_client_sent_func (void *arg, struct tcp_pcb *tpcb, u16_t len)
     return ERR_OK;
 }
 
-static void uvl_client_err_func (void *arg, err_t err)
+static void uvl_client_err_func(void *arg, err_t err)
 {
+    uvl_tcp_t *client = arg;
 
+    uvl_client_freed(client);
 }
 
 static err_t uvl_listener_accept_func (void *arg, struct tcp_pcb *newpcb, err_t err)
@@ -402,6 +450,14 @@ int uvl_read_start(uvl_tcp_t *client, uvl_alloc_cb alloc_cb, uvl_read_cb read_cb
     client->read_cb = read_cb;
 
     return uv_async_send(&client->read_req);
+}
+
+int uvl_read_stop(uvl_tcp_t *client)
+{
+    client->alloc_cb = NULL;
+    client->read_cb = NULL;
+
+    return 0;
 }
 
 int uvl_write(uvl_write_t *req, uvl_tcp_t *client, const uv_buf_t bufs[], unsigned int nbufs, uvl_write_cb cb)
@@ -524,6 +580,7 @@ int uvl_tcp_init(uv_loop_t *loop, uvl_tcp_t *client)
     client->handle = NULL;
     client->read_cb = NULL;
     client->alloc_cb = NULL;
+    client->close_cb = NULL;
     client->buf = (struct uvl_tcp_buf *)malloc(sizeof(struct uvl_tcp_buf));
     client->buf->recv_used = 0;
     client->buf->send_used = 0;
@@ -547,6 +604,17 @@ int uvl_tcp_init(uv_loop_t *loop, uvl_tcp_t *client)
 
     memset(&client->local_addr, 0, sizeof(client->local_addr));
     memset(&client->remote_addr, 0, sizeof(client->remote_addr));
+
+    return 0;
+}
+
+int uvl_tcp_close(uvl_tcp_t *client, uvl_tcp_close_cb close_cb)
+{
+    ASSERT(client->close_cb == NULL)
+
+    uvl_client_close_func(client);
+
+    close_cb(client);
 
     return 0;
 }

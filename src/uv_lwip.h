@@ -51,6 +51,7 @@ struct uvl_tcp {
     int closed;
     uvl_alloc_tcp_cb alloc_cb;
     uvl_read_cb read_cb;
+    uvl_close_cb close_cb;
     struct tcp_pcb *pcb;
     struct sockaddr_in local_addr;
     struct sockaddr_in remote_addr;
@@ -80,6 +81,7 @@ int uvl_listen(uvl_t *handle, uvl_connection_cb connection_cb);
 int uvl_accept(uvl_t *handle, uvl_tcp_t *client);
 int uvl_close(uvl_t *handle, uvl_close_cb close_cb);
 int uvl_read_start(uvl_tcp_t *client, uvl_alloc_cb alloc_cb, uvl_read_cb read_cb);
+int uvl_read_stop(uvl_tcp_t *client);
 int uvl_write(uvl_write_t *req, uvl_tcp_t *client, const uv_buf_t bufs[], unsigned int nbufs, uvl_write_cb cb);
 int uvl_shutdown(uvl_shutdown_t *req, uvl_tcp_t *client, uvl_shutdown_cb cb);
 int uvl_tcp_init(uv_loop_t *loop, uvl_tcp_t *client);

@@ -15,7 +15,7 @@
 #include <lwip/ip6_frag.h>
 
 char resp[] = "HTTP/1.1 200 OK\r\nContent-Length: 2\r\nX-Organization: Nintendo\r\n\r\nok";
-// #define ASSERT(x) { if (!x) { LLOG(LLOG_ERROR, "fatal: assert '%s' failed", #x); exit(1);} }
+
 struct tcp_connection {
     struct tcp_pcb *pcb;
     uv_tcp_t socket;
@@ -147,9 +147,16 @@ void gateway_event_thread(void *data)
     LLOG(LLOG_DEBUG, "uv_loop_close");
 }
 
+void close_cb(uvl_tcp_t *client)
+{
+    puts("close_cb");
+}
+
 void write_cb(uvl_write_t *req, int status)
 {
     puts("write_cb");
+
+    assert(uvl_tcp_close(req->client, close_cb) == 0);
 
     free(req->data);
     free(req);
