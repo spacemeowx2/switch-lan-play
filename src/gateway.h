@@ -13,7 +13,6 @@ typedef int (*send_packet_func_t)(void *userdata, const void *data, uint16_t len
 struct gateway {
     struct netif *netif;
     uv_loop_t *loop;
-    uv_thread_t loop_thread;
     struct proxy proxy;
 
     uvl_t uvl;

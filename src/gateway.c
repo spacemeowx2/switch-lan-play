@@ -136,17 +136,6 @@ void gateway_on_connect(uv_connect_t *req, int status)
     free(req);
 }
 
-void gateway_event_thread(void *data)
-{
-    struct gateway *gateway = (struct gateway *)data;
-    uv_loop_t *loop = gateway->loop;
-
-    LLOG(LLOG_DEBUG, "uv_run");
-    uv_run(loop, UV_RUN_DEFAULT);
-    uv_loop_close(loop);
-    LLOG(LLOG_DEBUG, "uv_loop_close");
-}
-
 void close_cb(uvl_tcp_t *client)
 {
     puts("close_cb");
@@ -154,7 +143,7 @@ void close_cb(uvl_tcp_t *client)
 
 void write_cb(uvl_write_t *req, int status)
 {
-    puts("write_cb");
+    printf("write_cb %d\n", status);
 
     assert(uvl_tcp_close(req->client, close_cb) == 0);
 
@@ -164,6 +153,11 @@ void write_cb(uvl_write_t *req, int status)
 
 void read_cb(uvl_tcp_t *handle, ssize_t nread, const uv_buf_t *buf)
 {
+    LLOG(LLOG_DEBUG, "read_cb %d", nread);
+    if (nread <= 0) {
+        uvl_tcp_close(handle, close_cb);
+        return;
+    }
     uvl_write_t *req = malloc(sizeof(uvl_write_t));
     uv_buf_t *b = malloc(sizeof(uv_buf_t));
 
@@ -221,7 +215,6 @@ int gateway_init(struct gateway *gateway, struct packet_ctx *packet_ctx)
     gateway->uvl.data = gateway;
 
     proxy_direct_init(&gateway->proxy, gateway->loop, packet_ctx);
-    uv_thread_create(&gateway->loop_thread, gateway_event_thread, gateway);
 
     return 0;
 fail:

@@ -12,16 +12,12 @@
 
 #define UVL_TCP_RECV_BUF_LEN TCP_WND
 #define UVL_TCP_SEND_BUF_LEN 8192
-#define UVL_RECV_BUF_MUTEX 0
 
 struct uvl_tcp_buf {
     uint8_t recv_buf[UVL_TCP_RECV_BUF_LEN];
     uint16_t recv_used;
     uint8_t send_buf[UVL_TCP_RECV_BUF_LEN];
     uint16_t send_used;
-#if UVL_RECV_BUF_MUTEX
-    uv_mutex_t mutex;
-#endif
 };
 
 struct uvl_connection_req {
@@ -118,9 +114,6 @@ static void uvl_async_tcp_read_cb(uv_async_t *req)
     int status = 0;
     int call_cb = 1;
 
-#if UVL_RECV_BUF_MUTEX
-    uv_mutex_lock(&buf->mutex);
-#endif
     if (client->read_cb && buf->recv_used > 0) {
         client->alloc_cb(client, 65536, &b);
 
@@ -135,9 +128,6 @@ static void uvl_async_tcp_read_cb(uv_async_t *req)
     } else {
         call_cb = 0;
     }
-#if UVL_RECV_BUF_MUTEX
-    uv_mutex_unlock(&buf->mutex);
-#endif
 
     if (call_cb) {
         client->read_cb(client, status, &b);
@@ -225,6 +215,7 @@ static void uvl_imp_write_to_tcp(uvl_tcp_t *client)
 
 static err_t uvl_client_abort (uvl_tcp_t *client)
 {
+    LLOG(LLOG_DEBUG, "uvl_client_abort");
     ASSERT(client->pcb)
     ASSERT(!client->closed)
 
@@ -242,13 +233,14 @@ static err_t uvl_client_abort (uvl_tcp_t *client)
 
 static void uvl_client_freed(uvl_tcp_t *client)
 {
-    ASSERT(!client->closed)
+    LLOG(LLOG_DEBUG, "uvl_client_freed");
 
     client->closed = 1;
 
     if (client->read_cb) {
         uv_buf_t null_buf = uv_buf_init(NULL, 0);
         client->read_cb(client, UV_EOF, &null_buf);
+        client->read_cb = NULL;
     }
 }
 
@@ -286,15 +278,9 @@ static err_t uvl_client_recv_func (void *arg, struct tcp_pcb *tpcb, struct pbuf 
 
         struct uvl_tcp_buf *buf = client->buf;
 
-#if UVL_RECV_BUF_MUTEX
-        uv_mutex_lock(&buf->mutex);
-#endif
         if (p->tot_len > sizeof(buf->recv_buf) - buf->recv_used) {
             LLOG(LLOG_ERROR, "no buffer for data !?!");
 
-#if UVL_RECV_BUF_MUTEX
-            uv_mutex_unlock(&buf->mutex);
-#endif
             return ERR_MEM;
         }
 
@@ -305,9 +291,6 @@ static err_t uvl_client_recv_func (void *arg, struct tcp_pcb *tpcb, struct pbuf 
 
         int ret = uv_async_send(&client->read_req);
 
-#if UVL_RECV_BUF_MUTEX
-        uv_mutex_unlock(&buf->mutex);
-#endif
         return ret == 0 ? ERR_OK : ERR_ABRT;
     }
 }
@@ -338,6 +321,7 @@ static err_t uvl_client_sent_func (void *arg, struct tcp_pcb *tpcb, u16_t len)
 
     client->cur_write = req;
 
+    LLOG(LLOG_DEBUG, "uvl_client_sent_func uv_async_send");
     int ret = uv_async_send(&client->write_req);
     if (ret) {
         LLOG(LLOG_ERROR, "sent_func async_send");
@@ -349,6 +333,8 @@ static err_t uvl_client_sent_func (void *arg, struct tcp_pcb *tpcb, u16_t len)
 static void uvl_client_err_func(void *arg, err_t err)
 {
     uvl_tcp_t *client = arg;
+
+    LLOG(LLOG_ERROR, "client err: %d", (int)err);
 
     uvl_client_freed(client);
 }
@@ -462,9 +448,16 @@ int uvl_read_stop(uvl_tcp_t *client)
 
 int uvl_write(uvl_write_t *req, uvl_tcp_t *client, const uv_buf_t bufs[], unsigned int nbufs, uvl_write_cb cb)
 {
+    req->client = client;
+
+    if (client->closed) {
+        cb(req, UV_ECANCELED);
+        return 0;
+    }
+    ASSERT(client->pcb)
+
     int i;
 
-    req->client = client;
     req->send_bufs = bufs;
     req->send_nbufs = nbufs;
     req->sent = 0;
@@ -487,6 +480,7 @@ int uvl_write(uvl_write_t *req, uvl_tcp_t *client, const uv_buf_t bufs[], unsign
         req->total_len += bufs[i].len;
     }
 
+    LLOG(LLOG_DEBUG, "uvl_write uv_async_send");
     return uv_async_send(&client->write_req);
 }
 
@@ -589,11 +583,6 @@ int uvl_tcp_init(uv_loop_t *loop, uvl_tcp_t *client)
     client->pcb = NULL;
     client->closed = 0;
 
-#if UVL_RECV_BUF_MUTEX
-    ret = uv_mutex_init(&client->buf->mutex);
-    if (ret) return ret;
-#endif
-
     ret = uv_async_init(loop, &client->read_req, uvl_async_tcp_read_cb);
     if (ret) return ret;
     client->read_req.data = client;
@@ -612,7 +601,9 @@ int uvl_tcp_close(uvl_tcp_t *client, uvl_tcp_close_cb close_cb)
 {
     ASSERT(client->close_cb == NULL)
 
-    uvl_client_close_func(client);
+    if (!client->closed) {
+        uvl_client_close_func(client);
+    }
 
     close_cb(client);
 
