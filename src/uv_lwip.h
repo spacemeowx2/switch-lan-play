@@ -52,13 +52,15 @@ struct uvl_tcp {
     int closed;
     uvl_alloc_tcp_cb alloc_cb;
     uvl_read_cb read_cb;
-    uvl_close_cb close_cb;
+    uvl_tcp_close_cb close_cb;
     struct tcp_pcb *pcb;
     struct sockaddr_in local_addr;
     struct sockaddr_in remote_addr;
 
     uint32_t sent_bytes;
     uint32_t recv_bytes;
+
+    int closed_handle;
 };
 struct uvl_write {
     UVL_FIELDS

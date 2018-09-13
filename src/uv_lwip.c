@@ -1,6 +1,8 @@
-#include <lwip/init.h>
+
 #include "uv_lwip.h"
 #include <base/llog.h>
+#include <string.h>
+#include <lwip/init.h>
 #include <lwip/ip.h>
 #include <lwip/ip_addr.h>
 #include <lwip/priv/tcp_priv.h>
@@ -8,9 +10,8 @@
 #include <lwip/ip4_frag.h>
 #include <lwip/nd6.h>
 #include <lwip/ip6_frag.h>
-#include <string.h>
 
-#define _DEBUG
+// #define _DEBUG
 #define UVL_TCP_RECV_BUF_LEN TCP_WND
 #define UVL_TCP_SEND_BUF_LEN 8192
 
@@ -54,7 +55,7 @@ static void uvl_async_tcp_read_cb(uv_async_t *req)
     struct uvl_tcp_buf *buf = client->buf;
     uv_buf_t b;
     int nnread = 0;
-    ASSERT(buf->recv_used < sizeof(buf->recv_buf))
+    ASSERT(buf->recv_used <= sizeof(buf->recv_buf))
 
     if (client->read_cb) {
         if (buf->recv_used > 0) {
@@ -74,12 +75,31 @@ static void uvl_async_tcp_read_cb(uv_async_t *req)
     }
 }
 
+static void uvl_cancel_reqs(uvl_tcp_t *client)
+{
+    uvl_write_t *req = client->cur_write;
+
+    while (req)
+    {
+        req->write_cb(req, UV_ECANCELED);
+
+        req = req->next;
+    }
+
+    client->cur_write = NULL;
+    client->tail_write = NULL;
+}
+
 // TODO: complete this function
 static void uvl_async_tcp_write_cb(uv_async_t *write_req)
 {
     uvl_tcp_t *client = (uvl_tcp_t *)write_req->data;
 
     LLOG(LLOG_DEBUG, "%p uvl_async_tcp_write_cb", client);
+    if (client->closed) {
+        uvl_cancel_reqs(client);
+        return;
+    }
 
     uvl_imp_write_to_tcp(client);
 }
@@ -150,12 +170,15 @@ static void uvl_imp_write_to_tcp(uvl_tcp_t *client)
             break;
         }
         req = req->next;
+#ifdef _DEBUG
         i++;
+#endif
     }
 
-    LLOG(LLOG_DEBUG, "%p block %d / %d", client, i, total);
     while (req) {
+#ifdef _DEBUG
         LLOG(LLOG_DEBUG, "%p block %d / %d", client, i, total);
+#endif
         int ret = uvl_imp_write_buf_to_tcp(client, req);
         if (ret == 0) {
             break;
@@ -165,7 +188,6 @@ static void uvl_imp_write_to_tcp(uvl_tcp_t *client)
         }
         if (req->sent_bufs == req->send_nbufs) {
             req = req->next;
-            i++;
         }
     }
 
@@ -199,9 +221,9 @@ static err_t uvl_client_abort (uvl_tcp_t *client)
     ASSERT(!client->closed)
 
 //     // remove callbacks
-//     tcp_err(client->pcb, NULL);
-//     tcp_recv(client->pcb, NULL);
-//     tcp_sent(client->pcb, NULL);
+    tcp_err(client->pcb, NULL);
+    tcp_recv(client->pcb, NULL);
+    tcp_sent(client->pcb, NULL);
 
     // abort
     tcp_abort(client->pcb);
@@ -214,6 +236,11 @@ static err_t uvl_client_abort (uvl_tcp_t *client)
 static err_t uvl_client_close_func (uvl_tcp_t *client)
 {
     ASSERT(!client->closed)
+
+    tcp_err(client->pcb, NULL);
+    tcp_recv(client->pcb, NULL);
+    tcp_sent(client->pcb, NULL);
+
 
     err_t err = tcp_close(client->pcb);
 
@@ -250,7 +277,7 @@ static err_t uvl_client_recv_func (void *arg, struct tcp_pcb *tpcb, struct pbuf 
                 sizeof(buf->recv_buf),
                 (sizeof(buf->recv_buf) - buf->recv_used));
 
-            return uvl_client_abort(client);
+            return ERR_MEM;
         }
 
         LLOG(LLOG_DEBUG, "[+] recv_buf %d + %d / %d", buf->recv_used, p->tot_len, sizeof(buf->recv_buf));
@@ -456,12 +483,6 @@ int uvl_write(uvl_write_t *req, uvl_tcp_t *client, const uv_buf_t bufs[], unsign
 {
     req->client = client;
 
-    if (client->closed) {
-        cb(req, UV_ECANCELED);
-        return 0;
-    }
-    ASSERT(client->pcb)
-
     int i;
 
     req->send_bufs = bufs;
@@ -517,6 +538,7 @@ int uvl_accept(uvl_t *handle, uvl_tcp_t *client)
 
     client->sent_bytes = 0;
     client->recv_bytes = 0;
+    client->closed_handle = 0;
 
     tcp_arg(newpcb, client);
 
@@ -610,15 +632,30 @@ int uvl_tcp_init(uv_loop_t *loop, uvl_tcp_t *client)
     return 0;
 }
 
-int uvl_tcp_close(uvl_tcp_t *client, uvl_tcp_close_cb close_cb)
+static void uvl_tcp_close_handle_cb(uv_handle_t *handle)
 {
-    // ASSERT(client->close_cb == NULL)
+    uvl_tcp_t *client = handle->data;
+
+    client->closed_handle++;
+    if (client->closed_handle == 2) {
+        client->close_cb(client);
+    }
+}
+
+int uvl_tcp_close(uvl_tcp_t *client, uvl_tcp_close_cb cb)
+{
+    ASSERT(client->close_cb == NULL || client->close_cb == cb)
+
+    uvl_cancel_reqs(client);
+
+    uv_close((uv_handle_t *)&client->read_req, uvl_tcp_close_handle_cb);
+    uv_close((uv_handle_t *)&client->write_req, uvl_tcp_close_handle_cb);
 
     if (!client->closed) {
         uvl_client_close_func(client);
     }
 
-    close_cb(client);
+    client->close_cb = cb;
 
     return 0;
 }
