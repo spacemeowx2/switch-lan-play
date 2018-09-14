@@ -1,7 +1,7 @@
 #include "ipv4.h"
 
 int send_ipv4(
-    struct lan_play *arg,
+    struct packet_ctx *arg,
     const void *dst,
     uint8_t protocol,
     const struct payload *payload
@@ -16,7 +16,7 @@ int send_ipv4(
     );
 }
 int send_ipv4_ex(
-    struct lan_play *arg,
+    struct packet_ctx *arg,
     const void *src,
     const void *dst,
     uint8_t protocol,
@@ -30,7 +30,7 @@ int send_ipv4_ex(
 
     WRITE_NET8(buf, IPV4_OFF_VER_LEN, 0x45);
     WRITE_NET8(buf, IPV4_OFF_DSCP_ECN, 0x00);
-    WRITE_NET16(buf, IPV4_OFF_TOTAL_LEN, IPV4_HEADER_LEN + payload->len);
+    WRITE_NET16(buf, IPV4_OFF_TOTAL_LEN, IPV4_HEADER_LEN + payload_total_len(payload));
     WRITE_NET16(buf, IPV4_OFF_ID, arg->identification++);
     WRITE_NET16(buf, IPV4_OFF_FLAGS_FRAG_OFFSET, 0);
     WRITE_NET8(buf, IPV4_OFF_TTL, 128);
@@ -85,7 +85,7 @@ void parse_ipv4(const struct ether_frame *ether, struct ipv4 *ipv4)
     ipv4->payload = packet + ipv4->header_len;
 }
 
-int process_ipv4(struct lan_play *arg, const struct ether_frame *ether)
+int process_ipv4(struct packet_ctx *arg, const struct ether_frame *ether)
 {
     struct ipv4 ipv4;
     parse_ipv4(ether, &ipv4);
@@ -98,7 +98,7 @@ int process_ipv4(struct lan_play *arg, const struct ether_frame *ether)
         }
     } else if (IS_SUBNET(ipv4.dst, arg->subnet_net, arg->subnet_mask)) {
         if (IS_BROADCAST(ipv4.dst, arg->subnet_net, arg->subnet_mask)) {
-            forwarder_send_ipv4(arg, ipv4.dst, ipv4.ether->payload, ipv4.total_len);
+            lan_client_send_ipv4(arg->arg, ipv4.dst, ipv4.ether->payload, ipv4.total_len);
         } else if (arp_has_ip(arg, ipv4.dst)) {
             uint8_t dst_mac[6];
             struct payload part;
@@ -108,8 +108,15 @@ int process_ipv4(struct lan_play *arg, const struct ether_frame *ether)
             part.next = NULL;
             return send_ether(arg, dst_mac, ETHER_TYPE_IPV4, &part);
         } else {
-            return forwarder_send_ipv4(arg, ipv4.dst, ipv4.ether->payload, ipv4.total_len);
+            return lan_client_send_ipv4(arg->arg, ipv4.dst, ipv4.ether->payload, ipv4.total_len);
         }
+    } else if (CMP_MAC(arg->mac, ether->dst)) {
+        // target ip is not us but target mac is us
+        // we are now a gateway
+
+        gateway_on_packet(arg->gateway, ether->raw, ether->raw_len);
+
+        return 0;
     }
 
     return 0;
@@ -129,5 +136,39 @@ uint16_t calc_checksum(const u_char *buffer, int len)
     while (sum > 0xffff) {
         sum -= 0xffff;
     }
+    return ~sum;
+}
+
+uint16_t calc_payload_checksum(const struct payload *payload)
+{
+    uint32_t sum = 0;
+    int offset = 0;
+    const struct payload *part = payload;
+
+    while (part) {
+        uint16_t *buf = (uint16_t *)part->ptr + offset;
+        int len = part->len - offset;
+        while (len > 1) {
+            sum += ntohs(*buf++);
+            len -= sizeof(uint16_t);
+        }
+
+        part = part->next;
+        if (len) {
+            if (part) {
+                sum += (READ_NET8(buf, 0) << 8) | (READ_NET8(part->ptr, 0));
+            } else {
+                sum += *(uint8_t *)buf;
+            }
+            offset = 1;
+        } else {
+            offset = 0;
+        }
+    }
+
+    while (sum > 0xffff) {
+        sum -= 0xffff;
+    }
+
     return ~sum;
 }

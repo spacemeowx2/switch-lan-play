@@ -86,11 +86,46 @@ npm run server
 
 # Build
 
-This project depends on libpcap, you can install libpcap0.8-dev on Ubuntu or Debian:
+## Ubuntu / Debian
 
-`sudo apt install libpcap0.8-dev`
+This project depends on libpcap and libuv, you can install libpcap0.8-dev and libuv1-dev on Ubuntu or Debian:
+
+`sudo apt install libpcap0.8-dev libuv1-dev`
 
 Prepare a cmake, gcc, and run like this:
+
+```sh
+mkdir build
+cd build
+cmake ..
+make
+```
+
+## Windows
+
+Use [MSYS2](http://www.msys2.org/) to compile.
+
+```sh
+pacman -Sy
+pacman -S mingw-w64-x86_64-gcc \
+    mingw-w64-x86_64-cmake \
+    mingw-w64-x86_64-make
+```
+
+Open `MSYS2 MinGW 64-bit`.
+
+```sh
+mkdir build
+cd build
+cmake -G "MSYS Makefiles" ..
+make
+```
+
+## Mac OS
+
+```sh
+brew install cmake libpcap libuv
+```
 
 ```sh
 mkdir build

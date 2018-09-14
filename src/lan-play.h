@@ -1,6 +1,7 @@
 #ifndef _LAN_PLAY_H_
 #define _LAN_PLAY_H_
 
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -10,43 +11,44 @@
 #include <string.h>
 #include <errno.h>
 #include <stdbool.h>
-#include <pthread.h>
 #include <base/llog.h>
+#include <uv.h>
 
 struct lan_play;
 #include "packet.h"
 #include "helper.h"
 #include "config.h"
 #include "arp.h"
+#include "gateway.h"
 #include "proxy.h"
 
 struct lan_play {
     pcap_t *dev;
-    uint32_t id;
-    void *buffer;
-    uint8_t ip[4];
-    uint8_t subnet_net[4];
-    uint8_t subnet_mask[4];
-    uint8_t mac[6];
-    uint16_t identification;
-    struct arp_item arp_list[ARP_CACHE_LEN];
-    time_t arp_ttl;
-    bool stop;
 
-    // forwarder
-    int f_fd;
-    int u_fd;
-    pthread_mutex_t mutex;
+    struct packet_ctx packet_ctx;
+
+    bool stop;
+    uv_loop_t *loop;
+    uv_thread_t libpcap_thread;
+    uv_async_t get_packet_async;
+    uv_sem_t get_packet_sem;
+    const struct pcap_pkthdr *pkthdr;
+    const u_char *packet;
+
+    // lan_client
+    uv_udp_t client;
+    uv_timer_t client_keepalive_timer;
+    uv_buf_t client_send_buf[2];
+    uint8_t client_send_type;
     struct sockaddr_in server_addr;
+
+    struct gateway gateway;
+    uv_loop_t real_loop;
 };
 
-void get_packet(struct lan_play *arg, const struct pcap_pkthdr * pkthdr, const u_char * packet);
-int send_packet(struct lan_play *arg, int size);
-int process_arp(struct lan_play *arg, const struct ether_frame *ether);
-int process_ipv4(struct lan_play *arg, const struct ether_frame *ether);
-void *forwarder_thread(void *);
-void *forwarder_keepalive(void *);
-void forwarder_init(struct lan_play *lan_play);
-int forwarder_send_ipv4(struct lan_play *lan_play, void *dst_ip, const void *packet, uint16_t len);
+int lan_play_send_packet(struct lan_play *lan_play, void *data, int size);
+int lan_play_gateway_send_packet(struct packet_ctx *packet_ctx, const void *data, uint16_t len);
+int lan_client_init(struct lan_play *lan_play);
+int lan_client_send_ipv4(struct lan_play *lan_play, void *dst_ip, const void *packet, uint16_t len);
 
 #endif // _LAN_PLAY_H_

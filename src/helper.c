@@ -282,15 +282,22 @@ int parse_addr(const char *str, struct sockaddr_in *addr)
     }
     uint16_t port = conv_res;
 
-    struct hostent *net;
-    net = gethostbyname(addr_str);
-    if (net == NULL) {
+    struct addrinfo hints;
+    struct addrinfo *addrs;
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_INET;
+
+    int ret = getaddrinfo(addr_str, port_str, &hints, &addrs);
+    if (ret != 0) {
+        LLOG(LLOG_ERROR, "getaddrinfo %d %d", ret);
         return -1;
     }
 
     addr->sin_family = AF_INET;
-    addr->sin_addr = *((struct in_addr *)net->h_addr);
+    addr->sin_addr = ((struct sockaddr_in *)addrs->ai_addr)->sin_addr;
     addr->sin_port = htons(port);
+
+    freeaddrinfo(addrs);
 
     return 0;
 }
@@ -308,28 +315,5 @@ static void win32_init_winsocket()
         fprintf(stderr, "WSAStartup failed: %d\n", result);
         exit(1);
     }
-}
-// http://web.mit.edu/freebsd/head/crypto/heimdal/lib/roken/sendmsg.c
-ssize_t sendmsg(int s, const struct msghdr *msg, int flags)
-{
-    int srv;
-    DWORD num_bytes_sent = 0;
-
-    /* TODO: For _WIN32_WINNT >= 0x0600 we can use WSASendMsg using
-       WSAMSG which is a much more direct analogue to sendmsg(). */
-
-    srv = WSASendTo(s, (LPWSABUF)msg->msg_iov, msg->msg_iovlen,
-		  &num_bytes_sent, flags, msg->msg_name, msg->msg_namelen, NULL, NULL);
-
-    if (srv == 0) {
-        return (int) num_bytes_sent;
-    }
-
-    /* srv == SOCKET_ERROR and WSAGetLastError() == WSA_IO_PENDING
-       indicates that a non-blocking transfer has been scheduled.
-       We'll have to check for that if we ever support non-blocking
-       I/O. */
-    LLOG(LLOG_ERROR, "sendmsg fd: %d last err:%d len %d", s, WSAGetLastError(), msg->msg_iovlen);
-    return -1;
 }
 #endif

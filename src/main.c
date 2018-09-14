@@ -15,6 +15,7 @@ struct {
     char *password;
     char *password_file;
 } options;
+struct lan_play real_lan_play;
 
 uint8_t SEND_BUFFER[BUFFER_SIZE];
 
@@ -22,28 +23,33 @@ void set_filter(pcap_t *dev)
 {
     char filter[100];
     static struct bpf_program bpf;
-    snprintf(filter, sizeof(filter), "net %s %s", SUBNET_NET, SUBNET_MASK);
+
+    uint32_t mask = READ_NET32(str2ip(SUBNET_MASK), 0);
+    int num;
+    for (num = 0; mask != 0 && num < 32; num++) mask <<= 1;
+
+    snprintf(filter, sizeof(filter), "net %s/%d", SUBNET_NET, num);
+    LLOG(LLOG_DEBUG, "filter: %s", filter);
     pcap_compile(dev, &bpf, filter, 1, 0);
     pcap_setfilter(dev, &bpf);
 }
 
-void get_mac(struct lan_play *lan_play, pcap_if_t *d, pcap_t *p)
+void get_mac(void *mac, pcap_if_t *d, pcap_t *p)
 {
-    if (get_mac_address(d, p, lan_play->mac) != 0) {
+    if (get_mac_address(d, p, mac) != 0) {
         fprintf(stderr, "Error when getting the MAC address\n");
         exit(1);
     }
     printf("Get MAC: ");
-    PRINT_MAC(lan_play->mac);
+    PRINT_MAC(mac);
     putchar('\n');
 }
 
-void init_pcap(struct lan_play *lan_play)
+void init_pcap(struct lan_play *lan_play, void *mac)
 {
     pcap_t *dev;
     pcap_if_t *alldevs;
     pcap_if_t *d;
-    char *dev_name;
     char err_buf[PCAP_ERRBUF_SIZE];
     int i;
     int arg_inum;
@@ -90,10 +96,14 @@ void init_pcap(struct lan_play *lan_play)
                 break;
             }
         }
+        if (d == NULL) {
+            LLOG(LLOG_ERROR, "failed to find --netif: %s", options.netif);
+            exit(1);
+        }
     }
 
     printf("Opening %s\n", d->name);
-    dev = pcap_open_live(d->name, 65535, 1, 0, err_buf);
+    dev = pcap_open_live(d->name, 65535, 1, 1, err_buf);
 
     if (!dev) {
         fprintf(stderr, "Error: pcap_open_live(): %s\n", err_buf);
@@ -101,7 +111,7 @@ void init_pcap(struct lan_play *lan_play)
         exit(1);
     }
     set_filter(dev);
-    get_mac(lan_play, d, dev);
+    get_mac(mac, d, dev);
     if (set_immediate_mode(dev) == -1) {
         fprintf(stderr, "Error: set_immediate_mode failed %s\n", strerror(errno));
         exit(1);
@@ -112,33 +122,51 @@ void init_pcap(struct lan_play *lan_play)
     lan_play->dev = dev;
 }
 
-void init_lan_play(struct lan_play *lan_play)
+int lan_play_send_packet(struct lan_play *lan_play, void *data, int size)
 {
-    lan_play->mac[0] = 0x00;
-    lan_play->mac[1] = 0x00;
-    lan_play->mac[2] = 0x00;
-    lan_play->mac[3] = 0x00;
-    lan_play->mac[4] = 0x00;
-    lan_play->mac[5] = 0x00;
+    int ret = pcap_sendpacket(lan_play->dev, data, size);
+    if (ret != 0) {
+        LLOG(LLOG_ERROR, "lan_play_packet_send %d", ret);
+    }
+    return ret;
+}
+
+int lan_play_init(struct lan_play *lan_play)
+{
+    int ret = 0;
+    uint8_t ip[4];
+    uint8_t subnet_net[4];
+    uint8_t subnet_mask[4];
+    uint8_t mac[6];
+
     lan_play->dev = NULL;
     lan_play->stop = false;
 
-    init_pcap(lan_play);
+    init_pcap(lan_play, mac);
 
-    lan_play->id = 0;
-    lan_play->buffer = SEND_BUFFER;
-    lan_play->identification = 0;
-    CPY_IPV4(lan_play->ip, str2ip(SERVER_IP));
-    CPY_IPV4(lan_play->subnet_net, str2ip(SUBNET_NET));
-    CPY_IPV4(lan_play->subnet_mask, str2ip(SUBNET_MASK));
-    arp_list_init(lan_play->arp_list);
-    lan_play->arp_ttl = 30;
-}
+    CPY_IPV4(ip, str2ip(SERVER_IP));
+    CPY_IPV4(subnet_net, str2ip(SUBNET_NET));
+    CPY_IPV4(subnet_mask, str2ip(SUBNET_MASK));
+    LLOG(LLOG_DEBUG, "packet init buffer %p", SEND_BUFFER);
+    ret = packet_init(
+        &lan_play->packet_ctx,
+        lan_play,
+        SEND_BUFFER,
+        sizeof(SEND_BUFFER),
+        ip,
+        subnet_net,
+        subnet_mask,
+        mac,
+        30,
+        &lan_play->gateway
+    );
+    if (ret != 0) return ret;
+    ret = lan_client_init(lan_play);
+    if (ret != 0) return ret;
+    ret = gateway_init(&lan_play->gateway, &lan_play->packet_ctx);
+    if (ret != 0) return ret;
 
-void loop_lan_play(struct lan_play *lan_play)
-{
-    puts("Loop start");
-    pcap_loop(lan_play->dev, -1, (void(*)(u_char *, const struct pcap_pkthdr *, const u_char *))get_packet, (u_char*)lan_play);
+    return 0;
 }
 
 int parse_arguments(int argc, char **argv)
@@ -253,11 +281,76 @@ void print_version()
     printf("switch-lan-play v0.0.0\n");
 }
 
+void lan_play_libpcap_thread(void *data)
+{
+    struct lan_play *lan_play = (struct lan_play *)data;
+    pcap_t *p = lan_play->dev;
+    struct pcap_pkthdr *pkt_header;
+    const u_char *packet;
+    int ret;
+
+    puts("Loop start");
+    while (1) {
+        ret = pcap_next_ex(p, &pkt_header, &packet);
+        if (ret == 0) continue;
+        if (ret != 1) {
+            LLOG(LLOG_ERROR, "pcap_next_ex %d", ret);
+            assert(0);
+        }
+
+
+        lan_play->pkthdr = pkt_header;
+        lan_play->packet = packet;
+
+        if (uv_async_send(&lan_play->get_packet_async)) {
+            LLOG(LLOG_WARNING, "lan_play_get_packet uv_async_send");
+        }
+
+        uv_sem_wait(&lan_play->get_packet_sem);
+    }
+
+    pcap_close(lan_play->dev);
+}
+
+void lan_play_get_packet_async_cb(uv_async_t *async)
+{
+    struct lan_play *lan_play = (struct lan_play *)async->data;
+    assert(lan_play == &real_lan_play);
+
+    get_packet(&lan_play->packet_ctx, lan_play->pkthdr, lan_play->packet);
+
+    uv_sem_post(&lan_play->get_packet_sem);
+}
+
+int lan_play_gateway_send_packet(struct packet_ctx *packet_ctx, const void *data, uint16_t len)
+{
+    struct payload part;
+    uint8_t dst_mac[6];
+    const uint8_t *dst = (uint8_t *)data + IPV4_OFF_DST;
+
+    if (!arp_get_mac_by_ip(packet_ctx, dst_mac, dst)) {
+        return false;
+    }
+
+    part.ptr = data;
+    part.len = len;
+    part.next = NULL;
+
+    return send_ether(
+        packet_ctx,
+        dst_mac,
+        ETHER_TYPE_IPV4,
+        &part
+    );
+}
+
 int main(int argc, char **argv)
 {
-    char relay_server_addr[128];
-    struct lan_play lan_play;
-    pthread_t tid;
+    char relay_server_addr[128] = { 0 };
+    struct lan_play *lan_play = &real_lan_play;
+    int ret;
+
+    lan_play->loop = &lan_play->real_loop;
 
     if (parse_arguments(argc, argv) != 0) {
         LLOG(LLOG_ERROR, "Failed to parse arguments");
@@ -281,22 +374,22 @@ int main(int argc, char **argv)
         options.relay_server_addr = relay_server_addr;
     }
 
-    if (parse_addr(options.relay_server_addr, &lan_play.server_addr) != 0) {
-        LLOG(LLOG_ERROR, "Failed to parse --relay-server-addr %s", options.relay_server_addr);
+    if (parse_addr(options.relay_server_addr, &lan_play->server_addr) != 0) {
+        LLOG(LLOG_ERROR, "Failed to parse and get ip address. --relay-server-addr: %s", options.relay_server_addr);
+        return -1;
     }
 
-    proxy_init();
+    assert(uv_loop_init(lan_play->loop) == 0);
+    assert(uv_async_init(lan_play->loop, &lan_play->get_packet_async, lan_play_get_packet_async_cb) == 0);
+    assert(uv_sem_init(&lan_play->get_packet_sem, 0) == 0);
+    lan_play->get_packet_async.data = lan_play;
 
-    forwarder_init(&lan_play);
-    pthread_create(&tid, NULL, forwarder_thread, &lan_play);
+    assert(lan_play_init(lan_play) == 0);
 
-    init_lan_play(&lan_play);
+    ret = uv_thread_create(&lan_play->libpcap_thread, lan_play_libpcap_thread, lan_play);
+    if (ret) {
+        LLOG(LLOG_ERROR, "uv_thread_create %d", ret);
+    }
 
-    loop_lan_play(&lan_play);
-
-    pcap_close(lan_play.dev);
-
-    pthread_join(tid, NULL);
-
-    return 0;
+    return uv_run(lan_play->loop, UV_RUN_DEFAULT);
 }

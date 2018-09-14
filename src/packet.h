@@ -1,6 +1,8 @@
 #ifndef _PACKET_H_
 #define _PACKET_H_
 
+#include "arp.h"
+
 #define ETHER_OFF_DST 0
 #define ETHER_OFF_SRC 6
 #define ETHER_OFF_TYPE 12
@@ -12,6 +14,8 @@
 #define ETHER_HEADER_LEN 14
 
 #define IPV4_PROTOCOL_ICMP 1
+#define IPV4_PROTOCOL_TCP 6
+#define IPV4_PROTOCOL_UDP 17
 #define IPV4_HEADER_LEN 20
 
 #define IPV4_OFF_VER_LEN 0
@@ -25,6 +29,19 @@
 #define IPV4_OFF_SRC 12
 #define IPV4_OFF_DST 16
 #define IPV4_OFF_END 20
+
+#define IPV4P_OFF_SRC 0
+#define IPV4P_OFF_DST 4
+#define IPV4P_OFF_ZERO 8
+#define IPV4P_OFF_PROTOCOL 9
+#define IPV4P_OFF_LENGTH 10
+#define IPV4P_OFF_END 12
+
+#define UDP_OFF_SRCPORT 0
+#define UDP_OFF_DSTPORT 2
+#define UDP_OFF_LENGTH 4
+#define UDP_OFF_CHECKSUM 6
+#define UDP_OFF_END 8
 
 #define ARP_OFF_HARDWARE 0
 #define ARP_OFF_PROTOCOL 2
@@ -42,6 +59,8 @@
 #define ARP_OPCODE_REPLY 2
 
 struct ether_frame {
+    const u_char *raw;
+    uint16_t raw_len;
     uint8_t dst[6];
     uint8_t src[6];
     uint16_t type;
@@ -64,6 +83,15 @@ struct ipv4 {
     uint16_t checksum;
     uint8_t src[4];
     uint8_t dst[4];
+    const u_char *payload;
+};
+
+struct udp {
+    const struct ipv4 *ipv4;
+    uint16_t srcport;
+    uint16_t dstport;
+    uint16_t length;
+    uint16_t checksum;
     const u_char *payload;
 };
 
@@ -96,19 +124,54 @@ struct payload {
     uint16_t len;
     const struct payload *next;
 };
+uint16_t payload_total_len(const struct payload *payload);
 
-int send_ether_ex(
+struct lan_play;
+struct packet_ctx {
+    struct lan_play *arg;
+    void *buffer;
+    size_t buffer_len;
+
+    uint8_t ip[4];
+    uint8_t subnet_net[4];
+    uint8_t subnet_mask[4];
+    uint8_t mac[6];
+    uint16_t identification;
+    struct arp_item arp_list[ARP_CACHE_LEN];
+    time_t arp_ttl;
+    struct gateway *gateway;
+};
+
+int packet_init(
+    struct packet_ctx *self,
     struct lan_play *arg,
+    void *buffer,
+    size_t buffer_len,
+
+    void *ip,
+    void *subnet_net,
+    void *subnet_mask,
+    void *mac,
+    time_t arp_ttl,
+    struct gateway *gateway
+);
+struct pcap_pkthdr;
+void get_packet(struct packet_ctx *arg, const struct pcap_pkthdr * pkthdr, const u_char * packet);
+int process_arp(struct packet_ctx *arg, const struct ether_frame *ether);
+int process_ipv4(struct packet_ctx *arg, const struct ether_frame *ether);
+int send_ether_ex(
+    struct packet_ctx *arg,
     const void *dst,
     const void *src,
     uint16_t type,
     const struct payload *payload
 );
 int send_ether(
-    struct lan_play *arg,
+    struct packet_ctx *arg,
     const void *dst,
     uint16_t type,
     const struct payload *payload
 );
+void payload_print_hex(const struct payload *payload);
 
 #endif // _PACKET_H_

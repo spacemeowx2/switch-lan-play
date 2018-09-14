@@ -1,53 +1,188 @@
 #include "proxy.h"
-#include <lwip/init.h>
-#include <lwip/netif.h>
-#include <lwip/ip.h>
-
-err_t netif_input_func (struct pbuf *p, struct netif *inp)
+#include "helper.h"
+#include "gateway.h"
+#include "packet.h"
+#include "ipv4/ipv4.h"
+#include <assert.h>
+#include <base/llog.h>
+#if 0
+#define malloc(size) ({ \
+    void *__ptr = malloc(size); \
+    LLOG(LLOG_DEBUG, "[malloc] %p %d %s:%d", __ptr, size, __FILE__, __LINE__); \
+    __ptr; \
+})
+#endif
+static void proxy_alloc_cb(uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf)
 {
-    uint8_t ip_version = 0;
-    if (p->len > 0) {
-        ip_version = (((uint8_t *)p->payload)[0] >> 4);
-    }
-
-    switch (ip_version) {
-        case 4: {
-            return ip_input(p, inp);
-        } break;
-        case 6: {
-            return ip6_input(p, inp);
-        } break;
-    }
-
-    pbuf_free(p);
-    return ERR_OK;
+    buf->base = malloc(suggested_size);
+    buf->len = suggested_size;
 }
 
-err_t netif_init_func (struct netif *netif)
+static void proxy_udp_send_cb(uv_udp_send_t *req, int status)
 {
-    netif->name[0] = 'h';
-    netif->name[1] = 'o';
-    // netif->output = netif_output_func;
-    // netif->output_ip6 = netif_output_ip6_func;
-
-    return ERR_OK;
+    if (status < 0) {
+        LLOG(LLOG_ERROR, "proxy_udp_send_cb %d", status);
+    }
+    free(req->data);
+    free(req);
 }
 
-struct proxy proxy_init()
+static void proxy_udp_recv_cb(uv_udp_t *udp, ssize_t nread, const uv_buf_t *buf, const struct sockaddr *addr, unsigned int flags)
 {
-    struct proxy proxy;
-    lwip_init();
-
-    // make addresses for netif
-    ip4_addr_t addr;
-    ip4_addr_t netmask;
-    ip4_addr_t gw;
-    ip4_addr_set_any(&addr);
-    ip4_addr_set_any(&netmask);
-    ip4_addr_set_any(&gw);
-    if (!netif_add(&proxy.netif, &addr, &netmask, &gw, NULL, netif_init_func, netif_input_func)) {
-        fprintf(stderr, "netif_add failed");
-        exit(1);
+    if (nread <= 0) {
+        LLOG(LLOG_DEBUG, "proxy_udp_recv_cb nread: %d", nread);
+        goto out;
     }
-    return proxy;
+
+    struct proxy_udp_item *item = (struct proxy_udp_item *)udp->data;
+    struct payload part;
+    const struct sockaddr_in *addr_in = (const struct sockaddr_in *)addr;
+    const void *from_ip = &addr_in->sin_addr;
+    uint16_t from_port = ntohs(addr_in->sin_port);
+
+    part.ptr = (const u_char *)buf->base;
+    part.len = nread;
+    part.next = NULL;
+
+    int ret = send_udp_ex(item->proxy->packet_ctx, from_ip, from_port, item->src, item->srcport, &part);
+    if (ret != 0) {
+        LLOG(LLOG_ERROR, "proxy_udp_recv_cb %d", ret);
+    }
+
+out:
+    free(buf->base);
+}
+
+// Get or add in the table, return NULL if failed
+static uv_udp_t *proxy_udp_get(struct proxy *proxy, uint8_t src[4], uint16_t srcport, uint8_t dst[4], uint16_t dstport)
+{
+    struct proxy_udp_item *items = proxy->udp_table;
+    time_t now = time(NULL);
+    int i;
+
+    for (i = 0; i < PROXY_UDP_TABLE_LEN; i++) {
+        struct proxy_udp_item *item = &items[i];
+        if (
+            (item->udp != NULL)
+            && (item->expire_at >= now)
+            && CMP_IPV4(item->src, src)
+            && item->srcport == srcport
+        ) {
+            item->expire_at = now + PROXY_UDP_TABLE_TTL;
+            return item->udp;
+        }
+    }
+
+    // didn't find
+    for (i = 0; i < PROXY_UDP_TABLE_LEN; i++) {
+        struct proxy_udp_item *item = &items[i];
+        if (
+            (item->udp == NULL) || (item->expire_at < now)
+        ) {
+            item->udp = (uv_udp_t *)malloc(sizeof(uv_udp_t));
+            item->expire_at = now + PROXY_UDP_TABLE_TTL;
+            item->proxy = proxy;
+
+            assert(uv_udp_init(proxy->loop, item->udp) == 0);
+            assert(uv_udp_recv_start(item->udp, proxy_alloc_cb, proxy_udp_recv_cb) == 0);
+            item->udp->data = item;
+
+            CPY_IPV4(item->src, src);
+            item->srcport = srcport;
+
+            return item->udp;
+        }
+    }
+
+    return NULL;
+}
+
+static int direct_udp(struct proxy *proxy, uint8_t src[4], uint16_t srcport, uint8_t dst[4], uint16_t dstport, const void *data, uint16_t data_len)
+{
+    uv_loop_t *loop = proxy->loop;
+
+    uv_udp_t *udp = proxy_udp_get(proxy, src, srcport, dst, dstport);
+    if (udp == NULL) {
+        LLOG(LLOG_WARNING, "proxy_udp_get failed");
+        return -1;
+    }
+
+    uv_udp_send_t *req = (uv_udp_send_t *)malloc(sizeof(uv_udp_send_t));
+    req->data = malloc(data_len);
+    memcpy(req->data, data, data_len);
+
+    uv_buf_t buf;
+    struct sockaddr_in addr;
+
+    buf.base = (char *)req->data;
+    buf.len = data_len;
+
+    addr.sin_family = AF_INET;
+    CPY_IPV4(&addr.sin_addr, dst);
+    addr.sin_port = htons(dstport);
+
+    return uv_udp_send(req, udp, &buf, 1, (struct sockaddr *)&addr, proxy_udp_send_cb);
+}
+
+// static proxy_tcp_t *direct_tcp_new(struct proxy *proxy)
+// {
+//     uv_tcp_t *tcp = malloc(sizeof(uv_tcp_t));
+
+//     if (uv_tcp_init(proxy->loop, tcp)) {
+//         free(tcp);
+//         tcp = NULL;
+//     }
+
+//     return (proxy_tcp_t *)tcp;
+// }
+
+// struct direct_tcp_connect_req {
+//     uv_connect_t req;
+//     proxy_connect_cb cb;
+//     struct proxy *proxy;
+//     uv_tcp_t *tcp;
+// };
+
+// static void direct_tcp_connect_cb(uv_connect_t *r, int status)
+// {
+//     struct direct_tcp_connect_req *req = r->data;
+
+//     if (status == 0) {
+//         req->cb(req->proxy, (proxy_tcp_t *)req->tcp);
+//     } else {
+//         req->cb(req->proxy, NULL);
+//         free(req->tcp);
+//     }
+
+//     free(req);
+// }
+
+// static int direct_tcp_connect(struct proxy *proxy, const struct sockaddr *addr, proxy_connect_cb cb)
+// {
+//     uv_tcp_t *tcp = malloc(sizeof(uv_tcp_t));
+
+//     if (uv_tcp_init(proxy->loop, tcp)) {
+//         free(tcp);
+//         return -1;
+//     }
+
+//     struct direct_tcp_connect_req *req = malloc(sizeof(struct direct_tcp_connect_req));
+
+//     req->proxy = proxy;
+//     req->req.data = req;
+//     req->cb = cb;
+//     req->tcp = tcp;
+
+//     return uv_tcp_connect(&req->req, tcp, addr, direct_tcp_connect_cb);
+// }
+
+int proxy_direct_init(struct proxy *proxy, uv_loop_t *loop, struct packet_ctx *packet_ctx)
+{
+    proxy->loop = loop;
+    proxy->packet_ctx = packet_ctx;
+    memset(&proxy->udp_table, 0, sizeof(proxy->udp_table));
+
+    proxy->udp = direct_udp;
+
+    return 0;
 }

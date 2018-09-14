@@ -3,3 +3,7 @@ build/
 CMakeSettings.json
 .vscode
 .DS_Store
+run.sh
+debug.sh
+memcheck.sh
+valgrind_ignore
