@@ -91,6 +91,8 @@ static void uvl_cancel_reqs(uvl_tcp_t *client)
     client->tail_write = NULL;
 
     if (client->read_cb) {
+        uv_buf_t null_buf = uv_buf_init(NULL, 0);
+        client->read_cb(client, UV_ECANCELED, &null_buf);
         client->read_cb = NULL;
     }
 }
