@@ -32,6 +32,9 @@ typedef struct {
     uv_buf_t uvl_buf;
     uv_write_t uv_req;
     uv_buf_t uv_buf;
+
+    uint8_t buf1[65536];
+    uint8_t buf2[65536];
 } conn_t;
 static struct packet_ctx *g_gateway_send_packet_ctx;
 
@@ -135,7 +138,7 @@ void p_write_cb(uv_write_t *req, int status)
         printf("p_write_cb %d %s\n", status, uv_strerror(status));
     }
 
-    free(conn->uv_buf.base);
+    // free(conn->uv_buf.base);
 
     assert(uvl_read_start(&conn->stcp, alloc_cb, read_cb) == 0);
 }
@@ -147,7 +150,7 @@ void write_cb(uvl_write_t *req, int status)
         printf("write_cb %d\n", status);
     }
 
-    free(conn->uvl_buf.base);
+    // free(conn->uvl_buf.base);
 
     int ret = uv_read_start((uv_stream_t *)&conn->dtcp, p_alloc_cb, p_read_cb);
     if (ret) {
@@ -158,9 +161,9 @@ void write_cb(uvl_write_t *req, int status)
 void p_read_cb(uv_stream_t *handle, ssize_t nread, const uv_buf_t *buf)
 {
     conn_t *conn = handle->data;
-    if (p_read_cb <= 0) {
+    if (nread <= 0) {
         LLOG(LLOG_DEBUG, "p_read_cb %d %s", nread, uv_strerror(nread));
-        free(buf->base);
+        // free(buf->base);
         conn_kill(conn);
         return;
     }
@@ -179,7 +182,7 @@ void read_cb(uvl_tcp_t *handle, ssize_t nread, const uv_buf_t *buf)
     conn_t *conn = handle->data;
     if (nread <= 0) {
         LLOG(LLOG_DEBUG, "read_cb %d", nread);
-        free(buf->base);
+        // free(buf->base);
         conn_kill(conn);
         return;
     }
@@ -195,14 +198,16 @@ void read_cb(uvl_tcp_t *handle, ssize_t nread, const uv_buf_t *buf)
 
 void p_alloc_cb(uv_handle_t *handle, size_t suggested_size, uv_buf_t* buf)
 {
-    buf->base = malloc(suggested_size);
-    buf->len = suggested_size;
+    conn_t *conn = handle->data;
+    buf->base = conn->buf1;
+    buf->len = 65536;
 }
 
 void alloc_cb(uvl_tcp_t *handle, size_t suggested_size, uv_buf_t* buf)
 {
-    buf->base = malloc(suggested_size);
-    buf->len = suggested_size;
+    conn_t *conn = handle->data;
+    buf->base = conn->buf2;
+    buf->len = 65536;
 }
 
 static void p_on_connect(uv_connect_t *req, int status)

@@ -299,8 +299,15 @@ void lan_play_get_packet(u_char *arg, const struct pcap_pkthdr *hdr, const u_cha
 void lan_play_libpcap_thread(void *data)
 {
     struct lan_play *lan_play = (struct lan_play *)data;
+    pcap_t *p = lan_play->dev;
+    struct pcap_pkthdr *pkt_header;
+    const u_char *packet;
+
     puts("Loop start");
-    pcap_loop(lan_play->dev, -1, lan_play_get_packet, (u_char*)lan_play);
+    while (1) {
+        assert(pcap_next_ex(p, &pkt_header, &packet) == 1);
+        lan_play_get_packet((u_char *)lan_play, pkt_header, packet);
+    }
 
     pcap_close(lan_play->dev);
 }
