@@ -108,7 +108,7 @@ void lan_client_on_recv(uv_udp_t* handle, ssize_t nread, const uv_buf_t* buf, co
 
 void lan_client_on_sent(uv_udp_send_t* req, int status)
 {
-
+    free(req);
 }
 
 int lan_client_send(struct lan_play *lan_play, const uint8_t type, const void *packet, uint16_t len)
@@ -124,8 +124,8 @@ int lan_client_send(struct lan_play *lan_play, const uint8_t type, const void *p
         bufs_len = 2;
     }
 
-    uv_udp_send_t req;
-    ret = uv_udp_send(&req, &lan_play->client, bufs, bufs_len, server_addr, lan_client_on_sent);
+    uv_udp_send_t *req = malloc(sizeof(uv_udp_send_t));
+    ret = uv_udp_send(req, &lan_play->client, bufs, bufs_len, server_addr, lan_client_on_sent);
 
     return ret;
 }

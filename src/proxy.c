@@ -5,7 +5,7 @@
 #include "ipv4/ipv4.h"
 #include <assert.h>
 #include <base/llog.h>
-#if 1
+#if 0
 #define malloc(size) ({ \
     void *__ptr = malloc(size); \
     LLOG(LLOG_DEBUG, "[malloc] %p %d %s:%d", __ptr, size, __FILE__, __LINE__); \

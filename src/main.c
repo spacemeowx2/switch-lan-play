@@ -103,7 +103,7 @@ void init_pcap(struct lan_play *lan_play, void *mac)
     }
 
     printf("Opening %s\n", d->name);
-    dev = pcap_open_live(d->name, 65535, 1, 0, err_buf);
+    dev = pcap_open_live(d->name, 65535, 1, 1, err_buf);
 
     if (!dev) {
         fprintf(stderr, "Error: pcap_open_live(): %s\n", err_buf);
@@ -281,20 +281,6 @@ void print_version()
     printf("switch-lan-play v0.0.0\n");
 }
 
-void lan_play_get_packet(u_char *arg, const struct pcap_pkthdr *hdr, const u_char *packet)
-{
-    struct lan_play *lan_play = (struct lan_play *)arg;
-
-    lan_play->pkthdr = hdr;
-    lan_play->packet = packet;
-
-    if (uv_async_send(&lan_play->get_packet_async)) {
-        LLOG(LLOG_WARNING, "lan_play_get_packet uv_async_send");
-    }
-
-    uv_sem_wait(&lan_play->get_packet_sem);
-}
-
 void lan_play_libpcap_thread(void *data)
 {
     struct lan_play *lan_play = (struct lan_play *)data;
@@ -312,7 +298,15 @@ void lan_play_libpcap_thread(void *data)
             assert(0);
         }
 
-        lan_play_get_packet((u_char *)lan_play, pkt_header, packet);
+
+        lan_play->pkthdr = pkt_header;
+        lan_play->packet = packet;
+
+        if (uv_async_send(&lan_play->get_packet_async)) {
+            LLOG(LLOG_WARNING, "lan_play_get_packet uv_async_send");
+        }
+
+        uv_sem_wait(&lan_play->get_packet_sem);
     }
 
     pcap_close(lan_play->dev);

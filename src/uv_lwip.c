@@ -1,4 +1,3 @@
-
 #include "uv_lwip.h"
 #include <base/llog.h>
 #include <string.h>
@@ -28,7 +27,7 @@ static uv_once_t uvl_init_once = UV_ONCE_INIT;
 #define LMIN(a, b) ( ((a) < (b)) ? (a) : (b) )
 
 static void uvl_imp_write_to_tcp(uvl_tcp_t *client);
-static int uvl_new_connection_req(uvl_t *handle);
+static err_t uvl_client_close_func (uvl_tcp_t *client);
 
 static void addr_from_lwip(void *ip, const ip_addr_t *ip_addr)
 {
@@ -38,15 +37,6 @@ static void addr_from_lwip(void *ip, const ip_addr_t *ip_addr)
     } else {
         memcpy(ip, &ip_addr->u_addr.ip4.addr, 4);
     }
-}
-
-static void client_abort_client(uvl_tcp_t *client){
-    //
-}
-
-static void uvl_async_never(uv_async_t *req)
-{
-    ASSERT(0);
 }
 
 static void uvl_async_tcp_read_cb(uv_async_t *req)
@@ -64,7 +54,7 @@ static void uvl_async_tcp_read_cb(uv_async_t *req)
             if (b.base == NULL || b.len < buf->recv_used) {
                 nnread = UV_ENOBUFS;
             } else {
-                LLOG(LLOG_DEBUG, "[-] recv_buf %d / %d", buf->recv_used, sizeof(buf->recv_buf));
+                // LLOG(LLOG_DEBUG, "[-] recv_buf %d / %d", buf->recv_used, sizeof(buf->recv_buf));
                 memcpy(b.base, buf->recv_buf, buf->recv_used);
                 tcp_recved(client->pcb, buf->recv_used);
                 nnread = buf->recv_used;
@@ -128,8 +118,7 @@ static int uvl_imp_write_buf_to_tcp(uvl_tcp_t *client, uvl_write_t *req)
             }
             LLOG(LLOG_INFO, "tcp_write failed (%d)", (int)err);
 
-            client_abort_client(client);
-            return -1;
+            return uvl_client_close_func(client);
         }
         req->sent += to_write;
         req->pending += to_write;
@@ -201,7 +190,7 @@ static void uvl_imp_write_to_tcp(uvl_tcp_t *client)
     if (err != ERR_OK) {
         LLOG(LLOG_INFO, "tcp_output failed (%d)", (int)err);
 
-        client_abort_client(client);
+        uvl_client_close_func(client);
         return;
     }
 }
@@ -285,7 +274,7 @@ static err_t uvl_client_recv_func (void *arg, struct tcp_pcb *tpcb, struct pbuf 
             return ERR_MEM;
         }
 
-        LLOG(LLOG_DEBUG, "[+] recv_buf %d + %d / %d", buf->recv_used, p->tot_len, sizeof(buf->recv_buf));
+        // LLOG(LLOG_DEBUG, "[+] recv_buf %d + %d / %d", buf->recv_used, p->tot_len, sizeof(buf->recv_buf));
         ASSERT(pbuf_copy_partial(p, buf->recv_buf + buf->recv_used, p->tot_len, 0) == p->tot_len)
         buf->recv_used += p->tot_len;
 
@@ -382,22 +371,19 @@ static err_t uvl_listener_accept_func (void *arg, struct tcp_pcb *newpcb, err_t 
     ASSERT(handle->listener)
     ASSERT(handle->connection_cb)
 
-    uv_loop_t *loop = handle->loop;
-    int ret;
-
     handle->waiting_pcb = newpcb;
     handle->connection_cb(handle, 0);
 
     // not accept?
     if (handle->waiting_pcb != NULL) {
         // send rst
-        tcp_abort(newpcb);
-        handle->waiting_pcb = NULL;
+        goto fail_abort;
     }
 
     return ERR_OK;
 fail_abort:
     tcp_abort(newpcb);
+    handle->waiting_pcb = NULL;
     return ERR_ABRT;
 }
 

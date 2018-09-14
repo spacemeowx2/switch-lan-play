@@ -1,33 +1,19 @@
 #ifndef _HELPER_H_
 #define _HELPER_H_
 
-#include <pcap.h>
-#include <unistd.h>
 #if defined(_WIN32)
 #include <winsock2.h>
 #include <ws2tcpip.h>
-// https://linux.die.net/man/2/sendto
-struct iovec {
-    size_t iov_len;
-    void *iov_base;
-};
-struct msghdr {
-    void         *msg_name;       /* optional address */
-    socklen_t     msg_namelen;    /* size of address */
-    struct iovec *msg_iov;        /* scatter/gather array */
-    size_t        msg_iovlen;     /* # elements in msg_iov */
-    void         *msg_control;    /* ancillary data, see below */
-    size_t        msg_controllen; /* ancillary data buffer len */
-    int           msg_flags;      /* flags on received message */
-};
-ssize_t sendmsg(int s, const struct msghdr *msg, int flags);
 #else
 #include <arpa/inet.h>
 #include <netdb.h>
 #endif
+#include <pcap.h>
+#include <unistd.h>
+// #define HTONS(a) ( (((a) & 0xff) << 8) | (((a) >> 8) & 0xff) )
 #define LMIN(a, b) ((a) < (b) ? (a) : (b))
 #define READ_NET8(packet, offset) (*(uint8_t*)((uint8_t*)packet + offset))
-#define READ_NET16(packet, offset) ntohs(*(uint16_t*)((uint8_t*)packet + offset))
+#define READ_NET16(packet, offset) htons(*(uint16_t*)((uint8_t*)packet + offset))
 #define READ_NET32(packet, offset) ntohl(*(uint32_t*)((uint8_t*)packet + offset))
 #define WRITE_NET8(packet, offset, v) (*(uint8_t*)((uint8_t*)packet + offset) = v)
 #define WRITE_NET16(packet, offset, v) (*(uint16_t*)((uint8_t*)packet + offset) = htons(v))
