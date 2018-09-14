@@ -89,7 +89,7 @@ void conn_free(conn_t *conn)
 {
     if (conn->sclosed && conn->dclosed) {
         LLOG(LLOG_DEBUG, "conn_kill %p done", conn);
-        // free(conn);
+        free(conn);
     }
 }
 
@@ -152,18 +152,14 @@ void write_cb(uvl_write_t *req, int status)
 
 void p_read_cb(uv_stream_t *handle, ssize_t nread, const uv_buf_t *buf)
 {
-    if (p_read_cb <= 0) {
-        LLOG(LLOG_DEBUG, "p_read_cb %d", nread);
-        printf("p_read_cb %d %s\n", nread, uv_strerror(nread));
-        return;
-    }
-    uv_read_stop(handle);
-
     conn_t *conn = handle->data;
-    if (nread <= 0) {
+    if (p_read_cb <= 0) {
+        LLOG(LLOG_DEBUG, "p_read_cb %d %s", nread, uv_strerror(nread));
+        free(buf->base);
         conn_kill(conn);
         return;
     }
+    uv_read_stop(handle);
 
     uvl_write_t *req = &conn->uvl_req;
 
@@ -178,6 +174,7 @@ void read_cb(uvl_tcp_t *handle, ssize_t nread, const uv_buf_t *buf)
     conn_t *conn = handle->data;
     if (nread <= 0) {
         LLOG(LLOG_DEBUG, "read_cb %d", nread);
+        free(buf->base);
         conn_kill(conn);
         return;
     }
@@ -208,12 +205,15 @@ static void p_on_connect(uv_connect_t *req, int status)
     conn_t *conn = req->data;
     if (status) {
         conn_kill(conn);
+        free(req);
         return;
     }
 
     int ret;
     ret = uv_read_start((uv_stream_t *)&conn->dtcp, p_alloc_cb, p_read_cb);
     LLOG(LLOG_DEBUG, "p_on_connect %d", ret);
+
+    free(req);
     assert(ret == 0);
     assert(uvl_read_start(&conn->stcp, alloc_cb, read_cb) == 0);
 }
@@ -225,6 +225,7 @@ void on_connect(uvl_t *handle, int status)
     conn_t *conn = malloc(sizeof(conn_t));
     uv_connect_t *req = malloc(sizeof(uv_connect_t));
     uvl_tcp_t *client = &conn->stcp;
+    int ret;
 
     conn->stcp.data = conn;
     conn->dtcp.data = conn;
@@ -244,7 +245,11 @@ void on_connect(uvl_t *handle, int status)
     PRINT_IP(&client->local_addr.sin_addr);
     printf(" %d ", ntohs(client->local_addr.sin_port));
     putchar('\n');
-    uv_tcp_connect(req, &conn->dtcp, (struct sockaddr *)&client->local_addr, p_on_connect);
+    ret = uv_tcp_connect(req, &conn->dtcp, (struct sockaddr *)&client->local_addr, p_on_connect);
+    if (ret) {
+        LLOG(LLOG_WARNING, "uv_tcp_connect failed %d %s", ret, uv_strerror(ret));
+        free(req);
+    }
 }
 
 int gateway_uvl_output(uvl_t *handle, const uv_buf_t bufs[], unsigned int nbufs)

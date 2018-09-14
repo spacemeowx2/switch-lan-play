@@ -116,9 +116,10 @@ int lan_client_send(struct lan_play *lan_play, const uint8_t type, const void *p
     struct sockaddr *server_addr = (struct sockaddr *)&lan_play->server_addr;
     int ret;
     uv_buf_t *bufs = lan_play->client_send_buf;
+    lan_play->client_send_type = type;
     int bufs_len = 1;
-    bufs[0] = uv_buf_init((char *)&type, sizeof(type));
-    if (packet) {
+    bufs[0] = uv_buf_init((char *)&lan_play->client_send_type, sizeof(type));
+    if (packet && len > 0) {
         bufs[1] = uv_buf_init((char *)packet, len);
         bufs_len = 2;
     }

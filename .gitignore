@@ -5,3 +5,5 @@ CMakeSettings.json
 .DS_Store
 run.sh
 debug.sh
+memcheck.sh
+valgrind_ignore

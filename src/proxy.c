@@ -5,7 +5,7 @@
 #include "ipv4/ipv4.h"
 #include <assert.h>
 #include <base/llog.h>
-#if 1
+#if 0
 #define malloc(size) ({ \
     void *__ptr = malloc(size); \
     LLOG(LLOG_DEBUG, "[malloc] %p %d %d", __ptr, size, __LINE__); \
@@ -32,7 +32,7 @@ static void proxy_udp_recv_cb(uv_udp_t *udp, ssize_t nread, const uv_buf_t *buf,
 {
     if (nread <= 0) {
         LLOG(LLOG_DEBUG, "proxy_udp_recv_cb nread: %d", nread);
-        return;
+        goto out;
     }
 
     struct proxy_udp_item *item = (struct proxy_udp_item *)udp->data;
@@ -49,6 +49,8 @@ static void proxy_udp_recv_cb(uv_udp_t *udp, ssize_t nread, const uv_buf_t *buf,
     if (ret != 0) {
         LLOG(LLOG_ERROR, "proxy_udp_recv_cb %d", ret);
     }
+
+out:
     free(buf->base);
 }
 
