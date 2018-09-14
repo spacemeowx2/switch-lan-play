@@ -40,20 +40,7 @@ ssize_t sendmsg(int s, const struct msghdr *msg, int flags);
 #define IS_BROADCAST(ip, net, mask) ( ((*(uint32_t*)net) | ( ~ *(uint32_t*)mask)) == *(uint32_t*)ip )
 #define PRINT_IP(ip) printf("%d.%d.%d.%d", *(uint8_t*)(ip), *(uint8_t*)((uint8_t*)ip + 1), *(uint8_t*)((uint8_t*)ip + 2), *(uint8_t*)((uint8_t*)ip + 3))
 #define PRINT_MAC(mac) printf("%x:%x:%x:%x:%x:%x", *(uint8_t*)(mac), *(uint8_t*)((uint8_t*)mac + 1), *(uint8_t*)((uint8_t*)mac + 2), *(uint8_t*)((uint8_t*)mac + 3), *(uint8_t*)((uint8_t*)mac + 4), *(uint8_t*)((uint8_t*)mac + 5))
-#define MUTEX_LOCK(mutex) do { \
-    int __ret = pthread_mutex_lock(mutex); \
-    if (__ret != 0) { \
-        fprintf(stderr, "pthread_mutex_lock failed %d\n", __ret); \
-        exit(1); \
-    } \
-} while(0)
-#define MUTEX_UNLOCK(mutex) do { \
-    int __ret = pthread_mutex_unlock(mutex); \
-    if (__ret != 0) { \
-        fprintf(stderr, "pthread_mutex_lock failed %d\n", __ret); \
-        exit(1); \
-    } \
-} while(0)
+
 const char *ip2str(void *ip);
 void *str2ip(const char *ip);
 void print_hex(const void *buf, int len);

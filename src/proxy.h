@@ -5,7 +5,7 @@
 #include <uv.h>
 
 #define PROXY_UDP_TABLE_LEN 128
-#define PROXY_UDP_TABLE_TTL 60 * 10 // 10 minutes
+#define PROXY_UDP_TABLE_TTL 30 // 30sec
 struct proxy;
 typedef struct proxy_tcp_s proxy_tcp_t;
 typedef void (*proxy_connect_cb)(struct proxy *proxy, proxy_tcp_t *tcp);

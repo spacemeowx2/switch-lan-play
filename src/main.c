@@ -50,7 +50,6 @@ void init_pcap(struct lan_play *lan_play, void *mac)
     pcap_t *dev;
     pcap_if_t *alldevs;
     pcap_if_t *d;
-    char *dev_name;
     char err_buf[PCAP_ERRBUF_SIZE];
     int i;
     int arg_inum;
@@ -302,10 +301,17 @@ void lan_play_libpcap_thread(void *data)
     pcap_t *p = lan_play->dev;
     struct pcap_pkthdr *pkt_header;
     const u_char *packet;
+    int ret;
 
     puts("Loop start");
     while (1) {
-        assert(pcap_next_ex(p, &pkt_header, &packet) == 1);
+        ret = pcap_next_ex(p, &pkt_header, &packet);
+        if (ret == 0) continue;
+        if (ret != 1) {
+            LLOG(LLOG_ERROR, "pcap_next_ex %d", ret);
+            assert(0);
+        }
+
         lan_play_get_packet((u_char *)lan_play, pkt_header, packet);
     }
 
@@ -387,6 +393,9 @@ int main(int argc, char **argv)
     assert(lan_play_init(lan_play) == 0);
 
     ret = uv_thread_create(&lan_play->libpcap_thread, lan_play_libpcap_thread, lan_play);
+    if (ret) {
+        LLOG(LLOG_ERROR, "uv_thread_create %d", ret);
+    }
 
     return uv_run(lan_play->loop, UV_RUN_DEFAULT);
 }

@@ -62,7 +62,7 @@ err_t netif_output_func (struct netif *netif, struct pbuf *p, const ip4_addr_t *
     } else {
         int len = 0;
         do {
-            if (len + p->len > GATEWAY_BUFFER_SIZE) {
+            if (len + p->len > sizeof(buffer)) {
                 return ERR_IF;
             }
             memcpy(buffer + len, p->payload, p->len);
@@ -270,6 +270,7 @@ int gateway_uvl_output(uvl_t *handle, const uv_buf_t bufs[], unsigned int nbufs)
     uint32_t len = 0;
 
     for (int i = 0; i < nbufs; i++) {
+        ASSERT(len + bufs[i].len < 8192)
         memcpy(buf, bufs[i].base, bufs[i].len);
         buf += bufs[i].len;
         len += bufs[i].len;
@@ -293,8 +294,6 @@ int gateway_init(struct gateway *gateway, struct packet_ctx *packet_ctx)
     proxy_direct_init(&gateway->proxy, gateway->loop, packet_ctx);
 
     return 0;
-fail:
-    exit(1);
 }
 
 int gateway_process_udp(struct gateway *gateway, const uint8_t *data, int data_len)

@@ -5,10 +5,10 @@
 #include "ipv4/ipv4.h"
 #include <assert.h>
 #include <base/llog.h>
-#if 0
+#if 1
 #define malloc(size) ({ \
     void *__ptr = malloc(size); \
-    LLOG(LLOG_DEBUG, "[malloc] %p %d %d", __ptr, size, __LINE__); \
+    LLOG(LLOG_DEBUG, "[malloc] %p %d %s:%d", __ptr, size, __FILE__, __LINE__); \
     __ptr; \
 })
 #endif
@@ -16,7 +16,6 @@ static void proxy_alloc_cb(uv_handle_t* handle, size_t suggested_size, uv_buf_t*
 {
     buf->base = malloc(suggested_size);
     buf->len = suggested_size;
-    // LLOG(LLOG_DEBUG, "proxy_alloc_cb %p %d %p", handle, suggested_size, buf->base);
 }
 
 static void proxy_udp_send_cb(uv_udp_send_t *req, int status)
@@ -125,57 +124,57 @@ static int direct_udp(struct proxy *proxy, uint8_t src[4], uint16_t srcport, uin
     return uv_udp_send(req, udp, &buf, 1, (struct sockaddr *)&addr, proxy_udp_send_cb);
 }
 
-static proxy_tcp_t *direct_tcp_new(struct proxy *proxy)
-{
-    uv_tcp_t *tcp = malloc(sizeof(uv_tcp_t));
+// static proxy_tcp_t *direct_tcp_new(struct proxy *proxy)
+// {
+//     uv_tcp_t *tcp = malloc(sizeof(uv_tcp_t));
 
-    if (uv_tcp_init(proxy->loop, tcp)) {
-        free(tcp);
-        tcp = NULL;
-    }
+//     if (uv_tcp_init(proxy->loop, tcp)) {
+//         free(tcp);
+//         tcp = NULL;
+//     }
 
-    return (proxy_tcp_t *)tcp;
-}
+//     return (proxy_tcp_t *)tcp;
+// }
 
-struct direct_tcp_connect_req {
-    uv_connect_t req;
-    proxy_connect_cb cb;
-    struct proxy *proxy;
-    uv_tcp_t *tcp;
-};
+// struct direct_tcp_connect_req {
+//     uv_connect_t req;
+//     proxy_connect_cb cb;
+//     struct proxy *proxy;
+//     uv_tcp_t *tcp;
+// };
 
-static void direct_tcp_connect_cb(uv_connect_t *r, int status)
-{
-    struct direct_tcp_connect_req *req = r->data;
+// static void direct_tcp_connect_cb(uv_connect_t *r, int status)
+// {
+//     struct direct_tcp_connect_req *req = r->data;
 
-    if (status == 0) {
-        req->cb(req->proxy, (proxy_tcp_t *)req->tcp);
-    } else {
-        req->cb(req->proxy, NULL);
-        free(req->tcp);
-    }
+//     if (status == 0) {
+//         req->cb(req->proxy, (proxy_tcp_t *)req->tcp);
+//     } else {
+//         req->cb(req->proxy, NULL);
+//         free(req->tcp);
+//     }
 
-    free(req);
-}
+//     free(req);
+// }
 
-static int direct_tcp_connect(struct proxy *proxy, const struct sockaddr *addr, proxy_connect_cb cb)
-{
-    uv_tcp_t *tcp = malloc(sizeof(uv_tcp_t));
+// static int direct_tcp_connect(struct proxy *proxy, const struct sockaddr *addr, proxy_connect_cb cb)
+// {
+//     uv_tcp_t *tcp = malloc(sizeof(uv_tcp_t));
 
-    if (uv_tcp_init(proxy->loop, tcp)) {
-        free(tcp);
-        return -1;
-    }
+//     if (uv_tcp_init(proxy->loop, tcp)) {
+//         free(tcp);
+//         return -1;
+//     }
 
-    struct direct_tcp_connect_req *req = malloc(sizeof(struct direct_tcp_connect_req));
+//     struct direct_tcp_connect_req *req = malloc(sizeof(struct direct_tcp_connect_req));
 
-    req->proxy = proxy;
-    req->req.data = req;
-    req->cb = cb;
-    req->tcp = tcp;
+//     req->proxy = proxy;
+//     req->req.data = req;
+//     req->cb = cb;
+//     req->tcp = tcp;
 
-    return uv_tcp_connect(&req->req, tcp, addr, direct_tcp_connect_cb);
-}
+//     return uv_tcp_connect(&req->req, tcp, addr, direct_tcp_connect_cb);
+// }
 
 int proxy_direct_init(struct proxy *proxy, uv_loop_t *loop, struct packet_ctx *packet_ctx)
 {

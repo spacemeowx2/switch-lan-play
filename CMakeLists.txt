@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.0)
 project (SwitchLanPlay)
 
 add_compile_options(
-    "-g3" "-ggdb" "-g"
+    "-g3" "-ggdb" "-g" "-Wall"
 )
 
 include(TestBigEndian)
