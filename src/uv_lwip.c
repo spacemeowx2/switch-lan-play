@@ -642,9 +642,6 @@ static void uvl_tcp_close_handle_cb(uv_handle_t *handle)
 
     client->closed_handle++;
     if (client->closed_handle == 2) {
-        client->close_cb(client);
-        client->close_cb = NULL;
-
         client->loop = NULL;
         client->handle = NULL;
         free(client->buf);
@@ -655,6 +652,10 @@ static void uvl_tcp_close_handle_cb(uv_handle_t *handle)
         client->read_cb = NULL;
         client->pcb = NULL;
         client->closed_handle = 0;
+
+        uvl_tcp_close_cb cb = client->close_cb;
+        client->close_cb = NULL;
+        cb(client);
     }
 }
 

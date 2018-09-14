@@ -26,6 +26,7 @@ typedef struct {
     uvl_tcp_t stcp;
     int dclosed;
     int sclosed;
+    int closing;
 
     uvl_write_t uvl_req;
     uv_buf_t uvl_buf;
@@ -112,6 +113,10 @@ void p_close_cb(uv_handle_t *handle)
 static void conn_kill(conn_t *conn)
 {
     assert(conn);
+    if (conn->closing) {
+        return;
+    }
+    conn->closing = 1;
     LLOG(LLOG_DEBUG, "conn_kill %p", conn);
     if (!conn->sclosed) {
         uvl_read_stop(&conn->stcp);
@@ -232,6 +237,7 @@ void on_connect(uvl_t *handle, int status)
     req->data = conn;
     conn->sclosed = 0;
     conn->dclosed = 0;
+    conn->closing = 0;
 
     conn->uv_req.data = conn;
     conn->uvl_req.data = conn;
