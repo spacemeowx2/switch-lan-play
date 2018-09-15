@@ -43,6 +43,7 @@ int set_immediate_mode(pcap_t *p)
 #elif defined(_WIN32)
     return pcap_setmintocopy(p, 0); // low latency
 #endif
+    return 0;
 }
 void print_hex(const void *buf, int len)
 {
