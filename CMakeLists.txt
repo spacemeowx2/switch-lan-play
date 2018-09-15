@@ -2,10 +2,10 @@ cmake_minimum_required(VERSION 3.0)
 project (SwitchLanPlay)
 set(LANPLAY_VERSION 0.0.1)
 
-add_compile_definitions(LANPLAY_VERSION="${LANPLAY_VERSION}")
 add_compile_options(
     "-Wall"
     "-Wno-unused-function"
+    "-DLANPLAY_VERSION=\"${LANPLAY_VERSION}\""
 )
 set(CMAKE_C_FLAGS_DEBUG
     "-g3 -ggdb -g"
