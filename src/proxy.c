@@ -53,6 +53,44 @@ out:
     free(buf->base);
 }
 
+static void cache_close_cb(uv_handle_t *udp)
+{
+    free(udp);
+}
+
+static void cache_delete_udp(struct proxy_udp_item *item)
+{
+    if (item->udp) {
+        uv_close((uv_handle_t *)item->udp, cache_close_cb);
+        item->udp = NULL;
+    }
+}
+
+static int cache_new_udp(struct proxy *proxy, struct proxy_udp_item *item, time_t now, uint8_t src[4], uint16_t srcport)
+{
+    if (item->udp) {
+        cache_delete_udp(item);
+    }
+    item->udp = (uv_udp_t *)malloc(sizeof(uv_udp_t));
+    if (item->udp == NULL) {
+        return -1;
+    }
+    item->expire_at = now + PROXY_UDP_TABLE_TTL;
+    item->proxy = proxy;
+
+    int ret;
+    ret = uv_udp_init(proxy->loop, item->udp);
+    if (ret) return ret;
+    ret = uv_udp_recv_start(item->udp, proxy_alloc_cb, proxy_udp_recv_cb);
+    if (ret) return ret;
+    item->udp->data = item;
+
+    CPY_IPV4(item->src, src);
+    item->srcport = srcport;
+
+    return 0;
+}
+
 // Get or add in the table, return NULL if failed
 static uv_udp_t *proxy_udp_get(struct proxy *proxy, uint8_t src[4], uint16_t srcport, uint8_t dst[4], uint16_t dstport)
 {
@@ -79,17 +117,9 @@ static uv_udp_t *proxy_udp_get(struct proxy *proxy, uint8_t src[4], uint16_t src
         if (
             (item->udp == NULL) || (item->expire_at < now)
         ) {
-            item->udp = (uv_udp_t *)malloc(sizeof(uv_udp_t));
-            item->expire_at = now + PROXY_UDP_TABLE_TTL;
-            item->proxy = proxy;
-
-            assert(uv_udp_init(proxy->loop, item->udp) == 0);
-            assert(uv_udp_recv_start(item->udp, proxy_alloc_cb, proxy_udp_recv_cb) == 0);
-            item->udp->data = item;
-
-            CPY_IPV4(item->src, src);
-            item->srcport = srcport;
-
+            if (cache_new_udp(proxy, item, now, src, srcport) != 0) {
+                return NULL;
+            }
             return item->udp;
         }
     }
@@ -99,8 +129,6 @@ static uv_udp_t *proxy_udp_get(struct proxy *proxy, uint8_t src[4], uint16_t src
 
 static int direct_udp(struct proxy *proxy, uint8_t src[4], uint16_t srcport, uint8_t dst[4], uint16_t dstport, const void *data, uint16_t data_len)
 {
-    uv_loop_t *loop = proxy->loop;
-
     uv_udp_t *udp = proxy_udp_get(proxy, src, srcport, dst, dstport);
     if (udp == NULL) {
         LLOG(LLOG_WARNING, "proxy_udp_get failed");

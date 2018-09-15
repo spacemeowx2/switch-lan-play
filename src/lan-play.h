@@ -22,11 +22,18 @@ struct lan_play;
 #include "gateway.h"
 #include "proxy.h"
 
+#ifndef LANPLAY_VERSION
+#define LANPLAY_VERSION "unset"
+#endif
+
 struct lan_play {
     pcap_t *dev;
 
     struct packet_ctx packet_ctx;
 
+    uv_signal_t signal_int;
+    uv_signal_t signal_hup;
+    uv_signal_t signal_break;
     bool stop;
     uv_loop_t *loop;
     uv_thread_t libpcap_thread;

@@ -103,7 +103,7 @@ void init_pcap(struct lan_play *lan_play, void *mac)
     }
 
     printf("Opening %s\n", d->name);
-    dev = pcap_open_live(d->name, 65535, 1, 1, err_buf);
+    dev = pcap_open_live(d->name, 65535, 1, 500, err_buf);
 
     if (!dev) {
         fprintf(stderr, "Error: pcap_open_live(): %s\n", err_buf);
@@ -278,7 +278,7 @@ void print_help(const char *name)
 
 void print_version()
 {
-    printf("switch-lan-play v0.0.0\n");
+    printf("switch-lan-play " LANPLAY_VERSION "\n");
 }
 
 void lan_play_libpcap_thread(void *data)
@@ -290,7 +290,7 @@ void lan_play_libpcap_thread(void *data)
     int ret;
 
     puts("Loop start");
-    while (1) {
+    while (!lan_play->stop) {
         ret = pcap_next_ex(p, &pkt_header, &packet);
         if (ret == 0) continue;
         if (ret != 1) {
@@ -344,6 +344,14 @@ int lan_play_gateway_send_packet(struct packet_ctx *packet_ctx, const void *data
     );
 }
 
+void lan_play_signal_cb(uv_signal_t *signal, int signum)
+{
+    struct lan_play *lan_play = signal->data;
+    uv_stop(lan_play->loop);
+    lan_play->stop = true;
+    printf("stopping %d\n", signum);
+}
+
 int main(int argc, char **argv)
 {
     char relay_server_addr[128] = { 0 };
@@ -382,7 +390,16 @@ int main(int argc, char **argv)
     assert(uv_loop_init(lan_play->loop) == 0);
     assert(uv_async_init(lan_play->loop, &lan_play->get_packet_async, lan_play_get_packet_async_cb) == 0);
     assert(uv_sem_init(&lan_play->get_packet_sem, 0) == 0);
+    assert(uv_signal_init(lan_play->loop, &lan_play->signal_int) == 0);
+    assert(uv_signal_init(lan_play->loop, &lan_play->signal_break) == 0);
+    assert(uv_signal_init(lan_play->loop, &lan_play->signal_hup) == 0);
+    assert(uv_signal_start(&lan_play->signal_int, lan_play_signal_cb, SIGINT) == 0);
+    assert(uv_signal_start(&lan_play->signal_break, lan_play_signal_cb, SIGBREAK) == 0);
+    assert(uv_signal_start(&lan_play->signal_hup, lan_play_signal_cb, SIGHUP) == 0);
     lan_play->get_packet_async.data = lan_play;
+    lan_play->signal_int.data = lan_play;
+    lan_play->signal_break.data = lan_play;
+    lan_play->signal_hup.data = lan_play;
 
     assert(lan_play_init(lan_play) == 0);
 
@@ -391,5 +408,15 @@ int main(int argc, char **argv)
         LLOG(LLOG_ERROR, "uv_thread_create %d", ret);
     }
 
-    return uv_run(lan_play->loop, UV_RUN_DEFAULT);
+    ret = uv_run(lan_play->loop, UV_RUN_DEFAULT);
+    if (ret) {
+        LLOG(LLOG_ERROR, "uv_run %d", ret);
+    }
+
+    ret = uv_thread_join(&lan_play->libpcap_thread);
+    if (ret) {
+        LLOG(LLOG_ERROR, "uv_thread_join %d", ret);
+    }
+
+    return ret;
 }

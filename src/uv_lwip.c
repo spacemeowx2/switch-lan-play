@@ -10,7 +10,7 @@
 #include <lwip/nd6.h>
 #include <lwip/ip6_frag.h>
 
-// #define _DEBUG
+// #define _UV_LWIP_DEBUG
 #define UVL_TCP_RECV_BUF_LEN TCP_WND
 #define UVL_TCP_SEND_BUF_LEN 8192
 
@@ -148,7 +148,7 @@ static void uvl_imp_write_to_tcp(uvl_tcp_t *client)
 
     uvl_write_t *req = client->cur_write;
 
-#ifdef _DEBUG
+#ifdef _UV_LWIP_DEBUG
     int total = 0;
     int i = 1;
 
@@ -160,18 +160,17 @@ static void uvl_imp_write_to_tcp(uvl_tcp_t *client)
 #endif
 
     while (req) {
-        // LLOG(LLOG_DEBUG, "fuck %d / %d", req->sent_bufs, req->send_nbufs);
         if (req->sent_bufs < req->send_nbufs) {
             break;
         }
         req = req->next;
-#ifdef _DEBUG
+#ifdef _UV_LWIP_DEBUG
         i++;
 #endif
     }
 
     while (req) {
-#ifdef _DEBUG
+#ifdef _UV_LWIP_DEBUG
         LLOG(LLOG_DEBUG, "%p block %d / %d", client, i, total);
 #endif
         int ret = uvl_imp_write_buf_to_tcp(client, req);
@@ -292,7 +291,7 @@ static err_t uvl_client_sent_func (void *arg, struct tcp_pcb *tpcb, u16_t len)
     uvl_write_t *req = client->cur_write;
     uvl_write_t *next = NULL;
 
-#ifdef _DEBUG
+#ifdef _UV_LWIP_DEBUG
     int total = 0;
     int pre_total = 0;
     while (req) {
@@ -335,7 +334,7 @@ static err_t uvl_client_sent_func (void *arg, struct tcp_pcb *tpcb, u16_t len)
         }
     }
 
-#ifdef _DEBUG
+#ifdef _UV_LWIP_DEBUG
     while (req) {
         req = req->next;
         total++;
@@ -505,8 +504,6 @@ int uvl_write(uvl_write_t *req, uvl_tcp_t *client, const uv_buf_t bufs[], unsign
 int uvl_accept(uvl_t *handle, uvl_tcp_t *client)
 {
     ASSERT(handle->waiting_pcb)
-    ASSERT(client->loop == handle->loop)
-    ASSERT(client->handle == NULL)
 
     struct tcp_pcb *newpcb = handle->waiting_pcb;
     uint8_t local_addr[4];
@@ -515,7 +512,6 @@ int uvl_accept(uvl_t *handle, uvl_tcp_t *client)
     addr_from_lwip(local_addr, &newpcb->local_ip);
     addr_from_lwip(remote_addr, &newpcb->remote_ip);
 
-    client->handle = handle;
     client->pcb = newpcb;
 
     client->local_addr.sin_family = AF_INET;
@@ -541,13 +537,35 @@ int uvl_accept(uvl_t *handle, uvl_tcp_t *client)
     return 0;
 }
 
+static void uvl_timer_close_cb(uv_handle_t *timer)
+{
+    uvl_t *handle = timer->data;
+    handle->close_cb(handle);
+}
+
 int uvl_close(uvl_t *handle, uvl_close_cb close_cb)
 {
-    // TODO: abort all connections, then:
-    // tcp_close(handle->listener);
-    // netif_remove(&the_netif);
+    if (handle->closed) {
+        close_cb(handle);
+    }
+    if (handle->listener) {
+        err_t err = tcp_close(handle->listener);
+        if (err != ERR_OK) {
+            tcp_abort(handle->listener);
+        }
+        handle->listener = NULL;
+    }
 
-    close_cb(handle);
+    if (handle->the_netif) {
+        netif_remove(handle->the_netif);
+        free(handle->the_netif);
+        handle->the_netif = NULL;
+    }
+
+    uv_timer_stop(&handle->timer);
+
+    handle->close_cb = close_cb;
+    uv_close((uv_handle_t *)&handle->timer, uvl_timer_close_cb);
 
     return 0;
 }
@@ -594,8 +612,6 @@ int uvl_tcp_init(uv_loop_t *loop, uvl_tcp_t *client)
 {
     int ret;
 
-    client->loop = loop;
-    client->handle = NULL;
     client->read_cb = NULL;
     client->alloc_cb = NULL;
     client->close_cb = NULL;
@@ -605,8 +621,6 @@ int uvl_tcp_init(uv_loop_t *loop, uvl_tcp_t *client)
     client->tail_write = NULL;
     client->pcb = NULL;
     client->closed = 0;
-
-    LLOG(LLOG_DEBUG, "buffer size %d", sizeof(client->buf->recv_buf));
 
     ret = uv_async_init(loop, &client->read_req, uvl_async_tcp_read_cb);
     if (ret) return ret;
@@ -628,8 +642,6 @@ static void uvl_tcp_close_handle_cb(uv_handle_t *handle)
 
     client->closed_handle++;
     if (client->closed_handle == 2) {
-        client->loop = NULL;
-        client->handle = NULL;
         free(client->buf);
         client->buf = NULL;
         client->cur_write = NULL;
@@ -690,12 +702,13 @@ static void uvl_timer(uv_timer_t *timer)
 
 int uvl_init(uv_loop_t *loop, uvl_t *handle)
 {
-    handle->loop = loop;
     handle->output = NULL;
     handle->connection_cb = NULL;
+    handle->close_cb = NULL;
 
     handle->listener = NULL;
     handle->waiting_pcb = NULL;
+    handle->closed = 0;
 
     int ret;
 
@@ -721,20 +734,22 @@ int uvl_input(uvl_t *handle, const uv_buf_t buf)
 
     if (!p) {
         LLOG(LLOG_WARNING, "device read: pbuf_alloc failed");
-        return -1;
+        goto fail;
     }
 
     if (pbuf_take(p, buf.base, buf.len) != ERR_OK) {
         LLOG(LLOG_ERROR, "pbuf_take");
-        return -1;
+        goto fail_free;
     }
 
     if (handle->the_netif->input(p, handle->the_netif) != ERR_OK) {
         LLOG(LLOG_WARNING, "device read: input failed");
-        pbuf_free(p);
+        goto fail_free;
     }
 
     return 0;
+fail_free:
+    pbuf_free(p);
 fail:
     return -1;
 }

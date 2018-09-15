@@ -5,11 +5,6 @@
 
 #include <uv.h>
 
-
-#define UVL_FIELDS                                  \
-    void *data;                                     \
-    uv_loop_t *loop;
-
 typedef struct uvl uvl_t;
 typedef struct uvl_tcp uvl_tcp_t;
 typedef struct uvl_write uvl_write_t;
@@ -29,19 +24,22 @@ typedef void (*uvl_tcp_close_cb)(uvl_tcp_t *handle);
 struct uvl_tcp_buf;
 struct uvl_connection_req;
 struct uvl {
-    UVL_FIELDS
+    void *data;
 
     uvl_output_fn output;
     uvl_connection_cb connection_cb;
+    uvl_close_cb close_cb;
     struct netif *the_netif;
     struct tcp_pcb *listener;
     struct tcp_pcb *waiting_pcb;
     uv_timer_t timer;
     int tcp_timer_mod4;
+
+    int closed;
 };
 struct uvl_tcp {
-    UVL_FIELDS
-    uvl_t *handle;
+    void *data;
+
     struct uvl_tcp_buf *buf;
     uvl_write_t *cur_write;
     uvl_write_t *tail_write;
@@ -63,7 +61,8 @@ struct uvl_tcp {
     int closed_handle;
 };
 struct uvl_write {
-    UVL_FIELDS
+    void *data;
+
     uvl_tcp_t *client;
     const uv_buf_t *send_bufs;
     unsigned int send_nbufs;
@@ -77,7 +76,8 @@ struct uvl_write {
     uvl_write_t *next;
 };
 struct uvl_shutdown {
-    UVL_FIELDS
+    void *data;
+
     uvl_tcp_t *handle;
 };
 

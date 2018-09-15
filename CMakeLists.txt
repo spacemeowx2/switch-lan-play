@@ -1,8 +1,14 @@
 cmake_minimum_required(VERSION 3.0)
 project (SwitchLanPlay)
+set(LANPLAY_VERSION 0.0.1)
 
+add_compile_definitions(LANPLAY_VERSION="${LANPLAY_VERSION}")
 add_compile_options(
-    "-g3" "-ggdb" "-g" "-Wall"
+    "-Wall"
+    "-Wno-unused-function"
+)
+set(CMAKE_C_FLAGS_DEBUG
+    "-g3 -ggdb -g"
 )
 
 include(TestBigEndian)
@@ -19,7 +25,6 @@ elseif(CMAKE_SYSTEM_NAME MATCHES "FreeBSD")
 elseif(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
     add_definitions(-DLANPLAY_DARWIN)
 endif()
-
 
 include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}
