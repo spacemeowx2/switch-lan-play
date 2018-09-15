@@ -17,19 +17,19 @@ Switch <-------->  PC(lan-play)  <-------------> Server
 
 **NOTE:**
 * This project is in an early stage. The protocol may change frequently.
-* The Internet part is WIP.
+* The proxy part is WIP.
 
 # Usage
 
-To play with your friends, you and your friends should run lan-play connecting to the same Server on your PC, and set static IP on your Switch.
+To play with your friends, you and your friends should run lan-play client connecting to the **same** Server on your PC, and set static IP on your Switch.
 
-Your PC and Switch should be connected to the same router.
+Your PC and Switch **must** be connected to the same router.
 
-## Windows Client
+## 1. Windows Client
 
 1. Download and install WinPcap from https://www.winpcap.org/install/default.htm
 
-2. Download `lan-play.exe` from https://github.com/spacemeowx2/switch-lan-play/releases
+2. Download the latest `lan-play.exe` from https://github.com/spacemeowx2/switch-lan-play/releases
 
 3. Run lan-play.exe with paramter `--relay-server-addr`. For example:
 
@@ -40,16 +40,16 @@ lan-play.exe --relay-server-addr example.com:11451
 After that, you may see the list like below:
 
 ```
-1. en0 (No description available)
-        IP: [192.168.1.100]
-2. p2p0 (No description available)
-        IP: []
+1. \Device\NPF_{538AED4A-7BC9-47D9-A1DD-3F8E0AD2D2B0} (Microsoft Corporation)
+        IP: [10.0.75.1]
+2. \Device\NPF_{A885EB2A-D362-4846-8554-E6F59A044EB9} (Intel(R) Ethernet Connection (2) I219-V)
+        IP: [192.168.233.153]
 Enter the interface number (1-2):
 ```
 
 Select the interface which is in the same LAN with your Switch.
 
-## Switch
+## 2. Switch
 
 1. Go to your Switch settings page, set the IP address to static. The IP address can be any from `10.13.0.1` to `10.13.255.254`, excepting `10.13.37.1`. But don't use the same IP address with your friend.
 
@@ -70,9 +70,9 @@ Select the interface which is in the same LAN with your Switch.
         </tbody>
     </table>
 
-2. Click save. Press B. Switch may not be able to connect to the Internet and refuse to connect to this setting, but it doesn't matter.
+2. Click save. Your Switch now can access the Internet via your PC.
 
-3. Launch your game, hold L+R+LStick to enter lan-play mode, Switch will try to connect the no Internet setting. Host or join a game, enjoy!
+3. Launch your game, hold L+R+LStick to enter lan-play mode. Host or join a game, enjoy!
 
 ## Server
 
