@@ -51,6 +51,8 @@ Select the interface which is in the same LAN with your Switch.
 
 ## 2. Switch
 
+0. Make sure lan-play client is running.
+
 1. Go to your Switch settings page, set the IP address to static. The IP address can be any from `10.13.0.1` to `10.13.255.254`, excepting `10.13.37.1`. But don't use the same IP address with your friend.
 
     <table>
