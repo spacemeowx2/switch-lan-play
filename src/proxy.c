@@ -61,6 +61,7 @@ static void cache_close_cb(uv_handle_t *udp)
 static void cache_delete_udp(struct proxy_udp_item *item)
 {
     if (item->udp) {
+        uv_udp_recv_stop(item->udp);
         uv_close((uv_handle_t *)item->udp, cache_close_cb);
         item->udp = NULL;
     }
@@ -92,7 +93,7 @@ static int cache_new_udp(struct proxy *proxy, struct proxy_udp_item *item, time_
 }
 
 // Get or add in the table, return NULL if failed
-static uv_udp_t *proxy_udp_get(struct proxy *proxy, uint8_t src[4], uint16_t srcport, uint8_t dst[4], uint16_t dstport)
+static uv_udp_t *cache_get_udp(struct proxy *proxy, uint8_t src[4], uint16_t srcport, uint8_t dst[4], uint16_t dstport)
 {
     struct proxy_udp_item *items = proxy->udp_table;
     time_t now = time(NULL);
@@ -127,11 +128,23 @@ static uv_udp_t *proxy_udp_get(struct proxy *proxy, uint8_t src[4], uint16_t src
     return NULL;
 }
 
+static void cache_clear(struct proxy *proxy)
+{
+    struct proxy_udp_item *items = proxy->udp_table;
+    int i;
+    for (i = 0; i < PROXY_UDP_TABLE_LEN; i++) {
+        struct proxy_udp_item *item = &items[i];
+        if (item->udp) {
+            cache_delete_udp(item);
+        }
+    }
+}
+
 static int direct_udp(struct proxy *proxy, uint8_t src[4], uint16_t srcport, uint8_t dst[4], uint16_t dstport, const void *data, uint16_t data_len)
 {
-    uv_udp_t *udp = proxy_udp_get(proxy, src, srcport, dst, dstport);
+    uv_udp_t *udp = cache_get_udp(proxy, src, srcport, dst, dstport);
     if (udp == NULL) {
-        LLOG(LLOG_WARNING, "proxy_udp_get failed");
+        LLOG(LLOG_WARNING, "cache_get_udp failed");
         return -1;
     }
 
@@ -204,6 +217,11 @@ static int direct_udp(struct proxy *proxy, uint8_t src[4], uint16_t srcport, uin
 //     return uv_tcp_connect(&req->req, tcp, addr, direct_tcp_connect_cb);
 // }
 
+static void proxy_direct_close(struct proxy *proxy)
+{
+    cache_clear(proxy);
+}
+
 int proxy_direct_init(struct proxy *proxy, uv_loop_t *loop, struct packet_ctx *packet_ctx)
 {
     proxy->loop = loop;
@@ -211,6 +229,7 @@ int proxy_direct_init(struct proxy *proxy, uv_loop_t *loop, struct packet_ctx *p
     memset(&proxy->udp_table, 0, sizeof(proxy->udp_table));
 
     proxy->udp = direct_udp;
+    proxy->close = proxy_direct_close;
 
     return 0;
 }

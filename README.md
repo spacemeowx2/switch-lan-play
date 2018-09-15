@@ -86,6 +86,11 @@ npm run server
 
 # Build
 
+## Debug or Release
+
+`cmake -DCMAKE_BUILD_TYPE=Debug ..`
+`cmake -DCMAKE_BUILD_TYPE=Release ..`
+
 ## Ubuntu / Debian
 
 This project depends on libpcap and libuv, you can install libpcap0.8-dev and libuv1-dev on Ubuntu or Debian:

@@ -31,10 +31,8 @@ struct lan_play {
 
     struct packet_ctx packet_ctx;
 
-    uv_signal_t signal_int;
-    uv_signal_t signal_hup;
-    uv_signal_t signal_break;
     bool stop;
+    uv_signal_t signal_int;
     uv_loop_t *loop;
     uv_thread_t libpcap_thread;
     uv_async_t get_packet_async;
@@ -56,6 +54,7 @@ struct lan_play {
 int lan_play_send_packet(struct lan_play *lan_play, void *data, int size);
 int lan_play_gateway_send_packet(struct packet_ctx *packet_ctx, const void *data, uint16_t len);
 int lan_client_init(struct lan_play *lan_play);
+int lan_client_close(struct lan_play *lan_play);
 int lan_client_send_ipv4(struct lan_play *lan_play, void *dst_ip, const void *packet, uint16_t len);
 
 #endif // _LAN_PLAY_H_

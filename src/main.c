@@ -131,6 +131,26 @@ int lan_play_send_packet(struct lan_play *lan_play, void *data, int size)
     return ret;
 }
 
+int lan_play_close(struct lan_play *lan_play)
+{
+    int ret;
+
+    ret = packet_close(&lan_play->packet_ctx);
+    if (ret != 0) return ret;
+    ret = lan_client_close(lan_play);
+    if (ret != 0) return ret;
+    ret = gateway_close(&lan_play->gateway);
+    if (ret != 0) return ret;
+
+    ret = uv_signal_stop(&lan_play->signal_int);
+    if (ret != 0) return ret;
+
+    uv_close((uv_handle_t *)&lan_play->signal_int, NULL);
+    uv_close((uv_handle_t *)&lan_play->get_packet_async, NULL);
+
+    return 0;
+}
+
 int lan_play_init(struct lan_play *lan_play)
 {
     int ret = 0;
@@ -289,15 +309,17 @@ void lan_play_libpcap_thread(void *data)
     const u_char *packet;
     int ret;
 
-    puts("Loop start");
-    while (!lan_play->stop) {
+    puts("pcap loop start");
+    while (1) {
         ret = pcap_next_ex(p, &pkt_header, &packet);
+        if (lan_play->stop) {
+            break;
+        }
         if (ret == 0) continue;
         if (ret != 1) {
             LLOG(LLOG_ERROR, "pcap_next_ex %d", ret);
             assert(0);
         }
-
 
         lan_play->pkthdr = pkt_header;
         lan_play->packet = packet;
@@ -308,6 +330,7 @@ void lan_play_libpcap_thread(void *data)
 
         uv_sem_wait(&lan_play->get_packet_sem);
     }
+    puts("pcap loop stop");
 
     pcap_close(lan_play->dev);
 }
@@ -344,12 +367,23 @@ int lan_play_gateway_send_packet(struct packet_ctx *packet_ctx, const void *data
     );
 }
 
+void walk_cb(uv_handle_t* handle, void* arg)
+{
+    LLOG(LLOG_DEBUG, "walk %d %p", handle->type, handle->data);
+}
+
 void lan_play_signal_cb(uv_signal_t *signal, int signum)
 {
     struct lan_play *lan_play = signal->data;
-    uv_stop(lan_play->loop);
     lan_play->stop = true;
-    printf("stopping %d\n", signum);
+    printf("stopping signum: %d\n", signum);
+
+    int ret = lan_play_close(lan_play);
+    if (ret) {
+        LLOG(LLOG_ERROR, "lan_play_close %d", ret);
+    }
+
+    uv_walk(lan_play->loop, walk_cb, lan_play);
 }
 
 int main(int argc, char **argv)
@@ -391,15 +425,9 @@ int main(int argc, char **argv)
     assert(uv_async_init(lan_play->loop, &lan_play->get_packet_async, lan_play_get_packet_async_cb) == 0);
     assert(uv_sem_init(&lan_play->get_packet_sem, 0) == 0);
     assert(uv_signal_init(lan_play->loop, &lan_play->signal_int) == 0);
-    assert(uv_signal_init(lan_play->loop, &lan_play->signal_break) == 0);
-    assert(uv_signal_init(lan_play->loop, &lan_play->signal_hup) == 0);
     assert(uv_signal_start(&lan_play->signal_int, lan_play_signal_cb, SIGINT) == 0);
-    assert(uv_signal_start(&lan_play->signal_break, lan_play_signal_cb, SIGBREAK) == 0);
-    assert(uv_signal_start(&lan_play->signal_hup, lan_play_signal_cb, SIGHUP) == 0);
     lan_play->get_packet_async.data = lan_play;
     lan_play->signal_int.data = lan_play;
-    lan_play->signal_break.data = lan_play;
-    lan_play->signal_hup.data = lan_play;
 
     assert(lan_play_init(lan_play) == 0);
 
@@ -417,6 +445,8 @@ int main(int argc, char **argv)
     if (ret) {
         LLOG(LLOG_ERROR, "uv_thread_join %d", ret);
     }
+
+    LLOG(LLOG_DEBUG, "lan_play exit %d", ret);
 
     return ret;
 }

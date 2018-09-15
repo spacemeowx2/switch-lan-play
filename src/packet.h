@@ -155,6 +155,7 @@ int packet_init(
     time_t arp_ttl,
     struct gateway *gateway
 );
+int packet_close(struct packet_ctx *self);
 struct pcap_pkthdr;
 void get_packet(struct packet_ctx *arg, const struct pcap_pkthdr * pkthdr, const u_char * packet);
 int process_arp(struct packet_ctx *arg, const struct ether_frame *ether);

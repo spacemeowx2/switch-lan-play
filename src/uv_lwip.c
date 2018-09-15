@@ -196,7 +196,7 @@ static void uvl_imp_write_to_tcp(uvl_tcp_t *client)
 
 static void uvl_client_freed(uvl_tcp_t *client)
 {
-    LLOG(LLOG_DEBUG, "%p uvl_client_freed", client);
+    // LLOG(LLOG_DEBUG, "%p uvl_client_freed", client);
 
     client->pcb = NULL;
     client->closed = 1;
@@ -540,12 +540,14 @@ int uvl_accept(uvl_t *handle, uvl_tcp_t *client)
 static void uvl_timer_close_cb(uv_handle_t *timer)
 {
     uvl_t *handle = timer->data;
-    handle->close_cb(handle);
+    if (handle->close_cb) {
+        handle->close_cb(handle);
+    }
 }
 
 int uvl_close(uvl_t *handle, uvl_close_cb close_cb)
 {
-    if (handle->closed) {
+    if (handle->closed && close_cb) {
         close_cb(handle);
     }
     if (handle->listener) {

@@ -6,16 +6,16 @@ enum lan_client_type {
 };
 uint8_t BROADCAST_MAC[6] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
 
-void lan_client_on_recv(uv_udp_t* handle, ssize_t nread, const uv_buf_t* buf, const struct sockaddr* addr, unsigned flags);
-void lan_client_keepalive_timer(uv_timer_t* handle);
+void lan_client_on_recv(uv_udp_t *handle, ssize_t nread, const uv_buf_t* buf, const struct sockaddr* addr, unsigned flags);
+void lan_client_keepalive_timer(uv_timer_t *handle);
 int lan_client_send_keepalive(struct lan_play *lan_play);
 int lan_client_send_ipv4(struct lan_play *lan_play, void *dst_ip, const void *packet, uint16_t len);
 
 static void lan_client_alloc_cb(uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf)
 {
-  buf->base = malloc(suggested_size);
-  buf->len = suggested_size;
-  LLOG(LLOG_DEBUG, "lan_client_alloc_cb %p %d", handle, suggested_size);
+    buf->base = malloc(suggested_size);
+    buf->len = suggested_size;
+    LLOG(LLOG_DEBUG, "lan_client_alloc_cb %p %d", handle, suggested_size);
 }
 
 int lan_client_init(struct lan_play *lan_play)
@@ -29,12 +29,13 @@ int lan_client_init(struct lan_play *lan_play)
     if (ret != 0) {
         LLOG(LLOG_ERROR, "uv_udp_init %d", ret);
     }
-    client->data = lan_play;
 
     ret = uv_timer_init(loop, timer);
     if (ret != 0) {
         LLOG(LLOG_ERROR, "uv_timer_init %d", ret);
     }
+
+    client->data = lan_play;
     timer->data = lan_play;
 
     printf("Server IP: %s\n", ip2str(&lan_play->server_addr.sin_addr));
@@ -52,6 +53,28 @@ int lan_client_init(struct lan_play *lan_play)
     }
 
     return ret;
+}
+
+int lan_client_close(struct lan_play *lan_play)
+{
+    int ret;
+
+    ret = uv_udp_recv_stop(&lan_play->client);
+    if (ret != 0) {
+        LLOG(LLOG_ERROR, "uv_udp_recv_stop %d", ret);
+        return ret;
+    }
+
+    ret = uv_timer_stop(&lan_play->client_keepalive_timer);
+    if (ret != 0) {
+        LLOG(LLOG_ERROR, "uv_timer_stop %d", ret);
+        return ret;
+    }
+
+    uv_close((uv_handle_t *)&lan_play->client, NULL);
+    uv_close((uv_handle_t *)&lan_play->client_keepalive_timer, NULL);
+
+    return 0;
 }
 
 int lan_client_process(struct lan_play *lan_play, const uint8_t *packet, uint16_t len)
@@ -85,7 +108,7 @@ int lan_client_process(struct lan_play *lan_play, const uint8_t *packet, uint16_
     );
 }
 
-void lan_client_keepalive_timer(uv_timer_t* handle)
+void lan_client_keepalive_timer(uv_timer_t *handle)
 {
     struct lan_play *lan_play = (struct lan_play *)handle->data;
     lan_client_send_keepalive(lan_play);

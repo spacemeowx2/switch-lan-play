@@ -118,6 +118,12 @@ int packet_init(
     return 0;
 }
 
+
+int packet_close(struct packet_ctx *self)
+{
+    return 0; // nothing to release
+}
+
 void parse_ether(const u_char *packet, uint16_t len, struct ether_frame *ether)
 {
     CPY_MAC(ether->dst, packet + ETHER_OFF_DST);
