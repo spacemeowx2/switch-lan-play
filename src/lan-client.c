@@ -13,9 +13,9 @@ int lan_client_send_ipv4(struct lan_play *lan_play, void *dst_ip, const void *pa
 
 static void lan_client_alloc_cb(uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf)
 {
-    buf->base = malloc(suggested_size);
-    buf->len = suggested_size;
-    LLOG(LLOG_DEBUG, "lan_client_alloc_cb %p %d", handle, suggested_size);
+    struct lan_play *lan_play = handle->data;
+    buf->base = lan_play->client_buf;
+    buf->len = sizeof(lan_play->client_buf);
 }
 
 int lan_client_init(struct lan_play *lan_play)
@@ -117,21 +117,21 @@ void lan_client_keepalive_timer(uv_timer_t *handle)
 void lan_client_on_recv(uv_udp_t* handle, ssize_t nread, const uv_buf_t* buf, const struct sockaddr* addr, unsigned flags)
 {
     struct lan_play *lan_play = (struct lan_play *)handle->data;
-    uint16_t recv_len = buf->len;
+    uint16_t recv_len = nread;
     uint8_t *buffer = (uint8_t *)buf->base;
 
     switch (buffer[0]) { // type
     case LAN_CLIENT_TYPE_KEEPALIVE:
         break;
     case LAN_CLIENT_TYPE_IPV4:
-        lan_client_process(lan_play, buffer + 1, recv_len);
+        lan_client_process(lan_play, buffer + 1, recv_len - 1);
         break;
     }
 }
 
 void lan_client_on_sent(uv_udp_send_t* req, int status)
 {
-    free(req);
+    // free(req);
 }
 
 int lan_client_send(struct lan_play *lan_play, const uint8_t type, const void *packet, uint16_t len)
@@ -147,7 +147,7 @@ int lan_client_send(struct lan_play *lan_play, const uint8_t type, const void *p
         bufs_len = 2;
     }
 
-    uv_udp_send_t *req = malloc(sizeof(uv_udp_send_t));
+    uv_udp_send_t *req = &lan_play->client_send_req;
     ret = uv_udp_send(req, &lan_play->client, bufs, bufs_len, server_addr, lan_client_on_sent);
 
     return ret;

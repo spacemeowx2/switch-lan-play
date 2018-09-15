@@ -25,6 +25,7 @@ struct lan_play;
 #ifndef LANPLAY_VERSION
 #define LANPLAY_VERSION "unset"
 #endif
+#define CLIENT_RECV_BUF_LEN 4096
 
 struct lan_play {
     pcap_t *dev;
@@ -39,6 +40,8 @@ struct lan_play {
     uv_sem_t get_packet_sem;
     const struct pcap_pkthdr *pkthdr;
     const u_char *packet;
+    uint8_t client_buf[CLIENT_RECV_BUF_LEN];
+    uv_udp_send_t client_send_req;
 
     // lan_client
     uv_udp_t client;
