@@ -180,7 +180,7 @@ uint16_t payload_total_len(const struct payload *payload)
 void payload_print_hex(const struct payload *payload)
 {
     const struct payload *part = payload;
-    int i;
+    int i = 0;
 
     while (part) {
         for (int j = 0; j < part->len; j++) {
