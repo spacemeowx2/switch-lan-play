@@ -591,7 +591,7 @@ static int uvl_init_lwip(uvl_t *handle)
         goto fail;
     }
 
-    // the_netif->mtu = 200;
+    the_netif->mtu = 1300;
 
     // set netif up
     netif_set_up(the_netif);
