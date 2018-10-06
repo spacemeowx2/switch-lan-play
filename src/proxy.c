@@ -30,7 +30,9 @@ static void proxy_udp_send_cb(uv_udp_send_t *req, int status)
 static void proxy_udp_recv_cb(uv_udp_t *udp, ssize_t nread, const uv_buf_t *buf, const struct sockaddr *addr, unsigned int flags)
 {
     if (nread <= 0) {
-        LLOG(LLOG_DEBUG, "proxy_udp_recv_cb nread: %d", nread);
+        if (nread < 0) {
+            LLOG(LLOG_DEBUG, "proxy_udp_recv_cb nread: %d", nread);
+        }
         goto out;
     }
 
