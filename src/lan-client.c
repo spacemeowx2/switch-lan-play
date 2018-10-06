@@ -4,6 +4,12 @@ enum lan_client_type {
     LAN_CLIENT_TYPE_KEEPALIVE = 0x00,
     LAN_CLIENT_TYPE_IPV4 = 0x01,
 };
+struct ipv4_req {
+    uv_udp_send_t req;
+    uv_buf_t bufs[2];
+    char type;
+    char *packet;
+};
 uint8_t BROADCAST_MAC[6] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
 
 void lan_client_on_recv(uv_udp_t *handle, ssize_t nread, const uv_buf_t* buf, const struct sockaddr* addr, unsigned flags);
@@ -131,24 +137,34 @@ void lan_client_on_recv(uv_udp_t* handle, ssize_t nread, const uv_buf_t* buf, co
 
 void lan_client_on_sent(uv_udp_send_t* req, int status)
 {
-    // free(req);
+    if (status != 0) {
+        LLOG(LLOG_DEBUG, "lan_client_on_sent %d", status);
+    }
+    struct ipv4_req *ipv4_req = req->data;
+    free(ipv4_req->packet);
+    free(ipv4_req);
 }
 
 int lan_client_send(struct lan_play *lan_play, const uint8_t type, const void *packet, uint16_t len)
 {
     struct sockaddr *server_addr = (struct sockaddr *)&lan_play->server_addr;
     int ret;
-    uv_buf_t *bufs = lan_play->client_send_buf;
-    lan_play->client_send_type = type;
+    struct ipv4_req *req = malloc(sizeof(struct ipv4_req));
+    req->type = type;
+    req->packet = malloc(len);
+    memcpy(req->packet, packet, len);
+
+    uv_buf_t *bufs = req->bufs;
     int bufs_len = 1;
-    bufs[0] = uv_buf_init((char *)&lan_play->client_send_type, sizeof(type));
+    bufs[0] = uv_buf_init(&req->type, sizeof(type));
     if (packet && len > 0) {
-        bufs[1] = uv_buf_init((char *)packet, len);
+        bufs[1] = uv_buf_init(req->packet, len);
         bufs_len = 2;
     }
 
-    uv_udp_send_t *req = &lan_play->client_send_req;
-    ret = uv_udp_send(req, &lan_play->client, bufs, bufs_len, server_addr, lan_client_on_sent);
+    uv_udp_send_t *udp_req = &req->req;
+    udp_req->data = req;
+    ret = uv_udp_send(udp_req, &lan_play->client, bufs, bufs_len, server_addr, lan_client_on_sent);
 
     return ret;
 }
