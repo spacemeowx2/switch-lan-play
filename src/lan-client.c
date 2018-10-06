@@ -122,6 +122,12 @@ void lan_client_keepalive_timer(uv_timer_t *handle)
 
 void lan_client_on_recv(uv_udp_t* handle, ssize_t nread, const uv_buf_t* buf, const struct sockaddr* addr, unsigned flags)
 {
+    if (nread <= 0) {
+        if (nread < 0) {
+            LLOG(LLOG_DEBUG, "lan_client_on_recv nread: %d", nread);
+        }
+        return;
+    }
     struct lan_play *lan_play = (struct lan_play *)handle->data;
     uint16_t recv_len = nread;
     uint8_t *buffer = (uint8_t *)buf->base;
