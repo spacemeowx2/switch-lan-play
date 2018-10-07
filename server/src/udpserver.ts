@@ -67,6 +67,9 @@ class SLPServer {
     }
   }
   onIpv4 (fromAddr: AddressInfo, payload: Buffer, msg: Buffer) {
+    if (payload.length <= 20) { // packet too short, ignore
+      return
+    }
     const src = payload.readInt32BE(IPV4_OFF_SRC)
     const dst = payload.readInt32BE(IPV4_OFF_DST)
 
