@@ -26,6 +26,7 @@
 #define IS_BROADCAST(ip, net, mask) ( ((*(uint32_t*)net) | ( ~ *(uint32_t*)mask)) == *(uint32_t*)ip )
 #define PRINT_IP(ip) printf("%d.%d.%d.%d", *(uint8_t*)(ip), *(uint8_t*)((uint8_t*)ip + 1), *(uint8_t*)((uint8_t*)ip + 2), *(uint8_t*)((uint8_t*)ip + 3))
 #define PRINT_MAC(mac) printf("%x:%x:%x:%x:%x:%x", *(uint8_t*)(mac), *(uint8_t*)((uint8_t*)mac + 1), *(uint8_t*)((uint8_t*)mac + 2), *(uint8_t*)((uint8_t*)mac + 3), *(uint8_t*)((uint8_t*)mac + 4), *(uint8_t*)((uint8_t*)mac + 5))
+#define RT_ASSERT(exp) rt_assert(exp, #exp);
 
 const char *ip2str(void *ip);
 void *str2ip(const char *ip);
@@ -33,4 +34,5 @@ void print_hex(const void *buf, int len);
 int set_immediate_mode(pcap_t *p);
 int get_mac_address(pcap_if_t *d, pcap_t *p, u_char mac_addr[6]);
 int parse_addr(const char *str, struct sockaddr_in *addr);
+void rt_assert(int val, const char *exp);
 #endif // _HELPER_H_

@@ -421,15 +421,15 @@ int main(int argc, char **argv)
         return -1;
     }
 
-    assert(uv_loop_init(lan_play->loop) == 0);
-    assert(uv_async_init(lan_play->loop, &lan_play->get_packet_async, lan_play_get_packet_async_cb) == 0);
-    assert(uv_sem_init(&lan_play->get_packet_sem, 0) == 0);
-    assert(uv_signal_init(lan_play->loop, &lan_play->signal_int) == 0);
-    assert(uv_signal_start(&lan_play->signal_int, lan_play_signal_cb, SIGINT) == 0);
+    RT_ASSERT(uv_loop_init(lan_play->loop) == 0);
+    RT_ASSERT(uv_async_init(lan_play->loop, &lan_play->get_packet_async, lan_play_get_packet_async_cb) == 0);
+    RT_ASSERT(uv_sem_init(&lan_play->get_packet_sem, 0) == 0);
+    RT_ASSERT(uv_signal_init(lan_play->loop, &lan_play->signal_int) == 0);
+    RT_ASSERT(uv_signal_start(&lan_play->signal_int, lan_play_signal_cb, SIGINT) == 0);
     lan_play->get_packet_async.data = lan_play;
     lan_play->signal_int.data = lan_play;
 
-    assert(lan_play_init(lan_play) == 0);
+    RT_ASSERT(lan_play_init(lan_play) == 0);
 
     ret = uv_thread_create(&lan_play->libpcap_thread, lan_play_libpcap_thread, lan_play);
     if (ret) {

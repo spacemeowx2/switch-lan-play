@@ -128,7 +128,7 @@ void p_write_cb(uv_write_t *req, int status)
         LLOG(LLOG_DEBUG, "p_write_cb %d %s\n", status, uv_strerror(status));
     }
 
-    assert(uvl_read_start(&conn->stcp, alloc_cb, read_cb) == 0);
+    RT_ASSERT(uvl_read_start(&conn->stcp, alloc_cb, read_cb) == 0);
 }
 
 void write_cb(uvl_write_t *req, int status)
@@ -209,8 +209,8 @@ static void p_on_connect(uv_connect_t *req, int status)
         LLOG(LLOG_ERROR, "p_on_connect %d", ret);
     }
 
-    assert(ret == 0);
-    assert(uvl_read_start(&conn->stcp, alloc_cb, read_cb) == 0);
+    RT_ASSERT(ret == 0);
+    RT_ASSERT(uvl_read_start(&conn->stcp, alloc_cb, read_cb) == 0);
 }
 
 void on_connect(uvl_t *handle, int status)
@@ -239,10 +239,10 @@ void on_connect(uvl_t *handle, int status)
     conn->uv_req.data = conn;
     conn->uvl_req.data = conn;
 
-    assert(uvl_tcp_init(gateway->loop, client) == 0);
-    assert(uvl_accept(handle, client) == 0);
+    RT_ASSERT(uvl_tcp_init(gateway->loop, client) == 0);
+    RT_ASSERT(uvl_accept(handle, client) == 0);
 
-    assert(uv_tcp_init(gateway->loop, &conn->ptcp) == 0);
+    RT_ASSERT(uv_tcp_init(gateway->loop, &conn->ptcp) == 0);
 
     printf("%p accept, connect ", client);
     PRINT_IP(&client->local_addr.sin_addr);

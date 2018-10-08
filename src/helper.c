@@ -303,6 +303,14 @@ int parse_addr(const char *str, struct sockaddr_in *addr)
     return 0;
 }
 
+void rt_assert(int val, const char *exp)
+{
+    if (!val) {
+        LLOG(LLOG_ERROR, "assert failed: %s", exp);
+        exit(1);
+    }
+}
+
 #if defined(_WIN32)
 static void win32_init_winsocket() __attribute__((constructor));
 static void win32_init_winsocket()
