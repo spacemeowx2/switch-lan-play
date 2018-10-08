@@ -8,6 +8,7 @@ const IPV4_OFF_DST = 16
 enum ForwarderType {
   Keepalive = 0,
   Ipv4 = 1,
+  Ping = 2,
 }
 
 interface CacheItem {
@@ -66,11 +67,17 @@ export class SLPServer {
   onPacket (rinfo: AddressInfo, type: ForwarderType, payload: Buffer, msg: Buffer) {
     switch (type) {
       case ForwarderType.Keepalive:
-        break;
+        break
       case ForwarderType.Ipv4:
         this.onIpv4(rinfo, payload, msg)
-        break;
+        break
+      case ForwarderType.Ping:
+        this.onPing(rinfo, payload, msg)
+        break
     }
+  }
+  onPing (rinfo: AddressInfo, payload: Buffer, msg: Buffer) {
+    this.sendTo(rinfo, msg)
   }
   onIpv4 (fromAddr: AddressInfo, payload: Buffer, msg: Buffer) {
     if (payload.length <= 20) { // packet too short, ignore
