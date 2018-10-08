@@ -156,7 +156,7 @@ Meanwhile the monitor service will be started on port `11451/tcp` by default, yo
 
 Request: `GET http://{YOUR_SERVER_IP}:11451/info`
 
-Response: `{ online: 42 }`
+Response: `{ "online": 42 }`
 
 
 # Protocol
