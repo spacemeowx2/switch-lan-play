@@ -143,6 +143,12 @@ make
 
 # Server
 
+## Docker
+
+`docker run -d -p 11451:11451/udp -p 11451:11451/tcp spacemeowx2/switch-lan-play`
+
+## Node
+
 ```sh
 cd server
 npm install
