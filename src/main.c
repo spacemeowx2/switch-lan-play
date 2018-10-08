@@ -411,7 +411,7 @@ int main(int argc, char **argv)
     }
 
     if (options.relay_server_addr == NULL) {
-        printf("Input the reply server address [ domain/ip:port ]:");
+        printf("Input the relay server address [ domain/ip:port ]:");
         scanf("%100s", relay_server_addr);
         options.relay_server_addr = relay_server_addr;
     }
