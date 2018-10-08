@@ -1,0 +1,28 @@
+# docker build -t test -f Dockerfile.openwrt ..
+
+FROM alpine:3.8
+
+ARG NAME=openwrt-sdk-18.06.1-ramips-mt7621_gcc-7.3.0_musl.Linux-x86_64
+ARG SDK_URL=http://openwrt.proxy.ustclug.org/releases/18.06.1/targets/ramips/mt7621/${NAME}.tar.xz
+ARG SDK_PATH=/sdk/${NAME}
+
+RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.ustc.edu.cn/g' /etc/apk/repositories
+
+RUN apk add --no-cache curl
+RUN mkdir /sdk
+
+RUN curl -o /tmp/${NAME} ${SDK_URL} \
+    && tar xf /tmp/${NAME} -C /sdk \
+    && rm /tmp/${NAME}
+
+RUN apk add --no-cache perl make git bash gawk gcc g++ ncurses-dev
+WORKDIR ${SDK_PATH}
+RUN ./scripts/feeds update base packages
+RUN ./scripts/feeds install libpcap libuv
+
+RUN mkdir ./package/switch-lan-play
+COPY ./docker/Makefile.openwrt ${SDK_PATH}/package/switch-lan-play/Makefile
+COPY . ${SDK_PATH}/package/switch-lan-play/switch-lan-play
+
+RUN make defconfig
+# RUN make package/switch-lan-play/compile

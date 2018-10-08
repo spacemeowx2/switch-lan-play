@@ -79,3 +79,5 @@ if (WIN32)
 else()
     target_link_libraries(lan-play uv pthread)
 endif()
+
+INSTALL(TARGETS lan-play RUNTIME DESTINATION /usr/bin)
