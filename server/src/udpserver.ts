@@ -1,3 +1,4 @@
+import { ServerMonitor } from './monitor';
 import {createSocket, Socket, AddressInfo} from 'dgram'
 type IPAddr = string
 const Timeout = 30 * 1000
@@ -26,7 +27,7 @@ function addr2str (rinfo: AddressInfo) {
   return `${rinfo.address}:${rinfo.port}`
 }
 
-class SLPServer {
+export class SLPServer {
   server: Socket
   clients: Map<string, CacheItem> = new Map()
   ipCache: Map<number, CacheItem> = new Map()
@@ -46,6 +47,11 @@ class SLPServer {
       this.clearExpire()
     }, 1000)
   }
+
+  public getClients() {
+    return this.clients
+  }
+
   onMessage (msg: Buffer, rinfo: AddressInfo) {
     this.byteLastSec += msg.byteLength
     this.clients.set(addr2str(rinfo), {
@@ -116,3 +122,6 @@ class SLPServer {
   }
 }
 let s = new SLPServer(11451)
+
+let monitor = new ServerMonitor(s)
+monitor.start(11480)

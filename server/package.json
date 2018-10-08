@@ -13,7 +13,13 @@
     "author": "spacemeowx2",
     "license": "MIT",
     "devDependencies": {
+        "@types/koa": "^2.0.46",
         "@types/node": "^8.10.29",
+        "@types/koa-router": "^7.0.32",        
         "typescript": "^3.0.3"
+    },
+    "dependencies": {
+        "koa": "^2.5.3",
+        "koa-router": "^7.4.0"
     }
 }

@@ -5,6 +5,7 @@
     "removeComments": true,
     "preserveConstEnums": true,
     "sourceMap": true,
+    "esModuleInterop": true,
     "baseUrl": "src",
     "outDir": "dist",
     "lib": [
@@ -12,8 +13,7 @@
     ],
     "target": "es6"
   },
-  "files": [
-    "src/server.ts",
-    "src/udpserver.ts",
+  "include": [
+    "./src/**/*.ts"
   ]
 }
