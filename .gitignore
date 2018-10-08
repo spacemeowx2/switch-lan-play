@@ -7,3 +7,4 @@ run.sh
 debug.sh
 memcheck.sh
 valgrind_ignore
+yarn.lock
