@@ -54,6 +54,9 @@ export class SLPServer {
   }
 
   onMessage (msg: Buffer, rinfo: AddressInfo) {
+    if (msg.byteLength === 0) {
+      return
+    }
     this.byteLastSec += msg.byteLength
     this.clients.set(addr2str(rinfo), {
       expireAt: Date.now() + Timeout,
