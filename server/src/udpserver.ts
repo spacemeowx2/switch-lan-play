@@ -1,5 +1,5 @@
-import { ServerMonitor } from './monitor';
-import {createSocket, Socket, AddressInfo} from 'dgram'
+import { ServerMonitor } from './monitor'
+import { createSocket, Socket, AddressInfo } from 'dgram'
 type IPAddr = string
 const Timeout = 30 * 1000
 const IPV4_OFF_SRC = 12
@@ -28,13 +28,20 @@ function addr2str (rinfo: AddressInfo) {
   return `${rinfo.address}:${rinfo.port}`
 }
 
+function lookup (hostname: string, options: any, callback: (err: Error, address: string, family: number) => any) {
+  callback(null, hostname, 4)
+}
+
 export class SLPServer {
   server: Socket
   clients: Map<string, CacheItem> = new Map()
   ipCache: Map<number, CacheItem> = new Map()
   byteLastSec: number = 0
   constructor (port: number) {
-    const server = createSocket('udp4')
+    const server = createSocket({
+      type: 'udp4',
+      lookup: lookup as any
+    })
     server.on('error', (err) => this.onError(err))
     server.on('close', () => this.onClose())
     server.on('message', (msg: Buffer, rinfo: AddressInfo) => this.onMessage(msg, rinfo))
