@@ -135,8 +135,8 @@
     #define WARN_UNUSED
 #endif
 
-#define B_USE(expr) (void)(sizeof((expr)));
+#define RT_ASSERT(exp) rt_assert(exp, #exp);
 
-#define B_ASSERT_USE(expr) { ASSERT(expr) B_USE(expr) }
+void rt_assert(int val, const char *exp);
 
 #endif

@@ -54,6 +54,9 @@ else()
 endif()
 
 set(SOURCE_FILES
+    base/debug.c
+    base/llog.c
+
     src/main.c
     src/packet.c
     src/arp.c

@@ -20,19 +20,6 @@
 // #define LLOG(level, ...) ((level <= LLOG_DISPLAY_LEVEL) && fprintf(stderr, "[%s]%.0s: " FIRST(__VA_ARGS__) "\n", llog_level_names[level], __VA_ARGS__))
 #define LLOG(level, ...) LLog_log(level, __VA_ARGS__)
 
-static char *llog_level_names[] = { NULL, "ERROR", "WARNING", "NOTICE", "INFO", "DEBUG" };
-static void LLog_log(int level, const char *fmt, ...)
-{
-  va_list ap;
-  va_start(ap, fmt);
-
-  if (level <= LLOG_DISPLAY_LEVEL) {
-    fprintf(stderr, "[%s]: ", llog_level_names[level]);
-    vfprintf(stderr, fmt, ap);
-    fprintf(stderr, "\n");
-  }
-
-  va_end(ap);
-}
+void LLog_log(int level, const char *fmt, ...);
 
 #endif // _LOG_H_

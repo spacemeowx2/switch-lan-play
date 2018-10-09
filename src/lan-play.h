@@ -12,6 +12,7 @@
 #include <errno.h>
 #include <stdbool.h>
 #include <base/llog.h>
+#include <base/debug.h>
 #include <uv.h>
 
 struct lan_play;

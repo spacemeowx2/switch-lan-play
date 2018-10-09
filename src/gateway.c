@@ -262,7 +262,7 @@ int gateway_uvl_output(uvl_t *handle, const uv_buf_t bufs[], unsigned int nbufs)
     uint32_t len = 0;
 
     for (int i = 0; i < nbufs; i++) {
-        ASSERT(len + bufs[i].len < sizeof(buffer))
+        RT_ASSERT(len + bufs[i].len < sizeof(buffer))
         memcpy(buf, bufs[i].base, bufs[i].len);
         buf += bufs[i].len;
         len += bufs[i].len;
@@ -276,9 +276,9 @@ int gateway_init(struct gateway *gateway, struct packet_ctx *packet_ctx)
     gateway->loop = packet_ctx->arg->loop;
     gateway->packet_ctx = packet_ctx;
 
-    ASSERT(uvl_init(gateway->loop, &gateway->uvl) == 0);
-    ASSERT(uvl_bind(&gateway->uvl, gateway_uvl_output) == 0);
-    ASSERT(uvl_listen(&gateway->uvl, on_connect) == 0);
+    RT_ASSERT(uvl_init(gateway->loop, &gateway->uvl) == 0);
+    RT_ASSERT(uvl_bind(&gateway->uvl, gateway_uvl_output) == 0);
+    RT_ASSERT(uvl_listen(&gateway->uvl, on_connect) == 0);
     gateway->uvl.data = gateway;
     gateway->first_conn = NULL;
 
