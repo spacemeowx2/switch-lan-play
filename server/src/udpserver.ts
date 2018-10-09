@@ -40,7 +40,7 @@ export class SLPServer {
   constructor (port: number) {
     const server = createSocket({
       type: 'udp4',
-      lookup: lookup as any
+      lookup
     })
     server.on('error', (err) => this.onError(err))
     server.on('close', () => this.onClose())
