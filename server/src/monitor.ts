@@ -1,6 +1,8 @@
 import Koa from 'koa'
 import Router, { IRouterContext } from 'koa-router'
 import { SLPServer } from './udpserver'
+import { join } from 'path'
+const pkg = require(join(__dirname, '..', 'package.json'))
 
 export class ServerMonitor {
   private router = new Router()
@@ -34,7 +36,8 @@ export class ServerMonitor {
 
     ctx.type = 'application/json'
     ctx.body = {
-      online: size
+      online: size,
+      version: pkg.version
     }
   }
 }
