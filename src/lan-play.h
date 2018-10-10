@@ -45,6 +45,7 @@ struct lan_play {
     uv_udp_send_t client_send_req;
 
     // lan_client
+    bool broadcast;
     uv_udp_t client;
     uv_timer_t client_keepalive_timer;
     struct sockaddr_in server_addr;
