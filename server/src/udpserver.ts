@@ -65,12 +65,14 @@ export class SLPServer {
       return
     }
     this.byteLastSec += msg.byteLength
-    this.clients.set(addr2str(rinfo), {
-      expireAt: Date.now() + Timeout,
-      rinfo
-    })
 
     const type: ForwarderType = msg.readUInt8(0)
+    if (type != ForwarderType.Ping) {
+      this.clients.set(addr2str(rinfo), {
+        expireAt: Date.now() + Timeout,
+        rinfo
+      })
+    }
     this.onPacket(rinfo, type, msg.slice(1), msg)
     // this.sendBroadcast(rinfo, msg)
   }
