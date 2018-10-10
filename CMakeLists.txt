@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.0)
 project (SwitchLanPlay)
-set(LANPLAY_VERSION 0.0.1)
+set(LANPLAY_VERSION 0.0.3)
 
 add_compile_options(
     "-Wall"
