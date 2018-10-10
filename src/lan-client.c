@@ -36,6 +36,15 @@ int lan_client_init(struct lan_play *lan_play)
         LLOG(LLOG_ERROR, "uv_udp_init %d", ret);
     }
 
+    if (lan_play->broadcast) {
+        struct sockaddr_in temp;
+        uv_ip4_addr("0.0.0.0", 11451, &temp);
+        ret = uv_udp_bind(client, (struct sockaddr *)&temp, 0);
+        if (ret != 0) {
+            LLOG(LLOG_ERROR, "uv_udp_bind %d", ret);
+        }
+    }
+
     ret = uv_timer_init(loop, timer);
     if (ret != 0) {
         LLOG(LLOG_ERROR, "uv_timer_init %d", ret);

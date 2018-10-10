@@ -5,6 +5,8 @@ struct {
     int help;
     int version;
 
+    bool broadcast;
+
     char *netif;
     char *netif_ipaddr;
     char *netif_netmask;
@@ -161,6 +163,7 @@ int lan_play_init(struct lan_play *lan_play)
 
     lan_play->dev = NULL;
     lan_play->stop = false;
+    lan_play->broadcast = options.broadcast;
 
     init_pcap(lan_play, mac);
 
@@ -202,6 +205,9 @@ int parse_arguments(int argc, char **argv)
     options.help = 0;
     options.version = 0;
 
+    options.broadcast = false;
+
+    options.netif = NULL;
     options.netif_ipaddr = NULL;
     options.netif_netmask = NULL;
 
@@ -251,6 +257,10 @@ int parse_arguments(int argc, char **argv)
             CHECK_PARAM();
             options.netif = argv[i + 1];
             i++;
+        } else if (!strcmp(arg, "--broadcast")) {
+            options.broadcast = true;
+            options.relay_server_addr = "255.255.255.255:11451";
+            i++;
         }
     }
 
@@ -283,6 +293,7 @@ void print_help(const char *name)
         "    %s\n"
         "        [--help]\n"
         "        [--version]\n"
+        "        [--broadcast]\n"
         // "        [--netif-ipaddr <ipaddr>] default: 10.13.37.1\n"
         // "        [--netif-netmask <ipnetmask>] default: 255.255.0.0\n"
         "        [--relay-server-addr <addr>]\n"
