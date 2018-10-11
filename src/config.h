@@ -8,5 +8,8 @@
 #define IP_STR_LEN 16
 #define SERVER_ADDR "localhost"
 #define SERVER_PORT 11451
+#define ETHER_MTU 1500
+#define MIN_FRAG_PAYLOAD_LEN 500
+#define LC_FRAG_COUNT 20
 
 #endif // _CONFIG_H_

@@ -12,6 +12,7 @@
 #include <unistd.h>
 // #define HTONS(a) ( (((a) & 0xff) << 8) | (((a) >> 8) & 0xff) )
 #define LMIN(a, b) ((a) < (b) ? (a) : (b))
+#define LABS(x) ((x) < 0 ? (-(x)) : (x))
 #define READ_NET8(packet, offset) (*(uint8_t*)((uint8_t*)packet + offset))
 #define READ_NET16(packet, offset) htons(*(uint16_t*)((uint8_t*)packet + offset))
 #define READ_NET32(packet, offset) ntohl(*(uint32_t*)((uint8_t*)packet + offset))

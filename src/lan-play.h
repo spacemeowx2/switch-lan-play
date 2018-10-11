@@ -1,6 +1,8 @@
 #ifndef _LAN_PLAY_H_
 #define _LAN_PLAY_H_
 
+#include "config.h"
+
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -18,7 +20,6 @@
 struct lan_play;
 #include "packet.h"
 #include "helper.h"
-#include "config.h"
 #include "arp.h"
 #include "gateway.h"
 #include "proxy.h"
@@ -27,6 +28,14 @@ struct lan_play;
 #define LANPLAY_VERSION "unset"
 #endif
 #define CLIENT_RECV_BUF_LEN 4096
+
+struct lan_client_fragment {
+    uint16_t id;
+    uint8_t part;
+    uint8_t used;
+    uint16_t total_len;
+    uint8_t buffer[ETHER_MTU];
+};
 
 struct lan_play {
     pcap_t *dev;
@@ -50,7 +59,9 @@ struct lan_play {
     uv_udp_t client;
     uv_timer_t client_keepalive_timer;
     int frag_id;
+    int most_success_frag;
     struct sockaddr_in server_addr;
+    struct lan_client_fragment frags[LC_FRAG_COUNT];
 
     struct gateway gateway;
     uv_loop_t real_loop;
