@@ -79,14 +79,12 @@ void conn_free(conn_t *conn)
             pcur = &(*pcur)->next;
         }
 
-        LLOG(LLOG_DEBUG, "conn_kill %p done", conn);
         free(conn);
     }
 }
 
 void close_cb(uvl_tcp_t *client)
 {
-    puts("close_cb");
     conn_t *conn = client->data;
     conn->sclosed = 1;
     conn_free(conn);
@@ -94,7 +92,6 @@ void close_cb(uvl_tcp_t *client)
 
 void p_close_cb(uv_handle_t *handle)
 {
-    puts("p_close_cb");
     conn_t *conn = handle->data;
     conn->pclosed = 1;
     conn_free(conn);
@@ -107,7 +104,7 @@ static void conn_kill(conn_t *conn)
         return;
     }
     conn->closing = 1;
-    LLOG(LLOG_DEBUG, "conn_kill %p", conn);
+
     if (!conn->pconnected) {
         uv_cancel((uv_req_t *)&conn->u.req);
     }

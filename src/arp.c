@@ -189,9 +189,7 @@ bool arp_get_mac_by_ip(struct packet_ctx *self, void *mac, const void *ip)
     }
 
     int ret = send_arp_request(self, ip);
-    printf("arp_get_mac_by_ip not found %d ", ret);
-    PRINT_IP(ip);
-    putchar('\n');
+
     return false;
 }
 
