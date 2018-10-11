@@ -45,9 +45,11 @@ struct lan_play {
     uv_udp_send_t client_send_req;
 
     // lan_client
+    int pmtu;
     bool broadcast;
     uv_udp_t client;
     uv_timer_t client_keepalive_timer;
+    int frag_id;
     struct sockaddr_in server_addr;
 
     struct gateway gateway;

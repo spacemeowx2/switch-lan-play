@@ -6,6 +6,7 @@ struct {
     int version;
 
     bool broadcast;
+    int pmtu;
 
     char *netif;
     char *netif_ipaddr;
@@ -164,6 +165,7 @@ int lan_play_init(struct lan_play *lan_play)
     lan_play->dev = NULL;
     lan_play->stop = false;
     lan_play->broadcast = options.broadcast;
+    lan_play->pmtu = options.pmtu;
 
     init_pcap(lan_play, mac);
 
@@ -206,6 +208,7 @@ int parse_arguments(int argc, char **argv)
     options.version = 0;
 
     options.broadcast = false;
+    options.pmtu = 0;
 
     options.netif = NULL;
     options.netif_ipaddr = NULL;
@@ -260,6 +263,10 @@ int parse_arguments(int argc, char **argv)
         } else if (!strcmp(arg, "--broadcast")) {
             options.broadcast = true;
             options.relay_server_addr = "255.255.255.255:11451";
+            i++;
+        } else if (!strcmp(arg, "--pmtu")) {
+            CHECK_PARAM();
+            options.pmtu = atoi(argv[i + 1]);
             i++;
         }
     }

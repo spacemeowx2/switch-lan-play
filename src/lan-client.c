@@ -1,13 +1,30 @@
 #include "lan-play.h"
 
+#define ETHER_MTU 1500
+#define MIN_FRAG_PAYLOAD_LEN 500
+
+struct lan_client_fragment_header {
+    uint8_t src[4];
+    uint8_t dst[4];
+    uint16_t id;
+    uint16_t part;
+    uint16_t len;
+};
+
+struct lan_client_fragment {
+    uint16_t id;
+    uint16_t part;
+    uint8_t buffer[ETHER_MTU];
+};
+
 enum lan_client_type {
     LAN_CLIENT_TYPE_KEEPALIVE = 0x00,
     LAN_CLIENT_TYPE_IPV4 = 0x01,
+    LAN_CLIENT_TYPE_PING = 0x02,
+    LAN_CLIENT_TYPE_IPV4_FRAG = 0x03
 };
 struct ipv4_req {
     uv_udp_send_t req;
-    uv_buf_t bufs[2];
-    char type;
     char *packet;
 };
 uint8_t BROADCAST_MAC[6] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
@@ -30,6 +47,14 @@ int lan_client_init(struct lan_play *lan_play)
     uv_loop_t *loop = lan_play->loop;
     uv_udp_t *client = &lan_play->client;
     uv_timer_t *timer = &lan_play->client_keepalive_timer;
+
+    if (lan_play->pmtu) {
+        if (lan_play->pmtu < MIN_FRAG_PAYLOAD_LEN) {
+            LLOG(LLOG_DEBUG, "pmtu is too small: %d, must be greater than %d", lan_play->pmtu, MIN_FRAG_PAYLOAD_LEN);
+            exit(1);
+        }
+        LLOG(LLOG_DEBUG, "pmtu is set to %d", lan_play->pmtu);
+    }
 
     ret = uv_udp_init(loop, client);
     if (ret != 0) {
@@ -92,6 +117,13 @@ int lan_client_close(struct lan_play *lan_play)
     return 0;
 }
 
+int lan_client_process_frag(struct lan_play *lan_play, const uint8_t *packet, uint16_t len)
+{
+    LLOG(LLOG_DEBUG, "lan_client_process_frag %d", len);
+
+    return 0;
+}
+
 int lan_client_process(struct lan_play *lan_play, const uint8_t *packet, uint16_t len)
 {
     if (len == 0) {
@@ -147,6 +179,9 @@ void lan_client_on_recv(uv_udp_t* handle, ssize_t nread, const uv_buf_t* buf, co
     case LAN_CLIENT_TYPE_IPV4:
         lan_client_process(lan_play, buffer + 1, recv_len - 1);
         break;
+    case LAN_CLIENT_TYPE_IPV4_FRAG:
+        lan_client_process_frag(lan_play, buffer + 1, recv_len - 1);
+        break;
     }
 }
 
@@ -160,28 +195,65 @@ void lan_client_on_sent(uv_udp_send_t* req, int status)
     free(ipv4_req);
 }
 
-int lan_client_send(struct lan_play *lan_play, const uint8_t type, const void *packet, uint16_t len)
+static int lan_client_send_raw(struct lan_play *lan_play, uv_buf_t *bufs, int bufs_len)
 {
-    struct sockaddr *server_addr = (struct sockaddr *)&lan_play->server_addr;
+    int i;
+    int cur_pos;
+    int total_len;
     int ret;
+    struct sockaddr *server_addr = (struct sockaddr *)&lan_play->server_addr;
     struct ipv4_req *req = malloc(sizeof(struct ipv4_req));
-    req->type = type;
-    req->packet = malloc(len);
-    memcpy(req->packet, packet, len);
 
-    uv_buf_t *bufs = req->bufs;
-    int bufs_len = 1;
-    bufs[0] = uv_buf_init(&req->type, sizeof(type));
-    if (packet && len > 0) {
-        bufs[1] = uv_buf_init(req->packet, len);
-        bufs_len = 2;
+    total_len = 0;
+    for (i = 0; i < bufs_len; i++) {
+        total_len += bufs[i].len;
     }
+
+    req->packet = malloc(total_len);
+
+    cur_pos = 0;
+    for (i = 0; i < bufs_len; i++) {
+        memcpy(req->packet + cur_pos, bufs[i].base, bufs[i].len);
+        cur_pos += bufs[i].len;
+    }
+
+    uv_buf_t bufs = uv_buf_init(req->packet, total_len);
 
     uv_udp_send_t *udp_req = &req->req;
     udp_req->data = req;
-    ret = uv_udp_send(udp_req, &lan_play->client, bufs, bufs_len, server_addr, lan_client_on_sent);
+    ret = uv_udp_send(udp_req, &lan_play->client, bufs, 1, server_addr, lan_client_on_sent);
 
     return ret;
+}
+
+int lan_client_send(struct lan_play *lan_play, const uint8_t type, const uint8_t *packet, uint16_t len)
+{
+    uv_buf_t bufs[3];
+    bufs[0] = uv_buf_init(&type, sizeof(type));
+
+    int pmtu = lan_play->pmtu;
+    if (type == LAN_CLIENT_TYPE_IPV4 && pmtu > 0) {
+        int ret = 0;
+        int i;
+        struct lan_client_fragment_header header;
+        CPY_IPV4(header.src, packet + IPV4_OFF_SRC);
+        CPY_IPV4(header.dst, packet + IPV4_OFF_DST);
+        header.len = pmtu;
+        for (i = 0; i < ETHER_MTU / pmtu; i++) {
+            header.id = lan_play->frag_id++;
+            header.part = i;
+            bufs[1] = uv_buf_init(&header, sizeof(header));
+
+            int pos = i * pmtu;
+            bufs[2] = uv_buf_init(packet + pos, LMIN(pmtu, len - pos));
+            ret = lan_client_send_raw(lan_play, &bufs, 3);
+            if (ret) return ret;
+        }
+        return 0;
+    }
+
+    bufs[1] = uv_buf_init(packet, len);
+    return lan_client_send_raw(lan_play, &bufs, 2);
 }
 
 int lan_client_send_keepalive(struct lan_play *lan_play)
