@@ -189,6 +189,9 @@ bool arp_get_mac_by_ip(struct packet_ctx *self, void *mac, const void *ip)
     }
 
     int ret = send_arp_request(self, ip);
+    if (ret) {
+        LLOG(LLOG_DEBUG, "send_arp_request return %d", ret);
+    }
 
     return false;
 }
