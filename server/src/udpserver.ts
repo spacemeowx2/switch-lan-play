@@ -9,6 +9,7 @@ enum ForwarderType {
   Keepalive = 0,
   Ipv4 = 1,
   Ping = 2,
+  Ipv4Frag = 3,
 }
 
 interface CacheItem {
@@ -36,7 +37,10 @@ export class SLPServer {
   server: Socket
   clients: Map<string, CacheItem> = new Map()
   ipCache: Map<number, CacheItem> = new Map()
-  byteLastSec: number = 0
+  byteLastSec = {
+    upload: 0,
+    download: 0
+  }
   constructor (port: number) {
     const server = createSocket({
       type: 'udp4',
@@ -48,10 +52,11 @@ export class SLPServer {
     server.bind(port)
     this.server = server
     setInterval(() => {
-      const str = `  Client count: ${this.clients.size} ${this.byteLastSec / 1000}KB/s`
+      const str = `  Client count: ${this.clients.size} upload: ${this.byteLastSec.upload / 1000}KB/s download: ${this.byteLastSec.download / 1000}KB/s`
       process.stdout.write(str)
       process.stdout.write('\b'.repeat(str.length))
-      this.byteLastSec = 0
+      this.byteLastSec.upload = 0
+      this.byteLastSec.download = 0
       this.clearExpire()
     }, 1000)
   }
@@ -64,7 +69,7 @@ export class SLPServer {
     if (msg.byteLength === 0) {
       return
     }
-    this.byteLastSec += msg.byteLength
+    this.byteLastSec.download += msg.byteLength
 
     const type: ForwarderType = msg.readUInt8(0)
     if (type != ForwarderType.Ping) {
@@ -86,6 +91,26 @@ export class SLPServer {
       case ForwarderType.Ping:
         this.onPing(rinfo, payload, msg)
         break
+      case ForwarderType.Ipv4Frag:
+        this.onIpv4Frag(rinfo, payload, msg)
+        break
+    }
+  }
+  onIpv4Frag (fromAddr: AddressInfo, payload: Buffer, msg: Buffer) {
+    if (payload.length <= 20) { // packet too short, ignore
+      return
+    }
+    const src = payload.readInt32BE(0)
+    const dst = payload.readInt32BE(4)
+    this.ipCache.set(src, {
+      rinfo: fromAddr,
+      expireAt: Date.now() + Timeout
+    })
+    if (this.ipCache.has(dst)) {
+      const { rinfo } = this.ipCache.get(dst)
+      this.sendTo(rinfo, msg)
+    } else {
+      this.sendBroadcast(fromAddr, msg)
     }
   }
   onPing (rinfo: AddressInfo, payload: Buffer, msg: Buffer) {
@@ -121,7 +146,7 @@ export class SLPServer {
   }
   sendTo (addr: AddressInfo, data: Buffer) {
     const {address, port} = addr
-    this.byteLastSec += data.byteLength
+    this.byteLastSec.upload += data.byteLength
     this.server.send(data, port, address, (error, bytes) => {
       if (error) {
         this.clients.delete(addr2str(addr))
