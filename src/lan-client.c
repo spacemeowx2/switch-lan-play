@@ -57,7 +57,7 @@ int lan_client_init(struct lan_play *lan_play)
         LLOG(LLOG_DEBUG, "pmtu is set to %d", lan_play->pmtu);
     }
     lan_play->frag_id = 0;
-    lan_play->most_success_frag = 0;
+    lan_play->local_id = 0;
     memset(&lan_play->frags, 0, sizeof(lan_play->frags));
 
     ret = uv_udp_init(loop, client);
@@ -169,7 +169,9 @@ int lan_client_process_frag(struct lan_play *lan_play, const uint8_t *packet, ui
     struct lan_client_fragment *frag = NULL;
     int i;
     for (i = 0; i < LC_FRAG_COUNT; i++) {
-        if (frags[i].used && (frags[i].id == header.id)) {
+        if (frags[i].used
+                && (frags[i].id == header.id)
+                && CMP_IPV4(frags[i].src, header.src)) {
             frag = &frags[i];
             break;
         }
@@ -181,6 +183,8 @@ int lan_client_process_frag(struct lan_play *lan_play, const uint8_t *packet, ui
                 frag = &frags[i];
                 frag->used = 1;
                 frag->id = header.id;
+                frag->local_id = lan_play->local_id++;
+                CPY_IPV4(frag->src, header.src);
                 frag->part = 0;
                 break;
             }
@@ -192,7 +196,7 @@ int lan_client_process_frag(struct lan_play *lan_play, const uint8_t *packet, ui
         struct lan_client_fragment *to_delete = NULL;
         for (i = 0; i < LC_FRAG_COUNT; i++) {
             if (frags[i].used) {
-                int dif = LABS(frags[i].id - lan_play->most_success_frag);
+                int dif = LABS(frags[i].local_id - lan_play->local_id);
                 if (dif > max_dif) {
                     max_dif = dif;
                     to_delete = &frags[i];
@@ -204,6 +208,8 @@ int lan_client_process_frag(struct lan_play *lan_play, const uint8_t *packet, ui
             frag = to_delete;
             frag->used = 1;
             frag->id = header.id;
+            frag->local_id = lan_play->local_id++;
+            CPY_IPV4(frag->src, header.src);
             frag->part = 0;
         }
     }
@@ -218,7 +224,6 @@ int lan_client_process_frag(struct lan_play *lan_play, const uint8_t *packet, ui
             LLOG(LLOG_DEBUG, "fragment finish %d, origin len %d", frag->id, frag->total_len);
             // finish
             frag->used = 0;
-            lan_play->most_success_frag = frag->id;
             return lan_client_process(lan_play, frag->buffer, frag->total_len);
         }
     } else {

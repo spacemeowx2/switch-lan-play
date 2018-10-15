@@ -30,6 +30,8 @@ struct lan_play;
 #define CLIENT_RECV_BUF_LEN 4096
 
 struct lan_client_fragment {
+    uint16_t local_id;
+    uint8_t src[4];
     uint16_t id;
     uint8_t part;
     uint8_t used;
@@ -59,7 +61,7 @@ struct lan_play {
     uv_udp_t client;
     uv_timer_t client_keepalive_timer;
     int frag_id;
-    int most_success_frag;
+    int local_id;
     struct sockaddr_in server_addr;
     struct lan_client_fragment frags[LC_FRAG_COUNT];
 
