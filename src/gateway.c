@@ -257,8 +257,9 @@ int gateway_uvl_output(uvl_t *handle, const uv_buf_t bufs[], unsigned int nbufs)
     uint8_t buffer[8192];
     uint8_t *buf = buffer;
     uint32_t len = 0;
+    int i;
 
-    for (int i = 0; i < nbufs; i++) {
+    for (i = 0; i < nbufs; i++) {
         RT_ASSERT(len + bufs[i].len < sizeof(buffer))
         memcpy(buf, bufs[i].base, bufs[i].len);
         buf += bufs[i].len;

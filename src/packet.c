@@ -181,9 +181,10 @@ void payload_print_hex(const struct payload *payload)
 {
     const struct payload *part = payload;
     int i = 0;
+    int j;
 
     while (part) {
-        for (int j = 0; j < part->len; j++) {
+        for (j = 0; j < part->len; j++) {
             printf(" %02x", part->ptr[j]);
             if ( ++i % 16 == 0 ) {
                 printf("\n");
