@@ -317,13 +317,12 @@ static err_t uvl_client_sent_func (void *arg, struct tcp_pcb *tpcb, u16_t len)
 
     while (req && (req->total_sent == req->total_len) && (req->pending == 0)) {
         next = req->next; // save before it be freed
+        client->cur_write = next;
         // should call the callback
         req->write_cb(req, 0);
 
         req = next;
     }
-
-    client->cur_write = req;
 
     if (client->cur_write == NULL) {
         client->tail_write = NULL;

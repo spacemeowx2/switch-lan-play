@@ -21,7 +21,7 @@ struct gateway {
     uvl_t uvl;
 };
 
-int gateway_init(struct gateway *gateway, struct packet_ctx *packet_ctx);
+int gateway_init(struct gateway *gateway, struct packet_ctx *packet_ctx, bool fake_internet);
 int gateway_close(struct gateway *gateway);
 void gateway_on_packet(struct gateway *gateway, const uint8_t *data, int data_len);
 

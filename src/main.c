@@ -6,6 +6,7 @@ struct {
     int version;
 
     bool broadcast;
+    bool fake_internet;
 
     char *netif;
     char *netif_ipaddr;
@@ -186,7 +187,7 @@ int lan_play_init(struct lan_play *lan_play)
     if (ret != 0) return ret;
     ret = lan_client_init(lan_play);
     if (ret != 0) return ret;
-    ret = gateway_init(&lan_play->gateway, &lan_play->packet_ctx);
+    ret = gateway_init(&lan_play->gateway, &lan_play->packet_ctx, options.fake_internet);
     if (ret != 0) return ret;
 
     return 0;
@@ -206,6 +207,7 @@ int parse_arguments(int argc, char **argv)
     options.version = 0;
 
     options.broadcast = false;
+    options.fake_internet = false;
 
     options.netif = NULL;
     options.netif_ipaddr = NULL;
@@ -260,7 +262,8 @@ int parse_arguments(int argc, char **argv)
         } else if (!strcmp(arg, "--broadcast")) {
             options.broadcast = true;
             options.relay_server_addr = "255.255.255.255:11451";
-            i++;
+        } else if (!strcmp(arg, "--fake-internet")) {
+            options.fake_internet = true;
         }
     }
 
@@ -294,6 +297,7 @@ void print_help(const char *name)
         "        [--help]\n"
         "        [--version]\n"
         "        [--broadcast]\n"
+        "        [--fake-internet]\n"
         // "        [--netif-ipaddr <ipaddr>] default: 10.13.37.1\n"
         // "        [--netif-netmask <ipnetmask>] default: 255.255.0.0\n"
         "        [--relay-server-addr <addr>]\n"
