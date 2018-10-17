@@ -52,7 +52,7 @@ pipeline:
     image: plugins/github-release
     secrets: [ github_token ]
     files:
-      - build.linux/lan-play
+      - build.linux/lan-play-linux
       - build.win32/lan-play-win32.exe
       - build.win64/lan-play-win64.exe
     checksum:
