@@ -159,7 +159,7 @@ make
 ```sh
 cd server
 npm install
-npm run build # build ts to js, only run it when code changed.
+npm run build # build ts to js. run it again when code changed.
 npm start
 ```
 
