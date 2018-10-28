@@ -1,4 +1,5 @@
 import Koa from 'koa'
+import cors from 'koa2-cors'
 import Router, { IRouterContext } from 'koa-router'
 import { SLPServer } from './udpserver'
 import { join } from 'path'
@@ -25,6 +26,7 @@ export class ServerMonitor {
   }
 
   public start(port: number) {
+    this.app.use(cors())
     this.app.use(this.router.routes())
     this.app.listen(port)
     console.log(`\nMonitor service started on port ${port}/tcp`)
