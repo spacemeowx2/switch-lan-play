@@ -216,3 +216,20 @@ bool arp_set(struct packet_ctx *self, const void *mac, const void *ip)
 
     return false;
 }
+
+void arp_for_each(struct packet_ctx *self, void *userdata, arp_for_each_cb cb)
+{
+    int i;
+    struct arp_item *list = self->arp_list;
+    struct arp_item *item;
+    time_t now = time(NULL);
+
+    for (i = 0; i < ARP_CACHE_LEN; i++) {
+        item = &list[i];
+        if (item->expire_at > now) {
+            if (cb(userdata, item) != 0) {
+                break;
+            }
+        }
+    }
+}

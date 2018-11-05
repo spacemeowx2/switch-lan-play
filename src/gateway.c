@@ -210,6 +210,36 @@ static void p_on_connect(uv_connect_t *req, int status)
     RT_ASSERT(uvl_read_start(&conn->stcp, alloc_cb, read_cb) == 0);
 }
 
+void fake_close_cb(uvl_tcp_t *client)
+{
+    free(client->data);
+}
+
+void fake_write_cb(uvl_write_t *req, int status)
+{
+    uvl_tcp_close(req->client, fake_close_cb);
+}
+
+void on_fake_connect(uvl_t *handle, int status)
+{
+    assert(status == 0);
+
+    struct gateway *gateway = (struct gateway *)handle->data;
+    struct {
+        uvl_tcp_t client;
+        uvl_write_t req;
+        uv_buf_t buf;
+    } *fake = malloc(sizeof(*fake));
+    fake->client.data = fake;
+    char *fake_body = "HTTP/1.1 200 OK\r\nContent-Length: 2\r\nX-Organization: Nintendo\r\n\r\nok";
+    fake->buf = uv_buf_init(fake_body, strlen(fake_body));
+
+    RT_ASSERT(uvl_tcp_init(gateway->loop, &fake->client) == 0);
+    RT_ASSERT(uvl_accept(handle, &fake->client) == 0);
+
+    RT_ASSERT(uvl_write(&fake->req, &fake->client, &fake->buf, 1, fake_write_cb) == 0);
+}
+
 void on_connect(uvl_t *handle, int status)
 {
     assert(status == 0);
@@ -269,14 +299,18 @@ int gateway_uvl_output(uvl_t *handle, const uv_buf_t bufs[], unsigned int nbufs)
     return lan_play_gateway_send_packet(gateway->packet_ctx, buffer, len);
 }
 
-int gateway_init(struct gateway *gateway, struct packet_ctx *packet_ctx)
+int gateway_init(struct gateway *gateway, struct packet_ctx *packet_ctx, bool fake_internet)
 {
     gateway->loop = packet_ctx->arg->loop;
     gateway->packet_ctx = packet_ctx;
 
     RT_ASSERT(uvl_init(gateway->loop, &gateway->uvl) == 0);
     RT_ASSERT(uvl_bind(&gateway->uvl, gateway_uvl_output) == 0);
-    RT_ASSERT(uvl_listen(&gateway->uvl, on_connect) == 0);
+    if (fake_internet) {
+        RT_ASSERT(uvl_listen(&gateway->uvl, on_fake_connect) == 0);
+    } else {
+        RT_ASSERT(uvl_listen(&gateway->uvl, on_connect) == 0);
+    }
     gateway->uvl.data = gateway;
     gateway->first_conn = NULL;
 

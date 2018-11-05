@@ -14,12 +14,14 @@
     "license": "MIT",
     "devDependencies": {
         "@types/koa": "^2.0.46",
-        "@types/node": "^8.10.29",
         "@types/koa-router": "^7.0.32",
+        "@types/koa2-cors": "^2.0.1",
+        "@types/node": "^8.10.36",
         "typescript": "^3.0.3"
     },
     "dependencies": {
         "koa": "^2.5.3",
-        "koa-router": "^7.4.0"
+        "koa-router": "^7.4.0",
+        "koa2-cors": "^2.0.6"
     }
 }
