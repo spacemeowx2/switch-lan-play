@@ -20,7 +20,7 @@ int lan_client_send_ipv4(struct lan_play *lan_play, void *dst_ip, const void *pa
 static void lan_client_alloc_cb(uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf)
 {
     struct lan_play *lan_play = handle->data;
-    buf->base = lan_play->client_buf;
+    buf->base = (char *)lan_play->client_buf;
     buf->len = sizeof(lan_play->client_buf);
 }
 
@@ -92,6 +92,48 @@ int lan_client_close(struct lan_play *lan_play)
     return 0;
 }
 
+int lan_client_arp_for_each_cb(void *p, const struct arp_item *item)
+{
+    struct {
+        struct lan_play *lan_play;
+        const uint8_t *packet;
+        uint16_t len;
+    } *userdata = p;
+
+    // TODO: check subnet
+    // const uint8_t *dst = userdata->packet + IPV4_OFF_DST;
+    struct payload part;
+
+    part.ptr = userdata->packet;
+    part.len = userdata->len;
+    part.next = NULL;
+    int rc = send_ether(
+        &userdata->lan_play->packet_ctx,
+        item->mac,
+        ETHER_TYPE_IPV4,
+        &part
+    );
+    if (rc != 0) {
+        LLOG(LLOG_ERROR, "Failed to call send_ether in lan_client_arp_for_each_cb");
+    }
+
+    return 0;
+}
+
+int lan_client_on_broadcast(struct lan_play *lan_play, const uint8_t *packet, uint16_t len)
+{
+    struct {
+        struct lan_play *lan_play;
+        const uint8_t *packet;
+        uint16_t len;
+    } userdata;
+    userdata.lan_play = lan_play;
+    userdata.packet = packet;
+    userdata.len = len;
+    arp_for_each(&lan_play->packet_ctx, &userdata, lan_client_arp_for_each_cb);
+    return 0;
+}
+
 int lan_client_process(struct lan_play *lan_play, const uint8_t *packet, uint16_t len)
 {
     if (len == 0) {
@@ -107,7 +149,7 @@ int lan_client_process(struct lan_play *lan_play, const uint8_t *packet, uint16_
     }
 
     if (IS_BROADCAST(dst, lan_play->packet_ctx.subnet_net, lan_play->packet_ctx.subnet_mask)) {
-        CPY_MAC(dst_mac, BROADCAST_MAC);
+        return lan_client_on_broadcast(lan_play, packet, len);
     } else if (!arp_get_mac_by_ip(&lan_play->packet_ctx, dst_mac, dst)) {
         return 0;
     }

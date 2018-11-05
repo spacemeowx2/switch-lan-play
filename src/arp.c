@@ -189,6 +189,9 @@ bool arp_get_mac_by_ip(struct packet_ctx *self, void *mac, const void *ip)
     }
 
     int ret = send_arp_request(self, ip);
+    if (ret != 0) {
+        LLOG(LLOG_ERROR, "arp_get_mac_by_ip %d", ret);
+    }
 
     return false;
 }
@@ -212,4 +215,21 @@ bool arp_set(struct packet_ctx *self, const void *mac, const void *ip)
     puts("set not found");
 
     return false;
+}
+
+void arp_for_each(struct packet_ctx *self, void *userdata, arp_for_each_cb cb)
+{
+    int i;
+    struct arp_item *list = self->arp_list;
+    struct arp_item *item;
+    time_t now = time(NULL);
+
+    for (i = 0; i < ARP_CACHE_LEN; i++) {
+        item = &list[i];
+        if (item->expire_at > now) {
+            if (cb(userdata, item) != 0) {
+                break;
+            }
+        }
+    }
 }
