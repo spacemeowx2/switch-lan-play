@@ -32,6 +32,7 @@ uint8_t BROADCAST_MAC[6] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
 
 void lan_client_on_recv(uv_udp_t *handle, ssize_t nread, const uv_buf_t* buf, const struct sockaddr* addr, unsigned flags);
 void lan_client_keepalive_timer(uv_timer_t *handle);
+void lan_client_real_broadcast_timer(uv_timer_t *handle);
 int lan_client_send_keepalive(struct lan_play *lan_play);
 int lan_client_send_ipv4(struct lan_play *lan_play, void *dst_ip, const void *packet, uint16_t len);
 
@@ -47,7 +48,8 @@ int lan_client_init(struct lan_play *lan_play)
     int ret;
     uv_loop_t *loop = lan_play->loop;
     uv_udp_t *client = &lan_play->client;
-    uv_timer_t *timer = &lan_play->client_keepalive_timer;
+    uv_timer_t *client_keepalive_timer = &lan_play->client_keepalive_timer;
+    uv_timer_t *real_broadcast_timer = &lan_play->real_broadcast_timer;
 
     if (lan_play->pmtu) {
         if (lan_play->pmtu < MIN_FRAG_PAYLOAD_LEN) {
@@ -58,6 +60,7 @@ int lan_client_init(struct lan_play *lan_play)
     }
     lan_play->frag_id = 0;
     lan_play->local_id = 0;
+    lan_play->next_real_broadcast = true;
     memset(&lan_play->frags, 0, sizeof(lan_play->frags));
 
     ret = uv_udp_init(loop, client);
@@ -74,17 +77,29 @@ int lan_client_init(struct lan_play *lan_play)
         }
     }
 
-    ret = uv_timer_init(loop, timer);
+    ret = uv_timer_init(loop, client_keepalive_timer);
+    if (ret != 0) {
+        LLOG(LLOG_ERROR, "uv_timer_init %d", ret);
+    }
+
+    ret = uv_timer_init(loop, real_broadcast_timer);
     if (ret != 0) {
         LLOG(LLOG_ERROR, "uv_timer_init %d", ret);
     }
 
     client->data = lan_play;
-    timer->data = lan_play;
+    client_keepalive_timer->data = lan_play;
+    real_broadcast_timer->data = lan_play;
 
     printf("Server IP: %s\n", ip2str(&lan_play->server_addr.sin_addr));
 
-    ret = uv_timer_start(timer, lan_client_keepalive_timer, 0, 10 * 1000);
+    ret = uv_timer_start(client_keepalive_timer, lan_client_keepalive_timer, 0, 10 * 1000);
+    if (ret != 0) {
+        LLOG(LLOG_ERROR, "uv_timer_start %d", ret);
+        return ret;
+    }
+
+    ret = uv_timer_start(real_broadcast_timer, lan_client_real_broadcast_timer, 0, 1000);
     if (ret != 0) {
         LLOG(LLOG_ERROR, "uv_timer_start %d", ret);
         return ret;
@@ -112,6 +127,12 @@ int lan_client_close(struct lan_play *lan_play)
     ret = uv_timer_stop(&lan_play->client_keepalive_timer);
     if (ret != 0) {
         LLOG(LLOG_ERROR, "uv_timer_stop %d", ret);
+        return ret;
+    }
+
+    ret = uv_timer_stop(&lan_play->real_broadcast_timer);
+    if (ret != 0) {
+        LLOG(LLOG_ERROR, "real_broadcast uv_timer_stop %d", ret);
         return ret;
     }
 
@@ -151,15 +172,31 @@ int lan_client_arp_for_each_cb(void *p, const struct arp_item *item)
 
 int lan_client_on_broadcast(struct lan_play *lan_play, const uint8_t *packet, uint16_t len)
 {
-    struct {
-        struct lan_play *lan_play;
-        const uint8_t *packet;
-        uint16_t len;
-    } userdata;
-    userdata.lan_play = lan_play;
-    userdata.packet = packet;
-    userdata.len = len;
-    arp_for_each(&lan_play->packet_ctx, &userdata, lan_client_arp_for_each_cb);
+    if (lan_play->next_real_broadcast) {
+        lan_play->next_real_broadcast = false;
+
+        struct payload part;
+
+        part.ptr = packet;
+        part.len = len;
+        part.next = NULL;
+        return send_ether(
+            &lan_play->packet_ctx,
+            BROADCAST_MAC,
+            ETHER_TYPE_IPV4,
+            &part
+        );
+    } else {
+        struct {
+            struct lan_play *lan_play;
+            const uint8_t *packet;
+            uint16_t len;
+        } userdata;
+        userdata.lan_play = lan_play;
+        userdata.packet = packet;
+        userdata.len = len;
+        arp_for_each(&lan_play->packet_ctx, &userdata, lan_client_arp_for_each_cb);
+    }
     return 0;
 }
 
@@ -245,7 +282,7 @@ int lan_client_process_frag(struct lan_play *lan_play, const uint8_t *packet, ui
                 }
             }
         }
-        if (max_dif > 10) {
+        if (max_dif > LC_FRAG_COUNT) {
             LLOG(LLOG_DEBUG, "fragment buffer is full, deleting id %d", to_delete->id);
             frag = to_delete;
             frag->used = 1;
@@ -273,6 +310,12 @@ int lan_client_process_frag(struct lan_play *lan_play, const uint8_t *packet, ui
     }
 
     return 0;
+}
+
+void lan_client_real_broadcast_timer(uv_timer_t *handle)
+{
+    struct lan_play *lan_play = (struct lan_play *)handle->data;
+    lan_play->next_real_broadcast = true;
 }
 
 void lan_client_keepalive_timer(uv_timer_t *handle)

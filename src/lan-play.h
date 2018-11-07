@@ -58,8 +58,10 @@ struct lan_play {
     // lan_client
     int pmtu;
     bool broadcast;
+    bool next_real_broadcast;
     uv_udp_t client;
     uv_timer_t client_keepalive_timer;
+    uv_timer_t real_broadcast_timer;
     int frag_id;
     int local_id;
     struct sockaddr_in server_addr;
