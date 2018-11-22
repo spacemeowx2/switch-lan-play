@@ -32,6 +32,16 @@ include_directories(
     lwip/src/include
     src
 )
+
+if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+    include_directories(
+        /usr/local/Cellar/libuv/1.24.0/include
+    )
+link_directories(
+    /usr/local/Cellar/libuv/1.24.0/lib
+)
+endif()
+
 add_subdirectory(lwip)
 
 if (WIN32)
