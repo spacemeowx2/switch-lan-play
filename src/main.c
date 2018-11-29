@@ -310,6 +310,7 @@ void print_help(const char *name)
         // "        [--netif-netmask <ipnetmask>] default: 255.255.0.0\n"
         "        [--relay-server-addr <addr>]\n"
         "        [--netif <netif>]\n"
+        "        [--pmtu <pmtu>]\n"
         // "        [--socks-server-addr <addr>]\n"
         // "        [--username <username>]\n"
         // "        [--password <password>]\n"
