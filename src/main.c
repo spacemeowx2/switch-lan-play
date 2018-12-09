@@ -265,7 +265,6 @@ int parse_arguments(int argc, char **argv)
         } else if (!strcmp(arg, "--broadcast")) {
             options.broadcast = true;
             options.relay_server_addr = "255.255.255.255:11451";
-            i++;
         } else if (!strcmp(arg, "--pmtu")) {
             CHECK_PARAM();
             options.pmtu = atoi(argv[i + 1]);
