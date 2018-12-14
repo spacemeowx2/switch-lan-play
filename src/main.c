@@ -8,6 +8,7 @@ struct {
     bool broadcast;
     int pmtu;
     bool fake_internet;
+    bool list_if;
 
     char *netif;
     char *netif_ipaddr;
@@ -49,6 +50,39 @@ void get_mac(void *mac, pcap_if_t *d, pcap_t *p)
     putchar('\n');
 }
 
+int list_interfaces(pcap_if_t *alldevs)
+{
+    int i = 0;
+    pcap_if_t *d;
+    for (d = alldevs; d; d = d->next) {
+        printf("%d. %s", ++i, d->name);
+        if (d->description) {
+            printf(" (%s)", d->description);
+        } else {
+            printf(" (No description available)");
+        }
+        if (d->addresses) {
+            printf("\n\tIP: [");
+            struct pcap_addr *taddr;
+            struct sockaddr_in *sin;
+            char  revIP[100];
+            for (taddr = d->addresses; taddr; taddr = taddr->next)
+            {
+                sin = (struct sockaddr_in *)taddr->addr;
+                if (sin->sin_family == AF_INET) {
+                    strncpy(revIP, inet_ntoa(sin->sin_addr), sizeof(revIP));
+                    printf("%s", revIP);
+                    if (taddr->next)
+                        putchar(',');
+                }
+            }
+            putchar(']');
+        }
+        putchar('\n');
+    }
+    return i;
+}
+
 void init_pcap(struct lan_play *lan_play, void *mac)
 {
     pcap_t *dev;
@@ -63,33 +97,7 @@ void init_pcap(struct lan_play *lan_play, void *mac)
         exit(1);
     }
     if (options.netif == NULL) {
-        i = 0;
-        for (d = alldevs; d; d = d->next) {
-            printf("%d. %s", ++i, d->name);
-            if (d->description) {
-                printf(" (%s)", d->description);
-            } else {
-                printf(" (No description available)");
-            }
-            if (d->addresses) {
-                printf("\n\tIP: [");
-                struct pcap_addr *taddr;
-                struct sockaddr_in *sin;
-                char  revIP[100];
-                for (taddr = d->addresses; taddr; taddr = taddr->next)
-                {
-                    sin = (struct sockaddr_in *)taddr->addr;
-                    if (sin->sin_family == AF_INET) {
-                        strncpy(revIP, inet_ntoa(sin->sin_addr), sizeof(revIP));
-                        printf("%s", revIP);
-                        if (taddr->next)
-                            putchar(',');
-                    }
-                }
-                putchar(']');
-            }
-            putchar('\n');
-        }
+        i = list_interfaces(alldevs);
 
         printf("Enter the interface number (1-%d):", i);
         scanf("%d", &arg_inum);
@@ -211,6 +219,7 @@ int parse_arguments(int argc, char **argv)
     options.broadcast = false;
     options.pmtu = 0;
     options.fake_internet = false;
+    options.list_if = false;
 
     options.netif = NULL;
     options.netif_ipaddr = NULL;
@@ -262,6 +271,8 @@ int parse_arguments(int argc, char **argv)
             CHECK_PARAM();
             options.netif = argv[i + 1];
             i++;
+        } else if (!strcmp(arg, "--list-if")) {
+            options.list_if = true;
         } else if (!strcmp(arg, "--broadcast")) {
             options.broadcast = true;
             options.relay_server_addr = "255.255.255.255:11451";
@@ -274,7 +285,7 @@ int parse_arguments(int argc, char **argv)
         }
     }
 
-    if (options.help || options.version) {
+    if (options.help || options.version || options.list_if) {
         return 0;
     }
     if (!options.relay_server_addr) {
@@ -309,6 +320,7 @@ void print_help(const char *name)
         // "        [--netif-netmask <ipnetmask>] default: 255.255.0.0\n"
         "        [--relay-server-addr <addr>]\n"
         "        [--netif <netif>]\n"
+        "        [--list-if]\n"
         "        [--pmtu <pmtu>]\n"
         // "        [--socks-server-addr <addr>]\n"
         // "        [--username <username>]\n"
@@ -430,6 +442,18 @@ int main(int argc, char **argv)
     }
     if (options.version) {
         print_version();
+        return 0;
+    }
+    if (options.list_if) {
+        pcap_if_t *alldevs;
+        char err_buf[PCAP_ERRBUF_SIZE];
+
+        if (pcap_findalldevs(&alldevs, err_buf)) {
+            fprintf(stderr, "Error pcap_findalldevs: %s\n", err_buf);
+            exit(1);
+        }
+        list_interfaces(alldevs);
+        pcap_freealldevs(alldevs);
         return 0;
     }
 
