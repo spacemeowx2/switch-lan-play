@@ -138,15 +138,23 @@ make
 ## Mac OS
 
 ```sh
-brew install cmake libpcap libuv
+brew install cmake  libuv
 ```
 
 ```sh
+
 mkdir build
 cd build
 cmake ..
+/usr/bin/sed -i ""  's/C_INCLUDES.*/& \-L\/usr\/local\/include \-I\/usr\/local\/include/g' ./CMakeFiles/lan-play.dir/flags.make  #to fix error "uv.h"  file not found
 make
+
 ```
+
+
+
+
+
 
 # Server
 
