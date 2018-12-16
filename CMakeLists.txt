@@ -1,7 +1,9 @@
 cmake_minimum_required(VERSION 3.0)
 project (SwitchLanPlay)
-set(LANPLAY_VERSION 0.0.6)
-
+execute_process(COMMAND git describe --tags
+                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                OUTPUT_VARIABLE LANPLAY_VERSION
+                OUTPUT_STRIP_TRAILING_WHITESPACE)
 add_compile_options(
     "-Wall"
     "-Wno-unused-function"
