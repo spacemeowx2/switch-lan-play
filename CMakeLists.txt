@@ -4,6 +4,11 @@ execute_process(COMMAND git describe --tags
                 WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
                 OUTPUT_VARIABLE LANPLAY_VERSION
                 OUTPUT_STRIP_TRAILING_WHITESPACE)
+
+if (LANPLAY_VERSION STREQUAL "")
+    MESSAGE(FATAL_ERROR "LANPLAY_VERSION is empty")
+endif()
+
 add_compile_options(
     "-Wall"
     "-Wno-unused-function"
