@@ -41,6 +41,17 @@ include_directories(
 )
 add_subdirectory(lwip)
 
+if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+    include_directories(
+    /usr/local/opt/libuv/include
+    )
+    link_directories(
+    /usr/local/opt/libuv/lib
+    )
+endif()
+
+
+
 if (WIN32)
     include(ExternalProject)
     ExternalProject_Add(
