@@ -138,7 +138,7 @@ make
 ## Mac OS
 
 ```sh
-brew install cmake libpcap libuv
+brew install cmake libuv
 ```
 
 ```sh

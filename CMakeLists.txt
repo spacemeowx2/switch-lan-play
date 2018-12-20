@@ -6,7 +6,8 @@ execute_process(COMMAND git describe --tags
                 OUTPUT_STRIP_TRAILING_WHITESPACE)
 
 if (LANPLAY_VERSION STREQUAL "")
-    MESSAGE(FATAL_ERROR "LANPLAY_VERSION is empty")
+    set(LANPLAY_VERSION v0.0.7)
+    MESSAGE("git describe --tags output is empty, set version to ${LANPLAY_VERSION}")
 endif()
 
 add_compile_options(
