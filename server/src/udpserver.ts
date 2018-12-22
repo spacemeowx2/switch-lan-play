@@ -14,6 +14,7 @@ enum ForwarderType {
 
 interface CacheItem {
   expireAt: number
+  servicelan?: any
   rinfo: AddressInfo
 }
 function clearCacheItem<T> (map: Map<T, CacheItem>) {
@@ -72,13 +73,24 @@ export class SLPServer {
     this.byteLastSec.download += msg.byteLength
 
     const type: ForwarderType = msg.readUInt8(0)
+	let servicelan = "No connected";
+	
     if (type != ForwarderType.Ping) {
-      this.clients.set(addr2str(rinfo), {
-        expireAt: Date.now() + Timeout,
-        rinfo
-      })
-    }
+		if(type === ForwarderType.Keepalive){
+			servicelan = "connected";
+		} else {
+			servicelan = "Playing";
+		}		
+			
+		this.clients.set(addr2str(rinfo), {
+			expireAt: Date.now() + Timeout,
+			servicelan: servicelan,
+			rinfo
+		})
+	}
     this.onPacket(rinfo, type, msg.slice(1), msg)
+	console.log("*** " + type + " ****");
+	console.log(this.clients);
     // this.sendBroadcast(rinfo, msg)
   }
   onPacket (rinfo: AddressInfo, type: ForwarderType, payload: Buffer, msg: Buffer) {

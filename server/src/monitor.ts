@@ -1,5 +1,4 @@
 import Koa from 'koa'
-import cors from 'koa2-cors'
 import Router, { IRouterContext } from 'koa-router'
 import { SLPServer } from './udpserver'
 import { join } from 'path'
@@ -26,19 +25,31 @@ export class ServerMonitor {
   }
 
   public start(port: number) {
-    this.app.use(cors())
+	this.app.proxy = true;
     this.app.use(this.router.routes())
-    this.app.listen(port)
+    this.app.listen(port, '0.0.0.0')
     console.log(`\nMonitor service started on port ${port}/tcp`)
     console.log(`***************************************`)
   }
 
   private async handleGetInfo(ctx: IRouterContext) {
     const size = this.server.getClients().size
+	const clientIP = ctx.request.ip;
+	const current_ip = ctx.ips.length > 0 ? ctx.ips[ctx.ips.length - 1] : ctx.ip;
+	const clientes = this.server.getClients();
+	let state = "No connected";
+	
+	clientes.forEach((value, key) => {
+		if(key.includes(clientIP)){
+			state = value.servicelan;
+		}
+	});
 
+	
     ctx.type = 'application/json'
     ctx.body = {
       online: size,
+	  state: state,
       version: pkg.version
     }
   }
