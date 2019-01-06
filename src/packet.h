@@ -58,6 +58,10 @@
 #define ARP_OPCODE_REQUEST 1
 #define ARP_OPCODE_REPLY 2
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct ether_frame {
     const u_char *raw;
     uint16_t raw_len;
@@ -139,7 +143,6 @@ struct packet_ctx {
     uint16_t identification;
     struct arp_item arp_list[ARP_CACHE_LEN];
     time_t arp_ttl;
-    struct gateway *gateway;
 };
 
 int packet_init(
@@ -152,8 +155,7 @@ int packet_init(
     void *subnet_net,
     void *subnet_mask,
     void *mac,
-    time_t arp_ttl,
-    struct gateway *gateway
+    time_t arp_ttl
 );
 int packet_close(struct packet_ctx *self);
 struct pcap_pkthdr;
@@ -174,5 +176,9 @@ int send_ether(
     const struct payload *payload
 );
 void payload_print_hex(const struct payload *payload);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // _PACKET_H_

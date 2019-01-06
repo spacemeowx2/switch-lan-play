@@ -95,6 +95,10 @@
 #include <stdint.h>
 #include <assert.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define DEBUG(...) \
     { \
         fprintf(stderr, "%s: ", __FUNCTION__); \
@@ -138,5 +142,9 @@
 #define RT_ASSERT(exp) rt_assert(exp, #exp);
 
 void rt_assert(int val, const char *exp);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

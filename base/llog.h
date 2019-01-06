@@ -17,9 +17,17 @@
 #define FIRST(...) FIRST_HELPER(__VA_ARGS__, throwaway)
 #define FIRST_HELPER(first, ...) first
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 // #define LLOG(level, ...) ((level <= LLOG_DISPLAY_LEVEL) && fprintf(stderr, "[%s]%.0s: " FIRST(__VA_ARGS__) "\n", llog_level_names[level], __VA_ARGS__))
 #define LLOG(level, ...) LLog_log(level, __VA_ARGS__)
 
 void LLog_log(int level, const char *fmt, ...);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // _LOG_H_

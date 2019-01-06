@@ -17,12 +17,15 @@
 #include <base/debug.h>
 #include <uv.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct lan_play;
 #include "packet.h"
 #include "helper.h"
 #include "arp.h"
 #include "gateway.h"
-#include "proxy.h"
 
 #ifndef LANPLAY_VERSION
 #define LANPLAY_VERSION "unset"
@@ -67,8 +70,7 @@ struct lan_play {
     struct sockaddr_in server_addr;
     struct lan_client_fragment frags[LC_FRAG_COUNT];
 
-    struct gateway gateway;
-    uv_loop_t real_loop;
+    struct gateway *gateway;
 };
 
 int lan_play_send_packet(struct lan_play *lan_play, void *data, int size);
@@ -77,4 +79,7 @@ int lan_client_init(struct lan_play *lan_play);
 int lan_client_close(struct lan_play *lan_play);
 int lan_client_send_ipv4(struct lan_play *lan_play, void *dst_ip, const void *packet, uint16_t len);
 
+#ifdef __cplusplus
+}
+#endif
 #endif // _LAN_PLAY_H_

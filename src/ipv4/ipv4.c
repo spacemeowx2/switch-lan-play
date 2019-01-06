@@ -114,7 +114,7 @@ int process_ipv4(struct packet_ctx *arg, const struct ether_frame *ether)
         // target ip is not us but target mac is us
         // we are now a gateway
 
-        gateway_on_packet(arg->gateway, ether->raw, ether->raw_len);
+        gateway_on_packet(arg->arg->gateway, ether->raw, ether->raw_len);
 
         return 0;
     }

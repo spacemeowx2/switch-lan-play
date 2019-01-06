@@ -5,6 +5,10 @@
 
 #include <uv.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef struct uvl uvl_t;
 typedef struct uvl_tcp uvl_tcp_t;
 typedef struct uvl_write uvl_write_t;
@@ -93,5 +97,9 @@ int uvl_write(uvl_write_t *req, uvl_tcp_t *client, const uv_buf_t bufs[], unsign
 int uvl_shutdown(uvl_shutdown_t *req, uvl_tcp_t *client, uvl_shutdown_cb cb);
 int uvl_tcp_init(uv_loop_t *loop, uvl_tcp_t *client);
 int uvl_tcp_close(uvl_tcp_t *client, uvl_tcp_close_cb close_cb);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // _UVL_LWIP_H_

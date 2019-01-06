@@ -1,5 +1,8 @@
 cmake_minimum_required(VERSION 3.0)
 project (SwitchLanPlay)
+set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
 execute_process(COMMAND git describe --tags
                 WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
                 OUTPUT_VARIABLE LANPLAY_VERSION
@@ -39,6 +42,7 @@ include_directories(
     lwip/custom
     lwip/src/include
     src
+    uvw
 )
 add_subdirectory(lwip)
 
@@ -81,8 +85,9 @@ set(SOURCE_FILES
     src/arp.c
     src/helper.c
     src/lan-client.c
-    src/gateway.c
-    src/proxy.c
+    src/gateway.cpp
+    src/proxy_direct.cpp
+    src/proxy_socks5.cpp
     src/ipv4/ipv4.c
     src/ipv4/tcp.c
     src/ipv4/udp.c
@@ -97,7 +102,9 @@ include_directories(lan-play ${PCAP_INCLUDE_DIR})
 
 if (WIN32)
     add_dependencies(lan-play winpcap)
-    target_link_libraries(lan-play libuv.a ws2_32.lib iphlpapi.lib libwinpthread.a psapi userenv.lib)
+    target_link_libraries(lan-play libuv.a ws2_32.lib iphlpapi.lib psapi userenv.lib)
+    # https://stackoverflow.com/questions/13768515/how-to-do-static-linking-of-libwinpthread-1-dll-in-mingw
+    target_link_libraries(lan-play -static-libgcc -static-libstdc++ -Wl,-Bstatic -lstdc++ -lpthread -Wl,-Bdynamic)
 else()
     target_link_libraries(lan-play uv pthread)
 endif()

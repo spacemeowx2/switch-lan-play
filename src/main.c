@@ -14,11 +14,11 @@ struct {
     char *netif_ipaddr;
     char *netif_netmask;
 
-    char *socks_server_addr;
+    char *socks5_server_addr;
     char *relay_server_addr;
-    char *username;
-    char *password;
-    char *password_file;
+    char *socks5_username;
+    char *socks5_password;
+    char *socks5_password_file;
 } options;
 struct lan_play real_lan_play;
 
@@ -151,7 +151,7 @@ int lan_play_close(struct lan_play *lan_play)
     if (ret != 0) return ret;
     ret = lan_client_close(lan_play);
     if (ret != 0) return ret;
-    ret = gateway_close(&lan_play->gateway);
+    ret = gateway_close(lan_play->gateway);
     if (ret != 0) return ret;
 
     ret = uv_signal_stop(&lan_play->signal_int);
@@ -191,13 +191,29 @@ int lan_play_init(struct lan_play *lan_play)
         subnet_net,
         subnet_mask,
         mac,
-        30,
-        &lan_play->gateway
+        30
     );
     if (ret != 0) return ret;
     ret = lan_client_init(lan_play);
     if (ret != 0) return ret;
-    ret = gateway_init(&lan_play->gateway, &lan_play->packet_ctx, options.fake_internet);
+
+    struct sockaddr_in proxy_server;
+    struct sockaddr *proxy_server_ptr = NULL;
+    if (options.socks5_server_addr) {
+        proxy_server_ptr = (struct sockaddr *)&proxy_server;
+        if (parse_addr(options.socks5_server_addr, &proxy_server) != 0) {
+            LLOG(LLOG_ERROR, "Failed to parse and get ip address. --socks5-server-addr: %s", options.socks5_server_addr);
+            exit(1);
+        }
+    }
+    ret = gateway_init(
+        &lan_play->gateway,
+        &lan_play->packet_ctx,
+        options.fake_internet,
+        proxy_server_ptr,
+        options.socks5_username,
+        options.socks5_password
+    );
     if (ret != 0) return ret;
 
     return 0;
@@ -225,11 +241,11 @@ int parse_arguments(int argc, char **argv)
     options.netif_ipaddr = NULL;
     options.netif_netmask = NULL;
 
-    options.socks_server_addr = NULL;
+    options.socks5_server_addr = NULL;
     options.relay_server_addr = NULL;
-    options.username = NULL;
-    options.password = NULL;
-    options.password_file = NULL;
+    options.socks5_username = NULL;
+    options.socks5_password = NULL;
+    options.socks5_password_file = NULL;
 
     int i;
     for (i = 0; i < argc; i++) {
@@ -251,21 +267,21 @@ int parse_arguments(int argc, char **argv)
             CHECK_PARAM();
             options.relay_server_addr = argv[i + 1];
             i++;
-        } else if (!strcmp(arg, "--socks-server-addr")) {
+        } else if (!strcmp(arg, "--socks5-server-addr")) {
             CHECK_PARAM();
-            options.socks_server_addr = argv[i + 1];
+            options.socks5_server_addr = argv[i + 1];
             i++;
-        } else if (!strcmp(arg, "--username")) {
+        } else if (!strcmp(arg, "--socks5-username")) {
             CHECK_PARAM();
-            options.username = argv[i + 1];
+            options.socks5_username = argv[i + 1];
             i++;
-        } else if (!strcmp(arg, "--password")) {
+        } else if (!strcmp(arg, "--socks5-password")) {
             CHECK_PARAM();
-            options.password = argv[i + 1];
+            options.socks5_password = argv[i + 1];
             i++;
-        } else if (!strcmp(arg, "--password-file")) {
+        } else if (!strcmp(arg, "--socks5-password-file")) {
             CHECK_PARAM();
-            options.password_file = argv[i + 1];
+            options.socks5_password_file = argv[i + 1];
             i++;
         } else if (!strcmp(arg, "--netif")) {
             CHECK_PARAM();
@@ -292,13 +308,13 @@ int parse_arguments(int argc, char **argv)
         fprintf(stderr, "--relay-server-addr is required\n");
         // return -1;
     }
-    if (options.username) {
-        if (!options.password && !options.password_file) {
+    if (options.socks5_username) {
+        if (!options.socks5_password && !options.socks5_password_file) {
             fprintf(stderr, "username given but password not given\n");
             return -1;
         }
 
-        if (options.password && options.password_file) {
+        if (options.socks5_password && options.socks5_password_file) {
             fprintf(stderr, "--password and --password-file cannot both be given\n");
             return -1;
         }
@@ -322,10 +338,10 @@ void print_help(const char *name)
         "        [--netif <netif>]\n"
         "        [--list-if]\n"
         "        [--pmtu <pmtu>]\n"
-        // "        [--socks-server-addr <addr>]\n"
-        // "        [--username <username>]\n"
-        // "        [--password <password>]\n"
-        // "        [--password-file <file>]\n"
+        "        [--socks5-server-addr <addr>]\n"
+        // "        [--socks5-username <username>]\n"
+        // "        [--socks5-password <password>]\n"
+        // "        [--socks5-password-file <file>]\n"
         "Address format is a.b.c.d:port (IPv4).\n",
         name
     );
@@ -427,7 +443,7 @@ int main(int argc, char **argv)
     struct lan_play *lan_play = &real_lan_play;
     int ret;
 
-    lan_play->loop = &lan_play->real_loop;
+    lan_play->loop = uv_default_loop();
 
     if (parse_arguments(argc, argv) != 0) {
         LLOG(LLOG_ERROR, "Failed to parse arguments");
@@ -468,7 +484,6 @@ int main(int argc, char **argv)
         return -1;
     }
 
-    RT_ASSERT(uv_loop_init(lan_play->loop) == 0);
     RT_ASSERT(uv_async_init(lan_play->loop, &lan_play->get_packet_async, lan_play_get_packet_async_cb) == 0);
     RT_ASSERT(uv_sem_init(&lan_play->get_packet_sem, 0) == 0);
     RT_ASSERT(uv_signal_init(lan_play->loop, &lan_play->signal_int) == 0);

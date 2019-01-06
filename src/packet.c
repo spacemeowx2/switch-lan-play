@@ -96,9 +96,7 @@ int packet_init(
     void *subnet_net,
     void *subnet_mask,
     void *mac,
-    time_t arp_ttl,
-    struct gateway *gateway
-)
+    time_t arp_ttl)
 {
     self->arg = arg;
     self->buffer = buffer;
@@ -113,7 +111,6 @@ int packet_init(
     self->identification = 0;
     arp_list_init(self->arp_list);
     self->arp_ttl = arp_ttl;
-    self->gateway = gateway;
 
     return 0;
 }

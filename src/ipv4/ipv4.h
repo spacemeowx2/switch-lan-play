@@ -1,5 +1,9 @@
 #include "../lan-play.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 void parse_ipv4(const struct ether_frame *ether, struct ipv4 *ipv4);
 void parse_udp(const struct ipv4 *ipv4, struct udp *udp);
 int process_icmp(struct packet_ctx *arg, const struct ipv4 *ipv4);
@@ -26,3 +30,7 @@ int send_udp_ex(
 );
 uint16_t calc_checksum(const u_char *packet, int len);
 uint16_t calc_payload_checksum(const struct payload *payload);
+
+#ifdef __cplusplus
+}
+#endif
