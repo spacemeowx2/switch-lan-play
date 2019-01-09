@@ -3,6 +3,7 @@
 #include "uv_lwip.h"
 #include "assert.h"
 #include <base/debug.h>
+#include <base/llog.h>
 #include <uvw.hpp>
 #include <set>
 

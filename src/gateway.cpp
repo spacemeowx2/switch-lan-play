@@ -1,37 +1,13 @@
-#include <lwip/netif.h>
+#include "proxy.hpp"
+#include <uv_lwip.hpp>
+#include <base/llog.h>
+#include <functional>
+#include <memory>
 #include "gateway.h"
 #include "helper.h"
 #include "packet.h"
 #include "ipv4/ipv4.h"
-#include <uv_lwip.h>
-#include <base/llog.h>
-#include <lwip/init.h>
-#include <lwip/ip.h>
-#include <lwip/ip_addr.h>
-#include <lwip/priv/tcp_priv.h>
-#include <lwip/tcp.h>
-#include <lwip/ip4_frag.h>
-#include <lwip/nd6.h>
-#include <lwip/ip6_frag.h>
-#include "proxy.hpp"
-#include "util.hpp"
-#include "uv_lwip.hpp"
-#include <functional>
-#include <memory>
 
-// lwip TCP listener
-struct tcp_pcb *listener;
-
-void gateway_on_read(uv_stream_t *handle, ssize_t nread, const uv_buf_t *buf);
-void close_cb(uvl_tcp_t *client);
-void p_close_cb(uv_handle_t *handle);
-static void conn_kill(conn_t *conn);
-void p_write_cb(uv_write_t *req, int status);
-void write_cb(uvl_write_t *req, int status);
-void p_read_cb(uv_stream_t *handle, ssize_t nread, const uv_buf_t *buf);
-void read_cb(uvl_tcp_t *handle, ssize_t nread, const uv_buf_t *buf);
-void p_alloc_cb(uv_handle_t *handle, size_t suggested_size, uv_buf_t* buf);
-void alloc_cb(uvl_tcp_t *handle, size_t suggested_size, uv_buf_t* buf);
 
 namespace slp {
 

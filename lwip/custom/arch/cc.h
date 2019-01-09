@@ -66,6 +66,8 @@
     #include <machine/endian.h>
 #elif defined(LANPLAY_DARWIN)
     #include <machine/endian.h>
+#elif defined(LANPLAY_ANDROID)
+    #include <sys/endian.h>
 #else
     #define LITTLE_ENDIAN 1234
     #define BIG_ENDIAN 4321
