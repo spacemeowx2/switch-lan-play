@@ -10,6 +10,7 @@
 #endif
 #include <pcap.h>
 #include <unistd.h>
+#include <string.h>
 // #define HTONS(a) ( (((a) & 0xff) << 8) | (((a) >> 8) & 0xff) )
 #define LMIN(a, b) ((a) < (b) ? (a) : (b))
 #define LABS(x) ((x) < 0 ? (-(x)) : (x))
