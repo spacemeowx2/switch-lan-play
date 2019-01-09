@@ -10,42 +10,30 @@ pipeline:
       - docker build --rm -t switch-lan-play-build:linux -f docker/Dockerfile.linux .
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-  build-docker-win32:
-    image: docker
-    commands:
-      - docker build --rm -t switch-lan-play-build:win32 -f docker/Dockerfile.win32 .
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-  build-docker-win64:
-    image: docker
-    commands:
-      - docker build --rm -t switch-lan-play-build:win64 -f docker/Dockerfile.win64 .
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
   lan-play-linux:
     group: build
     image: switch-lan-play-build:linux
     commands:
-      - mkdir build.linux && cd build.linux
+      - mkdir build-linux && cd build-linux
       - cmake ..
       - make -j$$(nproc)
-      - mv ./lan-play ./lan-play-linux
+      - mv ./src/lan-play ./lan-play-linux
   lan-play-win32:
     group: build
-    image: switch-lan-play-build:win32
+    image: dockcross/windows-x86
     commands:
-      - mkdir build.win32 && cd build.win32
-      - cmake -DCMAKE_TOOLCHAIN_FILE=../cmake/toolchain-mingw32.cmake ..
+      - mkdir build-win32 && cd build-win32
+      - cmake ..
       - make -j$$(nproc)
-      - mv ./lan-play.exe ./lan-play-win32.exe
+      - mv ./src/lan-play.exe ./lan-play-win32.exe
   lan-play-win64:
     group: build
-    image: switch-lan-play-build:win64
+    image: dockcross/windows-x64
     commands:
-      - mkdir build.win64 && cd build.win64
-      - cmake -DCMAKE_TOOLCHAIN_FILE=../cmake/toolchain-mingw64.cmake ..
+      - mkdir build-win64 && cd build-win64
+      - cmake ..
       - make -j$$(nproc)
-      - mv ./lan-play.exe ./lan-play-win64.exe
+      - mv ./src/lan-play.exe ./lan-play-win64.exe
   server:
     group: build
     image: node:alpine
@@ -57,9 +45,9 @@ pipeline:
     image: plugins/github-release
     secrets: [ github_token ]
     files:
-      - build.linux/lan-play-linux
-      - build.win32/lan-play-win32.exe
-      - build.win64/lan-play-win64.exe
+      - build-linux/lan-play-linux
+      - build-win32/lan-play-win32.exe
+      - build-win64/lan-play-win64.exe
     checksum:
        - sha1
     prerelease: true
