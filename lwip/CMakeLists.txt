@@ -25,3 +25,8 @@ set(LWIP_SOURCES
     src/core/ipv6/ip6_frag.c
 )
 add_library(lwip_lib STATIC ${LWIP_SOURCES})
+target_link_libraries(lwip_lib base)
+target_include_directories(lwip_lib PUBLIC
+    custom
+    src/include
+)
