@@ -115,7 +115,7 @@ void init_pcap(struct lan_play *lan_play, void *mac)
     }
 
     printf("Opening %s\n", d->name);
-    dev = pcap_open_live(d->name, 65535, 1, 500, err_buf);
+    dev = pcap_open_live(d->name, 65535, 1, 0, err_buf);
 
     if (!dev) {
         fprintf(stderr, "Error: pcap_open_live(): %s\n", err_buf);
