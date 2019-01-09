@@ -1,0 +1,3 @@
+[submodule "external/uvw"]
+	path = external/uvw
+	url = https://github.com/skypjack/uvw.git
