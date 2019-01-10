@@ -115,7 +115,7 @@ void init_pcap(struct lan_play *lan_play, void *mac)
     }
 
     printf("Opening %s\n", d->name);
-    dev = pcap_open_live(d->name, 65535, 1, 0, err_buf);
+    dev = pcap_open_live(d->name, 65535, 1, 500, err_buf);
 
     if (!dev) {
         fprintf(stderr, "Error: pcap_open_live(): %s\n", err_buf);
@@ -158,7 +158,6 @@ int lan_play_close(struct lan_play *lan_play)
     if (ret != 0) return ret;
 
     uv_close((uv_handle_t *)&lan_play->signal_int, NULL);
-    uv_close((uv_handle_t *)&lan_play->get_packet_async, NULL);
 
     return 0;
 }
@@ -172,7 +171,6 @@ int lan_play_init(struct lan_play *lan_play)
     uint8_t mac[6];
 
     lan_play->dev = NULL;
-    lan_play->stop = false;
     lan_play->broadcast = options.broadcast;
     lan_play->pmtu = options.pmtu;
 
@@ -356,50 +354,6 @@ void print_version()
     printf("switch-lan-play " LANPLAY_VERSION "\n");
 }
 
-void lan_play_libpcap_thread(void *data)
-{
-    struct lan_play *lan_play = (struct lan_play *)data;
-    pcap_t *p = lan_play->dev;
-    struct pcap_pkthdr *pkt_header;
-    const u_char *packet;
-    int ret;
-
-    puts("pcap loop start");
-    while (1) {
-        ret = pcap_next_ex(p, &pkt_header, &packet);
-        if (lan_play->stop) {
-            break;
-        }
-        if (ret == 0) continue;
-        if (ret != 1) {
-            LLOG(LLOG_ERROR, "pcap_next_ex %d", ret);
-            assert(0);
-        }
-
-        lan_play->pkthdr = pkt_header;
-        lan_play->packet = packet;
-
-        if (uv_async_send(&lan_play->get_packet_async)) {
-            LLOG(LLOG_WARNING, "lan_play_get_packet uv_async_send");
-        }
-
-        uv_sem_wait(&lan_play->get_packet_sem);
-    }
-    puts("pcap loop stop");
-
-    pcap_close(lan_play->dev);
-}
-
-void lan_play_get_packet_async_cb(uv_async_t *async)
-{
-    struct lan_play *lan_play = (struct lan_play *)async->data;
-    assert(lan_play == &real_lan_play);
-
-    get_packet(&lan_play->packet_ctx, lan_play->pkthdr, lan_play->packet);
-
-    uv_sem_post(&lan_play->get_packet_sem);
-}
-
 int lan_play_gateway_send_packet(struct packet_ctx *packet_ctx, const void *data, uint16_t len)
 {
     struct payload part;
@@ -430,7 +384,8 @@ void walk_cb(uv_handle_t* handle, void* arg)
 void lan_play_signal_cb(uv_signal_t *signal, int signum)
 {
     struct lan_play *lan_play = signal->data;
-    lan_play->stop = true;
+
+    uv_pcap_close(&lan_play->pcap, NULL);
     printf("stopping signum: %d\n", signum);
 
     int ret = lan_play_close(lan_play);
@@ -439,6 +394,12 @@ void lan_play_signal_cb(uv_signal_t *signal, int signum)
     }
 
     uv_walk(lan_play->loop, walk_cb, lan_play);
+}
+
+void lan_play_pcap_handler(uv_pcap_t *handle, const struct pcap_pkthdr *pkt_header, const u_char *packet)
+{
+    struct lan_play *lan_play = handle->data;
+    get_packet(&lan_play->packet_ctx, pkt_header, packet);
 }
 
 int main(int argc, char **argv)
@@ -488,28 +449,18 @@ int main(int argc, char **argv)
         return -1;
     }
 
-    RT_ASSERT(uv_async_init(lan_play->loop, &lan_play->get_packet_async, lan_play_get_packet_async_cb) == 0);
-    RT_ASSERT(uv_sem_init(&lan_play->get_packet_sem, 0) == 0);
     RT_ASSERT(uv_signal_init(lan_play->loop, &lan_play->signal_int) == 0);
     RT_ASSERT(uv_signal_start(&lan_play->signal_int, lan_play_signal_cb, SIGINT) == 0);
-    lan_play->get_packet_async.data = lan_play;
     lan_play->signal_int.data = lan_play;
 
     RT_ASSERT(lan_play_init(lan_play) == 0);
 
-    ret = uv_thread_create(&lan_play->libpcap_thread, lan_play_libpcap_thread, lan_play);
-    if (ret) {
-        LLOG(LLOG_ERROR, "uv_thread_create %d", ret);
-    }
+    RT_ASSERT(uv_pcap_init(lan_play->loop, &lan_play->pcap, lan_play_pcap_handler, lan_play->dev) == 0);
+    lan_play->pcap.data = lan_play;
 
     ret = uv_run(lan_play->loop, UV_RUN_DEFAULT);
     if (ret) {
         LLOG(LLOG_ERROR, "uv_run %d", ret);
-    }
-
-    ret = uv_thread_join(&lan_play->libpcap_thread);
-    if (ret) {
-        LLOG(LLOG_ERROR, "uv_thread_join %d", ret);
     }
 
     LLOG(LLOG_DEBUG, "lan_play exit %d", ret);

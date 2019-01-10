@@ -26,6 +26,7 @@ struct lan_play;
 #include "helper.h"
 #include "arp.h"
 #include "gateway.h"
+#include "pcaploop.h"
 
 #ifndef LANPLAY_VERSION
 #define LANPLAY_VERSION "unset"
@@ -47,14 +48,9 @@ struct lan_play {
 
     struct packet_ctx packet_ctx;
 
-    bool stop;
     uv_signal_t signal_int;
     uv_loop_t *loop;
-    uv_thread_t libpcap_thread;
-    uv_async_t get_packet_async;
-    uv_sem_t get_packet_sem;
-    const struct pcap_pkthdr *pkthdr;
-    const u_char *packet;
+    uv_pcap_t pcap;
     uint8_t client_buf[CLIENT_RECV_BUF_LEN];
     uv_udp_send_t client_send_req;
 

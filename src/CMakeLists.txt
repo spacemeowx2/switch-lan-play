@@ -10,6 +10,7 @@ endif()
 
 set(src
     main.c
+    pcaploop.c
     packet.c
     arp.c
     helper.c
