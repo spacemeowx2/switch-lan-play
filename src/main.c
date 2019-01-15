@@ -305,7 +305,11 @@ int parse_arguments(int argc, char **argv)
         return 0;
     }
     if (!options.relay_server_addr) {
-        fprintf(stderr, "--relay-server-addr is required\n");
+        if (options.socks5_server_addr) {
+            options.relay_server_addr = "127.0.0.1:11451";
+        } else {
+            fprintf(stderr, "--relay-server-addr is required\n");
+        }
         // return -1;
     }
     if (options.socks5_username) {
