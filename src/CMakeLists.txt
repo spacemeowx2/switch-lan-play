@@ -33,7 +33,7 @@ target_compile_options(
     PRIVATE "-DLANPLAY_VERSION=\"${LANPLAY_VERSION}\""
 )
 
-set_target_properties(lan-play PROPERTIES CXX_STANDARD 14)
+set_target_properties(lan-play PROPERTIES CXX_STANDARD 17)
 
 target_link_libraries(lan-play base)
 target_link_libraries(lan-play uv_lwip)

@@ -122,7 +122,6 @@ class FakeInternetUvLwip : public lwip::UvLwipBase {
 
 }
 
-using slp::CallbackHelper;
 struct gateway {
     protected:
         struct packet_ctx *packet_ctx;
