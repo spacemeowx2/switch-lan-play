@@ -8,6 +8,10 @@ static void poll_handler(uv_poll_t *handle, int status, int events);
 int uv_pcap_init(uv_loop_t *loop, uv_pcap_t *handle, uv_pcap_cb cb, pcap_t *dev)
 {
     int ret;
+    char errbuf[PCAP_ERRBUF_SIZE];
+    if (pcap_setnonblock(dev, 1, errbuf) == -1) {
+        LLOG(LLOG_ERROR, "setnonblock %s", errbuf);
+    }
     handle->poll.data = handle;
     handle->fd = pcap_get_selectable_fd(dev);
     handle->dev = dev;
