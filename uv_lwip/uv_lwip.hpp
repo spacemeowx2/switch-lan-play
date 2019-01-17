@@ -10,8 +10,6 @@
 namespace slp {
 namespace lwip {
 
-using slp::CallbackHelper;
-
 template<typename T>
 class Leakable : public std::enable_shared_from_this<T> {
     private:
@@ -107,7 +105,7 @@ class IConnection : public Leakable<IConnection> {
             RT_ASSERT(uvl_read_start(
                 &this->client,
                 IConnection::allocCallback,
-                CallbackHelper<&IConnection::readCallback>
+                MakeCallback(&IConnection::readCallback)
             ) == 0);
         }
         void stop() {
@@ -135,7 +133,7 @@ class UvLwipBase : public std::enable_shared_from_this<UvLwipBase> {
                 uvl_tcp_t tcp;
                 tcp.data = this;
                 if (uvl_accept(handle, &tcp) == 0) {
-                    uvl_tcp_close(&tcp, CallbackHelper<&UvLwipBase::onClose>);
+                    uvl_tcp_close(&tcp, MakeCallback(&UvLwipBase::onClose));
                 }
             }
             if (!conn->init()) {
@@ -171,8 +169,8 @@ class UvLwipBase : public std::enable_shared_from_this<UvLwipBase> {
     public:
         UvLwipBase(uv_loop_t *loop) : loop(loop) {
             RT_ASSERT(uvl_init(this->loop, &this->uvl) == 0);
-            RT_ASSERT(uvl_bind(&this->uvl, CallbackHelper<&UvLwipBase::onUvlOutput>) == 0);
-            RT_ASSERT(uvl_listen(&this->uvl, CallbackHelper<&UvLwipBase::onConnect>) == 0);
+            RT_ASSERT(uvl_bind(&this->uvl, MakeCallback(&UvLwipBase::onUvlOutput)) == 0);
+            RT_ASSERT(uvl_listen(&this->uvl, MakeCallback(&UvLwipBase::onConnect)) == 0);
 
             this->uvl.data = this;
         }
@@ -207,7 +205,7 @@ void IConnection::close(bool skipRemove) {
     }
     if (!this->closing) {
         this->closing = true;
-        RT_ASSERT(uvl_tcp_close(&this->client, CallbackHelper<&IConnection::closeCallback>) == 0);
+        RT_ASSERT(uvl_tcp_close(&this->client, MakeCallback(&IConnection::closeCallback)) == 0);
     }
 }
 
