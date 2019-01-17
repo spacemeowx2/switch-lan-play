@@ -28,6 +28,7 @@ if (WIN32)
         URL "https://www.winpcap.org/install/bin/WpdPack_4_1_2.zip"
         URL_MD5 "bae2236af062b0900ad1416b2c4878b9"
         CONFIGURE_COMMAND "" BUILD_COMMAND "" INSTALL_DIR "" INSTALL_COMMAND ""
+        BUILD_BYPRODUCTS <SOURCE_DIR>/Lib/x64/wpcap.lib <SOURCE_DIR>/Lib/wpcap.lib
         # LOG_DOWNLOAD ON
     )
     ExternalProject_Get_Property(winpcap SOURCE_DIR)

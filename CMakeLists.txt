@@ -4,9 +4,11 @@ set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 
-set(CMAKE_C_FLAGS_DEBUG
-    "-g3 -ggdb -g"
-)
+if (${CMAKE_CXX_COMPILER_ID} STREQUAL GNU)
+    set(CMAKE_C_FLAGS_DEBUG
+        "-g3 -ggdb -g"
+    )
+endif()
 
 include(TestBigEndian)
 test_big_endian(BIG_ENDIAN)

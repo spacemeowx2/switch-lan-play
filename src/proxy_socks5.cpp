@@ -280,10 +280,10 @@ class Socks5ProxyUdp {
             });
             protocol.onUDPReady([this](struct sockaddr addr) {
                 this->isReady = true;
-                udp->recv();
+                this->udp->recv();
                 this->visit();
                 if (waitingData) {
-                    udp->send(cfg.server, std::move(waitingData), waitingLength);
+                    this->udp->send(cfg.server, std::move(waitingData), waitingLength);
                 }
             });
             struct sockaddr addr = {0};

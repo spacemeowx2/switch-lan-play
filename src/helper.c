@@ -304,7 +304,9 @@ int parse_addr(const char *str, struct sockaddr_in *addr)
 }
 
 #if defined(_WIN32)
+#ifndef _MSC_VER
 static void win32_init_winsocket() __attribute__((constructor));
+#endif
 static void win32_init_winsocket()
 {
     int result;

@@ -28,10 +28,15 @@ add_executable(lan-play ${src})
 
 target_compile_options(
     lan-play
-    PRIVATE "-Wall"
-    PRIVATE "-Wno-unused-function"
     PRIVATE "-DLANPLAY_VERSION=\"${LANPLAY_VERSION}\""
 )
+if (${CMAKE_CXX_COMPILER_ID} STREQUAL GNU)
+    target_compile_options(
+        lan-play
+        PRIVATE "-Wall"
+        PRIVATE "-Wno-unused-function"
+    )
+endif()
 
 set_target_properties(lan-play PROPERTIES CXX_STANDARD 17)
 

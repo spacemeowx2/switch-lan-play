@@ -4,12 +4,15 @@
 #if defined(_WIN32)
 #include <winsock2.h>
 #include <ws2tcpip.h>
+#ifndef _MSC_VER
+#include <unistd.h>
+#endif
 #else
 #include <arpa/inet.h>
 #include <netdb.h>
+#include <unistd.h>
 #endif
 #include <pcap.h>
-#include <unistd.h>
 #include <string.h>
 // #define HTONS(a) ( (((a) & 0xff) << 8) | (((a) >> 8) & 0xff) )
 #define LMIN(a, b) ((a) < (b) ? (a) : (b))
