@@ -1,7 +1,6 @@
 # switch-lan-play
 [![Build status](https://drone.imspace.cn:444/api/badges/spacemeowx2/switch-lan-play/status.svg)](https://drone.imspace.cn:444/spacemeowx2/switch-lan-play)
 [![Chat on discord](https://img.shields.io/badge/chat-on%20discord-7289da.svg)](https://discord.gg/zEMCu5n)
-[![Chat on telegram](https://img.shields.io/badge/chat-on%20telegram-blue.svg)](https://t.me/joinchat/CBl2pxJCT-NtEME6ip6v5g)
 
 Make you and your friends play games like in a LAN.
 
@@ -17,7 +16,6 @@ Switch <-------->  PC(lan-play)  <-------------> Server
 
 **NOTE:**
 * This project is in an early stage. The protocol may change frequently.
-* The proxy part is WIP.
 
 # Usage
 
@@ -86,6 +84,12 @@ npm run build
 npm run server
 ```
 
+## SOCKS5 Proxy
+
+lan-play --socks5-server-addr example.com:1080
+
+Data sent to the relay server does not pass through the proxy.
+
 # Build
 
 ## Debug or Release
@@ -95,9 +99,9 @@ npm run server
 
 ## Ubuntu / Debian
 
-This project depends on libpcap and libuv, you can install libpcap0.8-dev and libuv1-dev on Ubuntu or Debian:
+This project depends on libpcap, you can install libpcap0.8-dev on Ubuntu or Debian:
 
-`sudo apt install libpcap0.8-dev libuv1-dev`
+`sudo apt install libpcap0.8-dev git gcc g++ cmake`
 
 Prepare a cmake, gcc, and run like this:
 
@@ -138,7 +142,7 @@ make
 ## Mac OS
 
 ```sh
-brew install cmake libuv
+brew install cmake
 ```
 
 ```sh
@@ -188,6 +192,8 @@ struct packet {
 enum type {
     KEEPALIVE = 0,
     IPV4 = 1,
+    PING = 2,
+    IPV4_FRAG = 3
 };
 ```
 
