@@ -17,9 +17,8 @@ RUN curl -o /tmp/${NAME} ${SDK_URL} \
 
 RUN apk add --no-cache perl make git bash gawk gcc g++ ncurses-dev
 WORKDIR ${SDK_PATH}
-RUN git config –-global http.postBuffer 524288000 \
-    && ./scripts/feeds update base packages
-RUN ./scripts/feeds install libpcap libuv
+RUN ./scripts/feeds update base
+RUN ./scripts/feeds install libpcap
 
 RUN mkdir ./package/switch-lan-play
 COPY ./docker/Makefile.openwrt ${SDK_PATH}/package/switch-lan-play/Makefile

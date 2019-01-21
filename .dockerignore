@@ -1,2 +1,4 @@
 build/
 server/
+build-*/
+.vs/
