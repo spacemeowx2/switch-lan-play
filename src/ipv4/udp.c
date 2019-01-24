@@ -1,7 +1,5 @@
 #include "ipv4.h"
 
-#define ENABLE_UDP_CHECKSUM 0
-
 void parse_udp(const struct ipv4 *ipv4, struct udp *udp)
 {
     const u_char *packet = ipv4->payload;
@@ -37,7 +35,6 @@ int send_udp_ex(
     part.len = UDP_OFF_END;
     part.next = payload;
 
-#if ENABLE_UDP_CHECKSUM
     uint8_t pseudo_header[IPV4P_OFF_END];
     struct payload pseudo_header_part;
 
@@ -51,11 +48,8 @@ int send_udp_ex(
     pseudo_header_part.len = IPV4P_OFF_END;
     pseudo_header_part.next = &part;
 
-    // TODO: UDP checksum, it's incorrect :-(
-    payload_print_hex(&pseudo_header_part);
     uint16_t checksum = calc_payload_checksum(&pseudo_header_part);
     WRITE_NET16(buf, UDP_OFF_CHECKSUM, checksum);
-#endif
 
     return send_ipv4_ex(
         self,

@@ -164,7 +164,7 @@ uint16_t calc_payload_checksum(const struct payload *payload)
             if (part) {
                 sum += (READ_NET8(buf, 0) << 8) | (READ_NET8(part->ptr, 0));
             } else {
-                sum += *(uint8_t *)buf;
+                sum += READ_NET8(buf, 0) << 8;
             }
             offset = 1;
         } else {
