@@ -404,6 +404,8 @@ void lan_play_pcap_handler(uv_pcap_t *handle, const struct pcap_pkthdr *pkt_head
 
 int main(int argc, char **argv)
 {
+    setvbuf(stdout, NULL, _IOLBF, 0x400);
+
     char relay_server_addr[128] = { 0 };
     struct lan_play *lan_play = &real_lan_play;
     int ret;
