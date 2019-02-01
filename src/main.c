@@ -246,7 +246,7 @@ int parse_arguments(int argc, char **argv)
     options.socks5_password_file = NULL;
 
     int i;
-    for (i = 0; i < argc; i++) {
+    for (i = 1; i < argc; i++) {
         char *arg = argv[i];
 
         if (!strcmp(arg, "--help")) {
@@ -296,6 +296,11 @@ int parse_arguments(int argc, char **argv)
             i++;
         } else if (!strcmp(arg, "--fake-internet")) {
             options.fake_internet = true;
+        } else if (!strcmp(arg, "--set-ionbf")) {
+            setvbuf(stdout, NULL, _IONBF, 0);
+            setvbuf(stderr, NULL, _IONBF, 0);
+        } else {
+            LLOG(LLOG_WARNING, "unknown paramter: %s", arg);
         }
     }
 
@@ -404,8 +409,6 @@ void lan_play_pcap_handler(uv_pcap_t *handle, const struct pcap_pkthdr *pkt_head
 
 int main(int argc, char **argv)
 {
-    setvbuf(stdout, NULL, _IOLBF, 0x400);
-
     char relay_server_addr[128] = { 0 };
     struct lan_play *lan_play = &real_lan_play;
     int ret;
