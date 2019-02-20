@@ -95,7 +95,7 @@ int lan_client_init(struct lan_play *lan_play)
     client_keepalive_timer->data = lan_play;
     real_broadcast_timer->data = lan_play;
 
-    printf("Server IP: %s\n", ip2str(&lan_play->server_addr.sin_addr));
+    printf("Server IP: %s\n", ip2str(&lan_play->server_addr));
 
     ret = uv_timer_start(client_keepalive_timer, lan_client_keepalive_timer, 0, 10 * 1000);
     if (ret != 0) {
