@@ -6,6 +6,7 @@
 #define SUBNET_MASK "255.255.0.0"
 #define BUFFER_SIZE 2048
 #define IP_STR_LEN 16
+#define IP6_STR_LEN 64
 #define SERVER_ADDR "localhost"
 #define SERVER_PORT 11451
 #define ETHER_MTU 1500
