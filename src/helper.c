@@ -16,20 +16,21 @@
 #include "config.h"
 #include <uv.h>
 
-const char *ip2str(struct sockaddr_in *addr)
+const char *ip2str(struct slp_addr_in *addr)
 {
+    if (addr->sin_family != addr->u.addr.sa_family) {
+        return "Error: family mismatch";
+    }
     if (addr->sin_family == AF_INET) {
-        const uint8_t *sip = (uint8_t *)&addr->sin_addr;
         static char str4[IP_STR_LEN];
-        snprintf(str4, sizeof(str4), "%d.%d.%d.%d", sip[0], sip[1], sip[2], sip[3]);
+        uv_ip4_name(&addr->u.ipv4, str4, sizeof(str4));
         return str4;
     } else if (addr->sin_family == AF_INET6) {
         static char str6[IP6_STR_LEN];
-        uv_ip6_name((struct sockaddr_in6 *)addr, str6, sizeof(str6));
+        uv_ip6_name(&addr->u.ipv6, str6, sizeof(str6));
         return str6;
-    } else {
-        return "Error: unsupported sin_family";
     }
+    return "Error: unsupported sin_family";
 }
 void *str2ip(const char *ip)
 {
@@ -244,7 +245,7 @@ done:
 #endif
 }
 
-int parse_ip_port(const char *str, char *out_addr, size_t out_addr_len, uint16_t *out_port)
+int parse_ip_port(const char *str, char *out_addr, size_t out_addr_len, uint16_t *out_port, uint8_t *is_ipv6)
 {
     int len = strlen(str);
     if (len < 1 || len > 1000) {
@@ -255,10 +256,9 @@ int parse_ip_port(const char *str, char *out_addr, size_t out_addr_len, uint16_t
     int addr_len;
     int port_start;
     int port_len;
-    int is_ipv6;
 
     if (str[0] == '[') {
-        is_ipv6 = 1;
+        *is_ipv6 = 1;
         int i=1;
         while (i < len && str[i] != ']') i++;
         if (i >= len) {
@@ -272,7 +272,7 @@ int parse_ip_port(const char *str, char *out_addr, size_t out_addr_len, uint16_t
         port_start = i + 2;
         port_len = len - port_start;
     } else {
-        is_ipv6 = 0;
+        *is_ipv6 = 0;
         // find ':'
         int i=0;
         while (i < len && str[i] != ':') i++;
@@ -311,11 +311,12 @@ int parse_ip_port(const char *str, char *out_addr, size_t out_addr_len, uint16_t
     return 0;
 }
 
-int parse_addr(const char *str, struct sockaddr_in *addr)
+int parse_addr(const char *str, struct slp_addr_in *addr)
 {
     char addr_str[128];
     uint16_t port;
-    if (parse_ip_port(str, addr_str, sizeof(addr_str), &port) != 0) {
+    uint8_t is_ipv6;
+    if (parse_ip_port(str, addr_str, sizeof(addr_str), &port, &is_ipv6) != 0) {
         return -1;
     }
 
@@ -334,7 +335,17 @@ int parse_addr(const char *str, struct sockaddr_in *addr)
         return -1;
     }
 
-    memcpy(addr, addrs->ai_addr, sizeof(*addr));
+    addr->sin_family = addrs->ai_addr->sa_family;
+    if (addrs->ai_addr->sa_family == AF_INET) {
+        addr->sin_len = sizeof(addr->u.ipv4);
+        memcpy(&addr->u.ipv4, addrs->ai_addr, sizeof(addr->u.ipv4));
+    } else if (addrs->ai_addr->sa_family == AF_INET6) {
+        addr->sin_len = sizeof(addr->u.ipv6);
+        memcpy(&addr->u.ipv6, addrs->ai_addr, sizeof(addr->u.ipv6));
+    } else {
+        freeaddrinfo(addrs);
+        return -1;
+    }
 
     freeaddrinfo(addrs);
 

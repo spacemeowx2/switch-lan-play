@@ -15,6 +15,7 @@
 #include <stdbool.h>
 #include <base/llog.h>
 #include <base/debug.h>
+#include <base/slp_addr.h>
 #include <uv.h>
 
 #ifdef __cplusplus
@@ -62,7 +63,7 @@ struct lan_play {
     uv_timer_t real_broadcast_timer;
     int frag_id;
     int local_id;
-    struct sockaddr_in server_addr;
+    struct slp_addr_in server_addr;
     struct lan_client_fragment frags[LC_FRAG_COUNT];
     char *username;
     unsigned char key[LP_KEY_LEN];

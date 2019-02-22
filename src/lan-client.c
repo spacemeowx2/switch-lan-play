@@ -417,7 +417,6 @@ static int lan_client_send_raw(struct lan_play *lan_play, uv_buf_t *bufs, int bu
     int cur_pos;
     int total_len;
     int ret;
-    struct sockaddr *server_addr = (struct sockaddr *)&lan_play->server_addr;
     struct ipv4_req *req = malloc(sizeof(struct ipv4_req));
 
     total_len = 0;
@@ -440,7 +439,9 @@ static int lan_client_send_raw(struct lan_play *lan_play, uv_buf_t *bufs, int bu
 
     uv_udp_send_t *udp_req = &req->req;
     udp_req->data = req;
-    ret = uv_udp_send(udp_req, &lan_play->client, &buf, 1, server_addr, lan_client_on_sent);
+    print_hex(&lan_play->server_addr, sizeof(lan_play->server_addr));
+    print_hex(&lan_play->server_addr.u.addr, sizeof(lan_play->server_addr.u.ipv6));
+    ret = uv_udp_send(udp_req, &lan_play->client, &buf, 1, &lan_play->server_addr.u.addr, lan_client_on_sent);
 
     lan_play->upload_packet++;
     lan_play->upload_byte += total_len;

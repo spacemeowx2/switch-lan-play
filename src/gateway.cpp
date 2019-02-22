@@ -133,7 +133,7 @@ struct gateway {
             LLOG(LLOG_DEBUG, "~gateway");
             uvlwip->release();
         }
-        void setProxy(const struct sockaddr *socks5_proxy_addr, const char *username, const char *password) {
+        void setProxy(const struct slp_addr_in *socks5_proxy_addr, const char *username, const char *password) {
             if (socks5_proxy_addr) {
                 this->proxy = slp::IProxy::initSocks5(uvw::Loop::getDefault(), packet_ctx, socks5_proxy_addr, username, password);
             } else {
@@ -195,7 +195,7 @@ struct gateway {
         }
 };
 
-int gateway_init(struct gateway **gw, struct packet_ctx *packet_ctx, bool fake_internet, struct sockaddr *socks5_proxy_addr, const char *username, const char *password) {
+int gateway_init(struct gateway **gw, struct packet_ctx *packet_ctx, bool fake_internet, struct slp_addr_in *socks5_proxy_addr, const char *username, const char *password) {
     *gw = new gateway(packet_ctx);
     (*gw)->setProxy(socks5_proxy_addr, username, password);
     (*gw)->initLwip(fake_internet);

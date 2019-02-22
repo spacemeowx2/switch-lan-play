@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <uv.h>
 #include <uvw.hpp>
+#include <base/slp_addr.h>
 #include "packet.h"
 
 #define PROXY_UDP_TABLE_LEN 128
@@ -34,7 +35,7 @@ class IProxyTcp {
 class IProxy {
     public:
         static std::shared_ptr<IProxy> initDirect(std::shared_ptr<uvw::Loop> loop, struct packet_ctx *packet_ctx);
-        static std::shared_ptr<IProxy> initSocks5(std::shared_ptr<uvw::Loop> loop, struct packet_ctx *packet_ctx, const sockaddr *proxy_server, const char *username, const char *password);
+        static std::shared_ptr<IProxy> initSocks5(std::shared_ptr<uvw::Loop> loop, struct packet_ctx *packet_ctx, const slp_addr_in *proxy_server, const char *username, const char *password);
         virtual std::shared_ptr<IProxyTcp> newTcp() = 0;
         virtual void udpSend(uint8_t src[4], uint16_t srcport, uint8_t dst[4], uint16_t dstport, const void *data, uint16_t data_len) = 0;
         virtual ~IProxy() {};
