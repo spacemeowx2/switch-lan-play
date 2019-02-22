@@ -16,7 +16,7 @@ namespace slp {
 namespace detail {
 
 struct Socks5ServerConfig {
-    struct sockaddr server;
+    struct slp_addr_in server;
     std::string username;
     std::string password;
 };
@@ -139,7 +139,7 @@ class Socks5Protocol {
             return expression;
         }
         void auth(std::function<void()> cb) {
-            tcp->connect(cfg.server);
+            tcp->connect(cfg.server.u.addr);
             tcp->once<uvw::ConnectEvent>([this](uvw::ConnectEvent &e, uvw::TCPHandle &) {
                 tcp->read();
                 ProtocolPacker packer{3};
@@ -283,7 +283,7 @@ class Socks5ProxyUdp {
                 this->udp->recv();
                 this->visit();
                 if (waitingData) {
-                    this->udp->send(cfg.server, std::move(waitingData), waitingLength);
+                    this->udp->send(cfg.server.u.addr, std::move(waitingData), waitingLength);
                 }
             });
             struct sockaddr addr = {0};
@@ -346,7 +346,7 @@ class Socks5ProxyUdp {
             packer.writeRaw(dat, len);
 
             if (isReady) {
-                udp->send(cfg.server, packer.ptr(), packer.length);
+                udp->send(cfg.server.u.addr, packer.ptr(), packer.length);
             } else {
                 this->waitingData = packer.ptr();
                 this->waitingLength = packer.length;
@@ -435,7 +435,7 @@ class Socks5Proxy : public Socks5ProxyBase {
     protected:
         Socks5ServerConfig cfg;
     public:
-        Socks5Proxy(std::shared_ptr<uvw::Loop> loop, struct packet_ctx *packet_ctx, const struct sockaddr *proxy_server, const char *username, const char *password)
+        Socks5Proxy(std::shared_ptr<uvw::Loop> loop, struct packet_ctx *packet_ctx, const struct slp_addr_in *proxy_server, const char *username, const char *password)
             : Socks5ProxyBase(loop, packet_ctx) {
             this->cfg = {*proxy_server, username ? username : "", password ? password : ""};
         }
@@ -452,7 +452,7 @@ class Socks5Proxy : public Socks5ProxyBase {
 
 }
 
-std::shared_ptr<IProxy> IProxy::initSocks5(std::shared_ptr<uvw::Loop> loop, struct packet_ctx *packet_ctx, const struct sockaddr *proxy_server, const char *username, const char *password) {
+std::shared_ptr<IProxy> IProxy::initSocks5(std::shared_ptr<uvw::Loop> loop, struct packet_ctx *packet_ctx, const struct slp_addr_in *proxy_server, const char *username, const char *password) {
     // TODO: use uvw::Loop
     return std::make_shared<detail::Socks5Proxy>(loop, packet_ctx, proxy_server, username, password);
 }

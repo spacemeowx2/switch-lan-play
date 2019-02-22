@@ -4,6 +4,7 @@
 #include <uv.h>
 #include <uv_lwip.h>
 #include "packet.h"
+#include <base/slp_addr.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -20,7 +21,7 @@ int gateway_init(
     struct gateway **gateway,
     struct packet_ctx *packet_ctx,
     bool fake_internet,
-    struct sockaddr *socks5_proxy_addr,
+    struct slp_addr_in *socks5_proxy_addr,
     const char *username,
     const char *password);
 int gateway_close(struct gateway *gateway);
