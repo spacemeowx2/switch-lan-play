@@ -21,6 +21,7 @@ struct {
     char *socks5_password_file;
 
     char *rpc;
+    char *rpc_token;
 } options;
 struct lan_play real_lan_play;
 
@@ -247,6 +248,7 @@ int parse_arguments(int argc, char **argv)
     options.socks5_password = NULL;
     options.socks5_password_file = NULL;
     options.rpc = NULL;
+    options.rpc_token = NULL;
 
     int i;
     for (i = 1; i < argc; i++) {
@@ -306,6 +308,10 @@ int parse_arguments(int argc, char **argv)
             CHECK_PARAM();
             options.rpc = argv[i + 1];
             i++;
+        } else if (!strcmp(arg, "--rpc-token")) {
+            CHECK_PARAM();
+            options.rpc_token = argv[i + 1];
+            i++;
         } else {
             LLOG(LLOG_WARNING, "unknown paramter: %s", arg);
         }
@@ -354,6 +360,7 @@ void print_help(const char *name)
         "        [--pmtu <pmtu>]\n"
         "        [--socks5-server-addr <addr>]\n"
         "        [--rpc <address>]\n"
+        "        [--rpc-token <token>]\n"
         // "        [--socks5-username <username>]\n"
         // "        [--socks5-password <password>]\n"
         // "        [--socks5-password-file <file>]\n"
@@ -483,7 +490,7 @@ int main(int argc, char **argv)
         return 0;
     }
     if (options.rpc) {
-        return rpc_main(options.rpc);
+        return rpc_main(options.rpc, options.rpc_token);
     } else {
         return old_main();
     }
