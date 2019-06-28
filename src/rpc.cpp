@@ -1,14 +1,111 @@
 #include "lan-play.h"
 #include <uvw.hpp>
 #include <string>
+#include <algorithm>
 
+struct NetInterface {
+    std::string name;
+    std::string description;
+    std::vector<std::string> ips;
+    NetInterface(std::string name): name(name) {}
+};
+
+struct RPCError {
+    std::string error;
+    RPCError(std::string error): error(error) {}
+};
+
+class LanPlay {
+    private:
+        std::string lastError;
+    public:
+        LanPlay() {}
+        ~LanPlay() {}
+        std::string getLastError() {
+            return lastError;
+        }
+        int getNetInterfaces(std::vector<NetInterface> &list) {
+            char errBuf[PCAP_ERRBUF_SIZE];
+            pcap_if_t *d;
+            pcap_if_t *allDevs;
+
+            if (pcap_findalldevs(&allDevs, errBuf)) {
+                eprintf("Error pcap_findalldevs: %s\n", errBuf);
+                lastError = errBuf;
+                return -1;
+            }
+
+            list.clear();
+            for (d = allDevs; d; d = d->next) {
+                NetInterface netif(d->name);
+                if (d->description) {
+                    netif.description = d->description;
+                }
+                if (d->addresses) {
+                    struct pcap_addr *taddr;
+                    struct sockaddr_in *sin;
+                    char revIP[100];
+                    for (taddr = d->addresses; taddr; taddr = taddr->next)
+                    {
+                        sin = (struct sockaddr_in *)taddr->addr;
+                        if (sin->sin_family == AF_INET) {
+                            strncpy(revIP, inet_ntoa(sin->sin_addr), sizeof(revIP));
+                            netif.ips.push_back(std::string(revIP));
+                        }
+                    }
+                }
+                list.push_back(netif);
+            }
+
+            return 0;
+        }
+};
 
 class RPCServer {
+    private:
+        LanPlay lanPlay;
+    private:
+        std::string stringReplace(std::string str, std::string src, std::string dst) {
+            std::string::size_type pos = str.find(src, 0);
+            auto srcLen = src.size();
+            auto dstLen = dst.size();
+            while (pos != std::string::npos) {
+                str.replace(pos, srcLen, dst);
+                pos = str.find(src, pos + dstLen);
+            }
+            return str;
+        }
+        std::string escape(std::string value) {
+            return "\"" + stringReplace(value, "\"", "\\\"") + "\"";
+        }
+        std::string kv(std::string key, std::string value) {
+            return key + "=" + escape(value) + "\n";
+        }
     public:
         RPCServer(){}
         ~RPCServer(){}
-        std::string onCommand(std::string command) {
-            return command;
+        std::string onMessage(std::string message) {
+            std::string out;
+            if (message == "status") {
+                out = kv("success", "none");
+            } else if (message == "list_if") {
+                std::vector<NetInterface> list;
+                if (lanPlay.getNetInterfaces(list) == 0) {
+                    for (auto netif : list) {
+                        out += "[[interfaces]]\n";
+                        out += kv("name", netif.name);
+                        out += kv("description", netif.description);
+                        out += "ips=[\n";
+                        for (auto ip : netif.ips) {
+                            out += "  " + escape(ip) + ",\n";
+                        }
+                        out += "]\n";
+                    }
+                } else {
+                    out = kv("error", lanPlay.getLastError());
+                }
+            }
+            return out;
         }
 };
 
@@ -69,7 +166,7 @@ class RPCTCPServer {
                                 result = "error=\"authorized failed: invalid token\"";
                             }
                         }
-                        result += "\n";
+                        result += "\n# end\n";
                         auto length = result.length();
                         auto data = new char[length];
                         memcpy(data, result.c_str(), length);
@@ -93,7 +190,7 @@ class RPCTCPServer {
             server->listen();
         }
         std::string dataCallback(std::string line, uvw::TCPHandle &tcp) {
-            return rpcServer->onCommand(line);
+            return rpcServer->onMessage(line);
         }
     public:
         RPCTCPServer(
