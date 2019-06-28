@@ -49,7 +49,7 @@ void get_mac(void *mac, pcap_if_t *d, pcap_t *p)
     }
     eprintf("Get MAC: ");
     PRINT_MAC(mac);
-    putchar('\n');
+    eprintf("\n");
 }
 
 int list_interfaces(pcap_if_t *alldevs)
@@ -302,16 +302,16 @@ int parse_arguments(int argc, char **argv)
         } else if (!strcmp(arg, "--set-ionbf")) {
             setvbuf(stdout, NULL, _IONBF, 0);
             setvbuf(stderr, NULL, _IONBF, 0);
-        } else if (!strcmp(arg, "--socks5-password-file")) {
+        } else if (!strcmp(arg, "--rpc")) {
             CHECK_PARAM();
-            options.socks5_password_file = argv[i + 1];
+            options.rpc = argv[i + 1];
             i++;
         } else {
             LLOG(LLOG_WARNING, "unknown paramter: %s", arg);
         }
     }
 
-    if (options.help || options.version || options.list_if) {
+    if (options.help || options.version || options.list_if || options.rpc) {
         return 0;
     }
     if (!options.relay_server_addr) {
@@ -353,6 +353,7 @@ void print_help(const char *name)
         "        [--list-if]\n"
         "        [--pmtu <pmtu>]\n"
         "        [--socks5-server-addr <addr>]\n"
+        "        [--rpc <address>]\n"
         // "        [--socks5-username <username>]\n"
         // "        [--socks5-password <password>]\n"
         // "        [--socks5-password-file <file>]\n"
@@ -414,7 +415,7 @@ void lan_play_pcap_handler(uv_pcap_t *handle, const struct pcap_pkthdr *pkt_head
     get_packet(&lan_play->packet_ctx, pkt_header, packet);
 }
 
-int main(int argc, char **argv)
+int old_main()
 {
     char relay_server_addr[128] = { 0 };
     struct lan_play *lan_play = &real_lan_play;
@@ -422,17 +423,6 @@ int main(int argc, char **argv)
 
     lan_play->loop = uv_default_loop();
 
-    if (parse_arguments(argc, argv) != 0) {
-        LLOG(LLOG_ERROR, "Failed to parse arguments");
-        print_help(argv[0]);
-        return 1;
-    }
-
-    if (options.help) {
-        print_version();
-        print_help(argv[0]);
-        return 0;
-    }
     if (options.version) {
         print_version();
         return 0;
@@ -478,4 +468,23 @@ int main(int argc, char **argv)
     LLOG(LLOG_DEBUG, "lan_play exit %d", ret);
 
     return ret;
+}
+
+int main(int argc, char **argv)
+{
+    if (parse_arguments(argc, argv) != 0) {
+        LLOG(LLOG_ERROR, "Failed to parse arguments");
+        print_help(argv[0]);
+        return 1;
+    }
+    if (options.help) {
+        print_version();
+        print_help(argv[0]);
+        return 0;
+    }
+    if (options.rpc) {
+        return rpc_main(options.rpc);
+    } else {
+        return old_main();
+    }
 }

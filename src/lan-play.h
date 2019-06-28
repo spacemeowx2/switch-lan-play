@@ -22,6 +22,7 @@ extern "C" {
 #endif
 
 struct lan_play;
+#include "rpc.h"
 #include "packet.h"
 #include "helper.h"
 #include "arp.h"
