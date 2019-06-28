@@ -10,7 +10,7 @@ endif()
 
 set(src
     main.c
-    rpc.c
+    rpc.cpp
     pcaploop.c
     packet.c
     arp.c

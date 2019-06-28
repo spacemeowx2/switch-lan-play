@@ -235,7 +235,7 @@ done:
 #endif
 }
 
-int parse_addr(const char *str, struct sockaddr_in *addr)
+int parse_ip_port(const char *str, char *out_addr, size_t out_addr_len, uint16_t *out_port)
 {
     int len = strlen(str);
     if (len < 1 || len > 1000) {
@@ -258,16 +258,15 @@ int parse_addr(const char *str, struct sockaddr_in *addr)
     port_start = i + 1;
     port_len = len - port_start;
 
-    char addr_str[128];
-    if (addr_len >= sizeof(addr_str)) {
+    if (addr_len >= out_addr_len) {
         return -1;
     }
-    memcpy(addr_str, str + addr_start, addr_len);
-    addr_str[addr_len] = '\0';
+    memcpy(out_addr, str + addr_start, addr_len);
+    out_addr[addr_len] = '\0';
 
     char port_str[6];
     if (port_len >= sizeof(port_str)) {
-        return 0;
+        return -1;
     }
     memcpy(port_str, str + port_start, port_len);
     port_str[port_len] = '\0';
@@ -281,14 +280,24 @@ int parse_addr(const char *str, struct sockaddr_in *addr)
     if (conv_res < 0 || conv_res > UINT16_MAX) {
         return -1;
     }
-    uint16_t port = conv_res;
+    *out_port = conv_res;
+    return 0;
+}
+
+int parse_addr(const char *str, struct sockaddr_in *addr)
+{
+    char addr_str[128];
+    uint16_t port;
+    if (parse_ip_port(str, addr_str, sizeof(addr_str), &port) != 0) {
+        return -1;
+    }
 
     struct addrinfo hints;
     struct addrinfo *addrs;
     memset(&hints, 0, sizeof(hints));
     hints.ai_family = AF_INET;
 
-    int ret = getaddrinfo(addr_str, port_str, &hints, &addrs);
+    int ret = getaddrinfo(addr_str, NULL, &hints, &addrs);
     if (ret != 0) {
         LLOG(LLOG_ERROR, "getaddrinfo %d %d", ret);
         return -1;

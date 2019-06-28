@@ -1,6 +1,10 @@
 #ifndef _HELPER_H_
 #define _HELPER_H_
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #if defined(_WIN32)
 #include <winsock2.h>
 #include <ws2tcpip.h>
@@ -38,4 +42,10 @@ void print_hex(const void *buf, int len);
 int set_immediate_mode(pcap_t *p);
 int get_mac_address(pcap_if_t *d, pcap_t *p, u_char mac_addr[6]);
 int parse_addr(const char *str, struct sockaddr_in *addr);
+int parse_ip_port(const char *str, char *out_addr, size_t out_addr_len, uint16_t *out_port);
+
+#ifdef __cplusplus
+}
+#endif
+
 #endif // _HELPER_H_
