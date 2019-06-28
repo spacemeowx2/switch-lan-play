@@ -174,11 +174,6 @@ struct gateway {
                 payload = udp_base + UDP_OFF_END;
                 len = data_len - ipv4_header_len - UDP_OFF_END;
 
-                // PRINT_IP(src);
-                // printf(":%d -> ", srcport);
-                // PRINT_IP(dst);
-                // printf(":%d\n", dstport);
-
                 this->proxy->udpSend(src, srcport, dst, dstport, payload, len);
                 return 0;
             }

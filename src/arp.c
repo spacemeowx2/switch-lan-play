@@ -133,9 +133,9 @@ int process_arp(struct packet_ctx *self, const struct ether_frame *ether)
         || arp.hardware_size != 6
         || arp.protocol_size != 4
     ) {
-        printf("Unknown hardware or protocol:\n");
-        printf("hardware_type: %d protocol_type: %x\n", arp.hardware_type, arp.protocol_type);
-        printf("hardware_size: %d protocol_size: %d\n", arp.hardware_size, arp.protocol_size);
+        LLOG(LLOG_WARNING, "Unknown hardware or protocol:\n");
+        LLOG(LLOG_WARNING, "hardware_type: %d protocol_type: %x\n", arp.hardware_type, arp.protocol_type);
+        LLOG(LLOG_WARNING, "hardware_size: %d protocol_size: %d\n", arp.hardware_size, arp.protocol_size);
         return -1;
     }
 
@@ -212,7 +212,7 @@ bool arp_set(struct packet_ctx *self, const void *mac, const void *ip)
             return true;
         }
     }
-    puts("set not found");
+    eprintf("set not found");
 
     return false;
 }

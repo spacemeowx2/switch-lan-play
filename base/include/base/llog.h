@@ -23,6 +23,7 @@ extern "C" {
 
 // #define LLOG(level, ...) ((level <= LLOG_DISPLAY_LEVEL) && fprintf(stderr, "[%s]%.0s: " FIRST(__VA_ARGS__) "\n", llog_level_names[level], __VA_ARGS__))
 #define LLOG(level, ...) LLog_log(level, __VA_ARGS__)
+#define eprintf(...) fprintf(stderr, __VA_ARGS__)
 
 void LLog_log(int level, const char *fmt, ...);
 

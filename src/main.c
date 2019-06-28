@@ -19,6 +19,8 @@ struct {
     char *socks5_username;
     char *socks5_password;
     char *socks5_password_file;
+
+    char *rpc;
 } options;
 struct lan_play real_lan_play;
 
@@ -42,10 +44,10 @@ void set_filter(pcap_t *dev)
 void get_mac(void *mac, pcap_if_t *d, pcap_t *p)
 {
     if (get_mac_address(d, p, mac) != 0) {
-        fprintf(stderr, "Error when getting the MAC address\n");
+        eprintf("Error when getting the MAC address\n");
         exit(1);
     }
-    printf("Get MAC: ");
+    eprintf("Get MAC: ");
     PRINT_MAC(mac);
     putchar('\n');
 }
@@ -93,7 +95,7 @@ void init_pcap(struct lan_play *lan_play, void *mac)
     int arg_inum;
 
     if (pcap_findalldevs(&alldevs, err_buf)) {
-        fprintf(stderr, "Error pcap_findalldevs: %s\n", err_buf);
+        eprintf("Error pcap_findalldevs: %s\n", err_buf);
         exit(1);
     }
     if (options.netif == NULL) {
@@ -118,14 +120,14 @@ void init_pcap(struct lan_play *lan_play, void *mac)
     dev = pcap_open_live(d->name, 65535, 1, 500, err_buf);
 
     if (!dev) {
-        fprintf(stderr, "Error: pcap_open_live(): %s\n", err_buf);
+        eprintf("Error: pcap_open_live(): %s\n", err_buf);
         pcap_freealldevs(alldevs);
         exit(1);
     }
     set_filter(dev);
     get_mac(mac, d, dev);
     if (set_immediate_mode(dev) == -1) {
-        fprintf(stderr, "Error: set_immediate_mode failed %s\n", strerror(errno));
+        eprintf("Error: set_immediate_mode failed %s\n", strerror(errno));
         exit(1);
     }
 
@@ -220,7 +222,7 @@ int lan_play_init(struct lan_play *lan_play)
 int parse_arguments(int argc, char **argv)
 {
     #define CHECK_PARAM() if (1 >= argc - i) { \
-        fprintf(stderr, "%s: requires an argument\n", arg); \
+        eprintf("%s: requires an argument\n", arg); \
         return -1; \
     }
     if (argc <= 0) {
@@ -244,6 +246,7 @@ int parse_arguments(int argc, char **argv)
     options.socks5_username = NULL;
     options.socks5_password = NULL;
     options.socks5_password_file = NULL;
+    options.rpc = NULL;
 
     int i;
     for (i = 1; i < argc; i++) {
@@ -299,6 +302,10 @@ int parse_arguments(int argc, char **argv)
         } else if (!strcmp(arg, "--set-ionbf")) {
             setvbuf(stdout, NULL, _IONBF, 0);
             setvbuf(stderr, NULL, _IONBF, 0);
+        } else if (!strcmp(arg, "--socks5-password-file")) {
+            CHECK_PARAM();
+            options.socks5_password_file = argv[i + 1];
+            i++;
         } else {
             LLOG(LLOG_WARNING, "unknown paramter: %s", arg);
         }
@@ -311,18 +318,18 @@ int parse_arguments(int argc, char **argv)
         if (options.socks5_server_addr) {
             options.relay_server_addr = "127.0.0.1:11451";
         } else {
-            fprintf(stderr, "--relay-server-addr is required\n");
+            eprintf("--relay-server-addr is required\n");
         }
         // return -1;
     }
     if (options.socks5_username) {
         if (!options.socks5_password && !options.socks5_password_file) {
-            fprintf(stderr, "username given but password not given\n");
+            eprintf("username given but password not given\n");
             return -1;
         }
 
         if (options.socks5_password && options.socks5_password_file) {
-            fprintf(stderr, "--password and --password-file cannot both be given\n");
+            eprintf("--password and --password-file cannot both be given\n");
             return -1;
         }
     }
@@ -391,7 +398,7 @@ void lan_play_signal_cb(uv_signal_t *signal, int signum)
     struct lan_play *lan_play = signal->data;
 
     uv_pcap_close(&lan_play->pcap, NULL);
-    printf("stopping signum: %d\n", signum);
+    eprintf("stopping signum: %d\n", signum);
 
     int ret = lan_play_close(lan_play);
     if (ret) {

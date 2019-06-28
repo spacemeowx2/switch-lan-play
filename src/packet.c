@@ -71,19 +71,19 @@ int send_ether(
 
 void print_packet(const struct pcap_pkthdr *pkthdr, const u_char *packet)
 {
-    printf("Packet length: %d\n", pkthdr->len);
-    printf("Number of bytes: %d\n", pkthdr->caplen);
-    printf("Recieved time: %s", ctime((const time_t *)&pkthdr->ts.tv_sec));
+    eprintf("Packet length: %d\n", pkthdr->len);
+    eprintf("Number of bytes: %d\n", pkthdr->caplen);
+    eprintf("Recieved time: %s", ctime((const time_t *)&pkthdr->ts.tv_sec));
 
     uint32_t i;
     for (i=0; i<pkthdr->len; ++i) {
-        printf(" %02x", packet[i]);
+        eprintf(" %02x", packet[i]);
         if ( (i + 1) % 16 == 0 ) {
-            printf("\n");
+            eprintf("\n");
         }
     }
 
-    printf("\n\n");
+    eprintf("\n\n");
 }
 
 int packet_init(
@@ -182,14 +182,14 @@ void payload_print_hex(const struct payload *payload)
 
     while (part) {
         for (j = 0; j < part->len; j++) {
-            printf(" %02x", part->ptr[j]);
+            eprintf(" %02x", part->ptr[j]);
             if ( ++i % 16 == 0 ) {
-                printf("\n");
+                eprintf("\n");
             }
         }
 
         part = part->next;
     }
 
-    printf("\n\n");
+    eprintf("\n\n");
 }

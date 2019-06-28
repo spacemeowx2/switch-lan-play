@@ -20,7 +20,7 @@ int uv_pcap_init(uv_loop_t *loop, uv_pcap_t *handle, uv_pcap_cb cb, pcap_t *dev)
     if (ret) return ret;
     ret = uv_poll_start(&handle->poll, UV_READABLE, poll_handler);
     if (ret) return ret;
-    puts("pcap loop start");
+    printf("pcap loop start\n");
     return 0;
 }
 
@@ -30,7 +30,7 @@ void uv_pcap_close(uv_pcap_t *handle, uv_close_cb cb)
     if (ret) {
         LLOG(LLOG_ERROR, "uv_poll_stop %d", ret);
     }
-    puts("pcap loop stop");
+    printf("pcap loop stop\n");
 }
 
 static void poll_callback(u_char *data, const struct pcap_pkthdr *pkt_header, const u_char *packet)
@@ -100,14 +100,14 @@ static void libpcap_thread(void *data)
     uv_pcap_t *handle = (uv_pcap_t *)data;
     int ret = 0;
 
-    puts("pcap loop start");
+    printf("pcap loop start\n");
 
     ret = pcap_loop(handle->dev, -1, libpcap_handler, data);
     if (ret < 0) {
         LLOG(LLOG_ERROR, "pcap_loop %d", ret);
     }
 
-    puts("pcap loop stop");
+    printf("pcap loop stop\n");
 
     pcap_close(handle->dev);
 }

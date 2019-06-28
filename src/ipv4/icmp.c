@@ -22,7 +22,7 @@ int process_icmp(struct packet_ctx *self, const struct ipv4 *ipv4)
         &part
     );
     if (ret != 0) {
-        fprintf(stderr, "Error send_ipv4 %d\n", ret);
+        eprintf("Error send_ipv4 %d\n", ret);
     }
     return 0;
 }

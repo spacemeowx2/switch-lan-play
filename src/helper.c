@@ -51,13 +51,13 @@ void print_hex(const void *buf, int len)
     const uint8_t *packet = buf;
 
     for (i=0; i < len; ++i) {
-        printf(" %02x", packet[i]);
+        eprintf(" %02x", packet[i]);
         if ( (i + 1) % 16 == 0 ) {
-            printf("\n");
+            eprintf("\n");
         }
     }
 
-    printf("\n\n");
+    eprintf("\n\n");
 }
 
 #if defined(_WIN32)
