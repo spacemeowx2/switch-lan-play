@@ -54,29 +54,37 @@ class RPCTCPServer {
                 auto rl = std::make_shared<ReadLine>();
                 auto authed = std::make_shared<bool>(false);
 
-                rl->callback = [this, client, rl, authed](std::string line) {
+                rl->callback = [this, weakClient = std::weak_ptr(client), weakRl = std::weak_ptr(rl), authed](std::string line) {
                     std::string result;
-                    if (*authed) {
-                        result = this->dataCallback(line, *client);
-                    } else {
-                        if (line == this->token) {
-                            *authed = true;
-                            result = "success=\"authorized\"";
+                    auto client = weakClient.lock();
+                    auto rl = weakRl.lock();
+                    if (client && rl) {
+                        if (*authed) {
+                            result = this->dataCallback(line, *client);
                         } else {
-                            result = "error=\"authorized failed: invalid token\"";
+                            if (line == this->token) {
+                                *authed = true;
+                                result = "success=\"authorized\"";
+                            } else {
+                                result = "error=\"authorized failed: invalid token\"";
+                            }
                         }
+                        result += "\n";
+                        auto length = result.length();
+                        auto data = new char[length];
+                        memcpy(data, result.c_str(), length);
+                        client->write(data, length);
+                    } else {
+                        LLOG(LLOG_WARNING, "client or rl weak_ptr lost");
                     }
-                    result += "\n";
-                    auto length = result.length();
-                    auto data = new char[length];
-                    memcpy(data, result.c_str(), length);
-                    client->write(data, length);
                 };
 
                 client->on<uvw::DataEvent>([this, rl](uvw::DataEvent &e, uvw::TCPHandle &tcp) {
                     rl->feed(e.data.get(), e.length);
                 });
-                client->on<uvw::EndEvent>([](const uvw::EndEvent &, uvw::TCPHandle &client) { client.close(); });
+                client->on<uvw::EndEvent>([](const uvw::EndEvent &, uvw::TCPHandle &client) {
+                    client.close();
+                });
 
                 srv.accept(*client);
                 client->read();
