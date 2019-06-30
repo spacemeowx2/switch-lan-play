@@ -49,7 +49,6 @@ struct lan_play {
 
     struct packet_ctx packet_ctx;
 
-    uv_signal_t signal_int;
     uv_loop_t *loop;
     uv_pcap_t pcap;
     uint8_t client_buf[CLIENT_RECV_BUF_LEN];
@@ -68,6 +67,7 @@ struct lan_play {
     struct lan_client_fragment frags[LC_FRAG_COUNT];
 
     struct gateway *gateway;
+    char last_err[PCAP_ERRBUF_SIZE];
 };
 
 int lan_play_send_packet(struct lan_play *lan_play, void *data, int size);
@@ -75,6 +75,48 @@ int lan_play_gateway_send_packet(struct packet_ctx *packet_ctx, const void *data
 int lan_client_init(struct lan_play *lan_play);
 int lan_client_close(struct lan_play *lan_play);
 int lan_client_send_ipv4(struct lan_play *lan_play, void *dst_ip, const void *packet, uint16_t len);
+
+struct cli_options {
+    int help;
+    int version;
+
+    bool broadcast;
+    int pmtu;
+    bool fake_internet;
+    bool list_if;
+
+    char *netif;
+    char *netif_ipaddr;
+    char *netif_netmask;
+
+    char *socks5_server_addr;
+    char *relay_server_addr;
+    char *socks5_username;
+    char *socks5_password;
+    char *socks5_password_file;
+
+    char *rpc;
+    char *rpc_token;
+};
+extern struct cli_options options;
+extern struct lan_play real_lan_play;
+int lan_play_init(struct lan_play *lan_play);
+int lan_play_close(struct lan_play *lan_play);
+
+#define OPTIONS_DEC(name) void options_##name(const char *str);
+#define OPTIONS_DEF(name) void options_##name(const char *str) \
+{ \
+    if (options.name) { \
+        free(options.name); \
+        options.name = NULL; \
+    } \
+    if (str && strlen(str)) { \
+        options.name = strdup(str); \
+    } \
+}
+OPTIONS_DEC(netif);
+OPTIONS_DEC(socks5_server_addr);
+OPTIONS_DEC(relay_server_addr);
 
 #ifdef __cplusplus
 }

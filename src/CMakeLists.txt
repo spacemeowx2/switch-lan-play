@@ -10,6 +10,7 @@ endif()
 
 set(src
     main.c
+    lan-play.c
     rpc.cpp
     pcaploop.c
     packet.c

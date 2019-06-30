@@ -15,12 +15,84 @@ struct RPCError {
     RPCError(std::string error): error(error) {}
 };
 
+enum class LanPlayStatus {
+    None,
+    Running,
+};
+
+struct LanPlayConfig {
+    std::string relayServer;
+    std::string socks5Server;
+    std::string netif;
+    bool fakeInternet;
+    bool broadcast;
+    int pmtu;
+    LanPlayConfig():
+        relayServer(""),
+        socks5Server(""),
+        netif(""),
+        fakeInternet(false),
+        broadcast(false),
+        pmtu(0)
+    {}
+};
+
 class LanPlay {
     private:
         std::string lastError;
+        struct lan_play *lan_play;
+        LanPlayConfig lastConfig;
+        LanPlayStatus status;
+        void applyConfig() {
+            options.broadcast = config.broadcast;
+            options.fake_internet = config.fakeInternet;
+            options.pmtu = config.pmtu;
+            options_netif(config.netif.c_str());
+            options_relay_server_addr(config.relayServer.c_str());
+            options_socks5_server_addr(config.socks5Server.c_str());
+            lastConfig = config;
+        }
     public:
-        LanPlay() {}
+        LanPlayConfig config;
+        LanPlay(): lan_play(&real_lan_play), status(LanPlayStatus::None) {
+            lan_play->loop = uv_default_loop();
+        }
         ~LanPlay() {}
+        const LanPlayConfig getLastConfig() {
+            return lastConfig;
+        }
+        int start() {
+            int ret = 0;
+            if (status == LanPlayStatus::Running) {
+                lastError = "Can't start twice";
+                return -1;
+            }
+            applyConfig();
+            ret = lan_play_init(lan_play);
+            if (ret == 0) {
+                status = LanPlayStatus::Running;
+            } else {
+                lastError = lan_play->last_err;
+            }
+            return ret;
+        }
+        int stop() {
+            int ret = 0;
+            if (status == LanPlayStatus::None) {
+                lastError = "Already stopped";
+                return -1;
+            }
+            ret = lan_play_close(lan_play);
+            if (ret == 0) {
+                status = LanPlayStatus::None;
+            } else {
+                lastError = lan_play->last_err;
+            }
+            return ret;
+        }
+        LanPlayStatus getStatus() {
+            return status;
+        }
         std::string getLastError() {
             return lastError;
         }
@@ -81,16 +153,59 @@ class RPCServer {
         std::string kv(std::string key, std::string value) {
             return key + "=" + escape(value) + "\n";
         }
+        std::string kv(std::string key, int value) {
+            return key + "=" + std::to_string(value) + "\n";
+        }
+        std::string kv(std::string key, bool value) {
+            if (value) {
+                return key + "=true\n";
+            } else {
+                return key + "=false\n";
+            }
+        }
+        std::string success(std::string value = "") {
+            return kv("success", value);
+        }
+        std::string error(std::string value) {
+            return kv("error", value);
+        }
+        std::string getConfig(const LanPlayConfig &config) {
+            std::string out;
+
+            out += "[config]\n";
+            out += kv("netif", config.netif);
+            out += kv("relayServer", config.relayServer);
+            out += kv("socks5Server", config.socks5Server);
+            out += kv("pmtu", config.pmtu);
+            out += kv("fakeInternet", config.fakeInternet);
+            out += kv("broadcast", config.broadcast);
+
+            return out;
+        }
     public:
         RPCServer(){}
         ~RPCServer(){}
         std::string onMessage(std::string message) {
             std::string out;
-            if (message == "status") {
-                out = kv("success", "none");
-            } else if (message == "list_if") {
+            auto ePos = message.find('=');
+            std::string key, value;
+            if (ePos == std::string::npos) {
+                key = message;
+            } else {
+                key = message.substr(0, ePos);
+                value = message.substr(ePos + 1, message.length());
+            }
+            if (key == "status") {
+                auto status = lanPlay.getStatus();
+                if (status == LanPlayStatus::None) {
+                    out = success("None");
+                } else if (status == LanPlayStatus::Running) {
+                    out = success("Running");
+                }
+            } else if (key == "listIf") {
                 std::vector<NetInterface> list;
                 if (lanPlay.getNetInterfaces(list) == 0) {
+                    out = success();
                     for (auto netif : list) {
                         out += "[[interfaces]]\n";
                         out += kv("name", netif.name);
@@ -102,8 +217,45 @@ class RPCServer {
                         out += "]\n";
                     }
                 } else {
-                    out = kv("error", lanPlay.getLastError());
+                    out = error(lanPlay.getLastError());
                 }
+            } else if (key == "version") {
+                out = success(LANPLAY_VERSION);
+            } else if (key == "start") {
+                if (lanPlay.start() == 0) {
+                    out = success();
+                } else {
+                    out = error(lanPlay.getLastError());
+                }
+            } else if (key == "stop") {
+                if (lanPlay.stop() == 0) {
+                    out = success();
+                } else {
+                    out = error(lanPlay.getLastError());
+                }
+            } else if (key == "config") {
+                out = success();
+                out += getConfig(lanPlay.config);
+            } else if (key == "lastConfig") {
+                out = success();
+                out += getConfig(lanPlay.getLastConfig());
+            } else if (key == "netif") {
+                lanPlay.config.netif = value;
+                out = success();
+                out += getConfig(lanPlay.config);
+            } else if (key == "relayServer") {
+                lanPlay.config.relayServer = value;
+                out = success();
+                out += getConfig(lanPlay.config);
+            } else if (key == "socks5Server") {
+                lanPlay.config.socks5Server = value;
+                out = success();
+                out += getConfig(lanPlay.config);
+            } else if (key == "debug") {
+                out = success();
+                out += kv("debug", options.relay_server_addr);
+            } else {
+                out = error("command not found: " + key);
             }
             return out;
         }
@@ -146,6 +298,9 @@ class RPCTCPServer {
         std::shared_ptr<uvw::TCPHandle> server;
         void initServer() {
             server->bind(this->bindAddr, this->bindPort);
+            server->on<uvw::ErrorEvent>([](const uvw::ErrorEvent &err, uvw::TCPHandle &) {
+                LLOG(LLOG_ERROR, "server erroor: %s", err.what());
+            });
             server->on<uvw::ListenEvent>([this](const uvw::ListenEvent &, uvw::TCPHandle &srv) {
                 auto client = srv.loop().resource<uvw::TCPHandle>();
                 auto rl = std::make_shared<ReadLine>();
