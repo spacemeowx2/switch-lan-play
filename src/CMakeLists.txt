@@ -56,7 +56,9 @@ if (WIN32)
     # https://stackoverflow.com/questions/13768515/how-to-do-static-linking-of-libwinpthread-1-dll-in-mingw
     target_link_libraries(lan-play -static-libgcc -static-libstdc++ -Wl,-Bstatic -lstdc++ -lpthread -Wl,-Bdynamic)
 else()
-    target_link_libraries(lan-play pthread)
+    if(NOT CMAKE_SYSTEM_NAME STREQUAL "Android")
+        target_link_libraries(lan-play pthread)
+    endif()
 endif()
 
 INSTALL(TARGETS lan-play RUNTIME DESTINATION bin)
