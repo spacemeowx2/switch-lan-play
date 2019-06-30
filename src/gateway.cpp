@@ -146,6 +146,7 @@ struct gateway {
             } else {
                 this->uvlwip = std::make_shared<slp::UvLwip>(packet_ctx->arg->loop, packet_ctx, this->proxy);
             }
+            this->uvlwip->init();
         }
         int processUdp(const uint8_t *data, int data_len) {
             uint8_t ip_version = 0;

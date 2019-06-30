@@ -119,9 +119,16 @@ class IConnection : public Leakable<IConnection> {
         virtual void onClosed() = 0;
 };
 
-class UvLwipBase : public std::enable_shared_from_this<UvLwipBase> {
+class UvLwipBase : public Leakable<UvLwipBase> {
     private:
         friend class IConnection;
+        void onSelfClose() {
+            if (!lwipClosed) {
+                lwipClosed = true;
+                return;
+            }
+            this->reset();
+        }
         void onClose(uvl_tcp_t *handle) {
         }
         void onConnect(uvl_t *handle, int status) {
@@ -145,7 +152,14 @@ class UvLwipBase : public std::enable_shared_from_this<UvLwipBase> {
             this->connSet.insert(conn);
         }
         void removeConnection(std::shared_ptr<IConnection> e) {
-            this->connSet.erase(e);
+            if (closing) {
+                closingCount -= 1;
+                if (closingCount == 0) {
+                    this->onSelfClose();
+                }
+            } else {
+                this->connSet.erase(e);
+            }
         }
         int onUvlOutput(uvl_t *handle, const uv_buf_t bufs[], unsigned int nbufs) {
             uint8_t buffer[8192];
@@ -164,25 +178,40 @@ class UvLwipBase : public std::enable_shared_from_this<UvLwipBase> {
         std::set<std::shared_ptr<IConnection>> connSet;
     protected:
         uv_loop_t *loop;
+        bool inited;
+        bool closing;
+        bool lwipClosed;
+        int closingCount;
         virtual int uvlOutput(void *buffer, uint32_t len) = 0;
         virtual std::shared_ptr<IConnection> newConnection(std::shared_ptr<UvLwipBase> self) = 0;
     public:
-        UvLwipBase(uv_loop_t *loop) : loop(loop) {
+        UvLwipBase(uv_loop_t *loop) : loop(loop), inited(false), closing(false), lwipClosed(false), closingCount(0) {
+        }
+        virtual ~UvLwipBase() {
+        };
+        void init() {
+            if (inited) return;
+            inited = true;
+
+            this->leak();
             RT_ASSERT(uvl_init(this->loop, &this->uvl) == 0);
             RT_ASSERT(uvl_bind(&this->uvl, MakeCallback(&UvLwipBase::onUvlOutput)) == 0);
             RT_ASSERT(uvl_listen(&this->uvl, MakeCallback(&UvLwipBase::onConnect)) == 0);
 
             this->uvl.data = this;
         }
-        virtual ~UvLwipBase() {
-        };
         bool input(const uv_buf_t buf) {
             return uvl_input(&this->uvl, buf);
         }
         void release() {
-            uvl_close(&this->uvl, NULL);
+            closing = true;
+            closingCount = connSet.size();
+            uvl_close(&this->uvl, (uvl_close_cb) [](uvl_t *handle) {
+                UvLwipBase *self = (UvLwipBase *)handle->data;
+                self->onSelfClose();
+            });
             for (auto &i : connSet) {
-                i->close(true);
+                i->close();
             }
         }
 };
