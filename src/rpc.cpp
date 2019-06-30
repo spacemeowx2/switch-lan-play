@@ -64,7 +64,7 @@ class LanPlay {
         int start() {
             int ret = 0;
             if (status == LanPlayStatus::Running) {
-                lastError = "Can't start twice";
+                lastError = "Already running";
                 return -1;
             }
             applyConfig();
@@ -306,7 +306,7 @@ class RPCTCPServer {
                 auto rl = std::make_shared<ReadLine>();
                 auto authed = std::make_shared<bool>(false);
 
-                rl->callback = [this, weakClient = std::weak_ptr(client), weakRl = std::weak_ptr(rl), authed](std::string line) {
+                rl->callback = [this, weakClient = std::weak_ptr<uvw::TCPHandle>(client), weakRl = std::weak_ptr<ReadLine>(rl), authed](std::string line) {
                     std::string result;
                     auto client = weakClient.lock();
                     auto rl = weakRl.lock();
