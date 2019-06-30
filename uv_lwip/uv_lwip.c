@@ -412,6 +412,8 @@ static err_t uvl_netif_init_func (struct netif *netif)
 {
     netif->name[0] = 'h';
     netif->name[1] = 'o';
+    // fixed netif name to ho0
+    netif->num = 0;
     netif->output = uvl_netif_output_func;
 
     return ERR_OK;
