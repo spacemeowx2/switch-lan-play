@@ -115,6 +115,12 @@ int lan_play_init(struct lan_play *lan_play)
     lan_play->broadcast = options.broadcast;
     lan_play->pmtu = options.pmtu;
 
+    if (options.relay_server_addr) {
+        if (parse_addr(options.relay_server_addr, &lan_play->server_addr) != 0) {
+            RETURN_ERR(lan_play, "Failed to parse and get ip address. --relay-server-addr: %s", options.relay_server_addr);
+        }
+    }
+
     ret = init_pcap(lan_play, mac);
     if (ret != 0) return ret;
 
@@ -142,8 +148,7 @@ int lan_play_init(struct lan_play *lan_play)
     if (options.socks5_server_addr) {
         proxy_server_ptr = (struct sockaddr *)&proxy_server;
         if (parse_addr(options.socks5_server_addr, &proxy_server) != 0) {
-            LLOG(LLOG_ERROR, "Failed to parse and get ip address. --socks5-server-addr: %s", options.socks5_server_addr);
-            return -1;
+            RETURN_ERR(lan_play, "Failed to parse and get ip address. --socks5-server-addr: %s", options.socks5_server_addr);
         }
     }
     ret = gateway_init(
@@ -158,7 +163,9 @@ int lan_play_init(struct lan_play *lan_play)
 
 
     ret = uv_pcap_init(lan_play->loop, &lan_play->pcap, lan_play_pcap_handler, lan_play->dev);
-    if (ret != 0) return ret;
+    if (ret != 0) {
+        RETURN_ERR(lan_play, "failed at uv_pcap_init");
+    };
     lan_play->pcap.data = lan_play;
 
     return ret;
