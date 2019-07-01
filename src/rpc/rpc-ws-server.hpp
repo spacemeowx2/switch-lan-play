@@ -36,6 +36,7 @@ struct WSFrame {
 class WSConnection : public BaseTCPConnection {
     protected:
         WSCState wsState;
+        bool authed;
         std::string token;
         std::unordered_map<std::string, std::string> headers;
         bool handshaked;

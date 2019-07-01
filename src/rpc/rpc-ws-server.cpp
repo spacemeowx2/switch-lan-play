@@ -117,7 +117,17 @@ void WSConnection::onFrame() {
 
     auto client = weak_tcp.lock();
     if (client) {
-        auto result = callback(line, *client);
+        std::string result;
+        if (authed) {
+            result = callback(line, *client);
+        } else {
+            if (line == this->token) {
+                authed = true;
+                result = "success=\"authorized\"";
+            } else {
+                result = "error=\"authorized failed: invalid token\"";
+            }
+        }
         auto length = result.length();
         if (length > 0) {
             this->sendText(*client, result);
@@ -210,6 +220,7 @@ WSConnection::WSConnection(
         return "";
     }),
     wsState(WSCState::DO_HEADER),
+    authed(false),
     token(token),
     handshaked(false),
     callback(callback)
