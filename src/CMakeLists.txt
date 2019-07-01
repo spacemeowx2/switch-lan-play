@@ -42,7 +42,9 @@ endif()
 
 set_target_properties(lan-play PROPERTIES CXX_STANDARD 17)
 
-target_link_libraries(lan-play atomic)
+if(CMAKE_SYSTEM_NAME STREQUAL "Android")
+    target_link_libraries(lan-play atomic)
+endif()
 target_link_libraries(lan-play base)
 target_link_libraries(lan-play uv_lwip)
 target_link_libraries(lan-play uv_a)
