@@ -1,6 +1,7 @@
 #pragma once
 #include <uvw.hpp>
 #include <base/llog.h>
+#include <cstring>
 #include "rpc-server.hpp"
 #include "read-line.hpp"
 
