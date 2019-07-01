@@ -70,6 +70,7 @@ int parse_arguments(int argc, char **argv)
     options.socks5_password_file = NULL;
     options.rpc = NULL;
     options.rpc_token = NULL;
+    options.rpc_protocol = NULL;
 
     int i;
     for (i = 1; i < argc; i++) {
@@ -133,6 +134,10 @@ int parse_arguments(int argc, char **argv)
             CHECK_PARAM();
             options.rpc_token = argv[i + 1];
             i++;
+        } else if (!strcmp(arg, "--rpc-protocol")) {
+            CHECK_PARAM();
+            options.rpc_protocol = argv[i + 1];
+            i++;
         } else {
             LLOG(LLOG_WARNING, "unknown paramter: %s", arg);
         }
@@ -182,10 +187,12 @@ void print_help(const char *name)
         "        [--socks5-server-addr <addr>]\n"
         "        [--rpc <address>]\n"
         "        [--rpc-token <token>]\n"
+        "        [--rpc-protocol <rpc protocl>]\n"
         // "        [--socks5-username <username>]\n"
         // "        [--socks5-password <password>]\n"
         // "        [--socks5-password-file <file>]\n"
-        "Address format is a.b.c.d:port (IPv4).\n",
+        "Address format is a.b.c.d:port (IPv4).\n"
+        "RPC protocol could be tcp, ws. Default to tcp.\n",
         name
     );
 }
@@ -309,7 +316,7 @@ int main(int argc, char **argv)
         return 0;
     }
     if (options.rpc) {
-        return rpc_main(options.rpc, options.rpc_token);
+        return rpc_main(options.rpc, options.rpc_token, options.rpc_protocol);
     } else {
         return old_main();
     }

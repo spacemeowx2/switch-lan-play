@@ -97,6 +97,7 @@ struct cli_options {
 
     char *rpc;
     char *rpc_token;
+    char *rpc_protocol;
 };
 extern struct cli_options options;
 extern struct lan_play real_lan_play;

@@ -5,7 +5,7 @@
 extern "C" {
 #endif
 
-int rpc_main(const char *bind_addr, const char *token);
+int rpc_main(const char *bind_addr, const char *token, const char *protocol);
 
 #ifdef __cplusplus
 }

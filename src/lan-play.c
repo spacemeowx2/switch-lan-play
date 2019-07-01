@@ -89,8 +89,12 @@ int lan_play_close(struct lan_play *lan_play)
     uv_pcap_close(&lan_play->pcap, NULL);
     ret = packet_close(&lan_play->packet_ctx);
     if (ret != 0) return ret;
-    ret = lan_client_close(lan_play);
-    if (ret != 0) return ret;
+
+    if (options.relay_server_addr) {
+        ret = lan_client_close(lan_play);
+        if (ret != 0) return ret;
+    }
+
     ret = gateway_close(lan_play->gateway);
     if (ret != 0) return ret;
 
@@ -140,8 +144,11 @@ int lan_play_init(struct lan_play *lan_play)
         30
     );
     if (ret != 0) return ret;
-    ret = lan_client_init(lan_play);
-    if (ret != 0) return ret;
+
+    if (options.relay_server_addr) {
+        ret = lan_client_init(lan_play);
+        if (ret != 0) return ret;
+    }
 
     struct sockaddr_in proxy_server;
     struct sockaddr *proxy_server_ptr = NULL;

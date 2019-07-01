@@ -11,7 +11,6 @@ endif()
 set(src
     main.c
     lan-play.c
-    rpc.cpp
     pcaploop.c
     packet.c
     arp.c
@@ -24,6 +23,10 @@ set(src
     ipv4/tcp.c
     ipv4/udp.c
     ipv4/icmp.c
+    rpc/rpc.cpp
+    rpc/lan-play.cpp
+    rpc/rpc-ws-server.cpp
+    rpc/sha1.c
 )
 
 add_executable(lan-play ${src})
