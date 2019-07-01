@@ -10,14 +10,15 @@ class BufferList {
         unsigned int totalSize;
         unsigned int offset;
         char get(const unsigned int &k) {
-            unsigned int id = 0;
+            unsigned int left = 0;
             for (unsigned i = 0; i < sizeList.size(); i++) {
                 auto len = sizeList[i];
-                if (id + len > k + offset) {
-                    auto &item = list[i];
-                    return item[id + k + offset];
+                auto actId = k + offset;
+                if (left + len >= actId) {
+                    auto item = list[i].get();
+                    return item[actId - left];
                 }
-                id += len;
+                left += len;
             }
             throw "not found";
         }

@@ -40,8 +40,8 @@ void WSConnection::onData(uvw::DataEvent &e) {
         return;
     }
 
+    bl.add(std::move(e.data), e.length);
     if (wsState == WSCState::WAIT_DECODE_HEADER) {
-        bl.add(std::move(e.data), e.length);
         if (bl.size() >= 2) {
             frame.clear();
 
@@ -71,22 +71,29 @@ void WSConnection::onData(uvw::DataEvent &e) {
     }
     if (wsState == WSCState::WAITING_FOR_16_BIT_LENGTH) {
         if (bl.size() >= 2) {
-            frame.length = (bl[0] << 8) | bl[1];
-            wsState = WSCState::WAITING_FOR_MASK_KEY;
+            frame.length = ((unsigned char)bl[0] << 8) | (unsigned char)bl[1];
             frame.data = std::make_unique<char[]>(frame.length);
             bl.advance(2);
+            wsState = WSCState::WAITING_FOR_MASK_KEY;
         }
     }
     if (wsState == WSCState::WAITING_FOR_64_BIT_LENGTH) {
-        LLOG(LLOG_ERROR, "Unsupported 64bit websocket frame");
-        wsState = WSCState::DEAD;
+        if (bl.size() >= 8) {
+            frame.length = 0;
+            for (int i = 0; i < 8; i++) {
+                frame.length |= ((unsigned char)bl[i]) << (64 - 8 * i - 8);
+            }
+            frame.data = std::make_unique<char[]>(frame.length);
+            bl.advance(8);
+            wsState = WSCState::WAITING_FOR_MASK_KEY;
+        }
     }
     if (wsState == WSCState::WAITING_FOR_MASK_KEY) {
         if (frame.mask) {
             if (bl.size() >= 4) {
-                wsState = WSCState::WAITING_FOR_PAYLOAD;
                 bl.copyTo(0, frame.maskBytes, 4);
                 bl.advance(4);
+                wsState = WSCState::WAITING_FOR_PAYLOAD;
             }
         } else {
             wsState = WSCState::WAITING_FOR_PAYLOAD;
