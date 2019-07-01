@@ -35,12 +35,125 @@ std::string tolower(const std::string str) {
 
 void WSConnection::onData(uvw::DataEvent &e) {
     if (wsState == WSCState::DO_HEADER || wsState == WSCState::WAIT_HTTP) {
-        rl.feed(e.data.get(), e.length);
+        return rl.feed(e.data.get(), e.length);
     } else if (wsState == WSCState::DEAD) {
         return;
-    } else {
-        LLOG(LLOG_DEBUG, "onData len: %d", e.length);
     }
+
+    if (wsState == WSCState::WAIT_DECODE_HEADER) {
+        bl.add(std::move(e.data), e.length);
+        if (bl.size() >= 2) {
+            frame.clear();
+
+            auto firstByte = bl[0];
+            auto secondByte = bl[1];
+
+            frame.fin = !!(firstByte & 0x80);
+            frame.rsv1 = !!(firstByte & 0x40);
+            frame.rsv2 = !!(firstByte & 0x20);
+            frame.rsv3 = !!(firstByte & 0x10);
+            frame.mask = !!(secondByte & 0x80);
+
+            frame.opcode = firstByte & 0x0F;
+            frame.length = secondByte & 0x7F;
+
+            if (frame.length == 126) {
+                wsState = WSCState::WAITING_FOR_16_BIT_LENGTH;
+            } else if (frame.length == 127) {
+                wsState = WSCState::WAITING_FOR_64_BIT_LENGTH;
+            } else {
+                wsState = WSCState::WAITING_FOR_MASK_KEY;
+                frame.data = std::make_unique<char[]>(frame.length);
+            }
+
+            bl.advance(2);
+        }
+    }
+    if (wsState == WSCState::WAITING_FOR_16_BIT_LENGTH) {
+        if (bl.size() >= 2) {
+            frame.length = (bl[0] << 8) | bl[1];
+            wsState = WSCState::WAITING_FOR_MASK_KEY;
+            frame.data = std::make_unique<char[]>(frame.length);
+            bl.advance(2);
+        }
+    }
+    if (wsState == WSCState::WAITING_FOR_64_BIT_LENGTH) {
+        LLOG(LLOG_ERROR, "Unsupported 64bit websocket frame");
+        wsState = WSCState::DEAD;
+    }
+    if (wsState == WSCState::WAITING_FOR_MASK_KEY) {
+        if (frame.mask) {
+            if (bl.size() >= 4) {
+                wsState = WSCState::WAITING_FOR_PAYLOAD;
+                bl.copyTo(0, frame.maskBytes, 4);
+                bl.advance(4);
+            }
+        } else {
+            wsState = WSCState::WAITING_FOR_PAYLOAD;
+        }
+    }
+    if (wsState == WSCState::WAITING_FOR_PAYLOAD) {
+        if (bl.size() >= frame.length) {
+            bl.copyTo(0, frame.data.get(), frame.length);
+            bl.advance(frame.length);
+            if (frame.mask) {
+                for (unsigned int i = 0; i < frame.length; i++) {
+                    frame.data[i] ^= frame.maskBytes[i % 4];
+                }
+            }
+            wsState = WSCState::WAIT_DECODE_HEADER;
+            onFrame();
+        }
+    }
+}
+
+void WSConnection::onFrame() {
+    if (frame.opcode != 1) {
+        LLOG(LLOG_DEBUG, "ignore frame opcode %d len %d", frame.opcode, frame.length);
+    }
+
+    std::string line(frame.data.get(), frame.length);
+    frame.data.reset();
+
+    auto client = weak_tcp.lock();
+    if (client) {
+        auto result = callback(line, *client);
+        auto length = result.length();
+        if (length > 0) {
+            this->sendText(*client, result);
+        }
+    } else {
+        LLOG(LLOG_WARNING, "client or rl weak_ptr lost");
+    }
+}
+
+void WSConnection::sendText(uvw::TCPHandle &client, std::string &str) {
+    char header[14];
+    int headerSize = 0;
+    auto length = str.length();
+
+    // fin=1, opcode=1
+    header[0] = 0x81;
+    // mask=0
+    if (length < 126) {
+        header[1] = length & 0x7f;
+        headerSize = 2;
+    } else if (length < 65536) {
+        header[1] = 126 & 0x7f;
+        header[2] = length >> 8;
+        header[3] = length;
+        headerSize = 4;
+    } else {
+        LLOG(LLOG_ERROR, "sendText too large %d", length);
+        return;
+        headerSize = 10;
+    }
+
+    client.write(header, headerSize);
+
+    auto data = new char[length];
+    memcpy(data, str.c_str(), length);
+    client.write(data, length);
 }
 
 WSConnection::WSConnection(
