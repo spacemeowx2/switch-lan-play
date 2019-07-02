@@ -21,69 +21,20 @@ A million repetitions of "a"
 
 #include <stdio.h>
 #include <string.h>
-#include <sys/types.h>	/* for u_int*_t */
-#if defined(__sun)
-#include "solarisfixes.h"
-#endif
 #include "sha1.h"
-
-#ifndef BYTE_ORDER
-#if (BSD >= 199103)
-# include <machine/endian.h>
-#else
-#if defined(linux) || defined(__linux__)
-# include <endian.h>
-#else
-#define	LITTLE_ENDIAN	1234	/* least-significant byte first (vax, pc) */
-#define	BIG_ENDIAN	4321	/* most-significant byte first (IBM, net) */
-#define	PDP_ENDIAN	3412	/* LSB first in word, MSW first in long (pdp)*/
-
-#if defined(vax) || defined(ns32000) || defined(sun386) || defined(__i386__) || \
-    defined(MIPSEL) || defined(_MIPSEL) || defined(BIT_ZERO_ON_RIGHT) || \
-    defined(__alpha__) || defined(__alpha)
-#define BYTE_ORDER	LITTLE_ENDIAN
-#endif
-
-#if defined(sel) || defined(pyr) || defined(mc68000) || defined(sparc) || \
-    defined(is68k) || defined(tahoe) || defined(ibm032) || defined(ibm370) || \
-    defined(MIPSEB) || defined(_MIPSEB) || defined(_IBMR2) || defined(DGUX) ||\
-    defined(apollo) || defined(__convex__) || defined(_CRAY) || \
-    defined(__hppa) || defined(__hp9000) || \
-    defined(__hp9000s300) || defined(__hp9000s700) || \
-    defined (BIT_ZERO_ON_LEFT) || defined(m68k) || defined(__sparc)
-#define BYTE_ORDER	BIG_ENDIAN
-#endif
-#endif /* linux */
-#endif /* BSD */
-#endif /* BYTE_ORDER */
-
-#if defined(__BYTE_ORDER) && !defined(BYTE_ORDER)
-#if (__BYTE_ORDER == __LITTLE_ENDIAN)
-#define BYTE_ORDER LITTLE_ENDIAN
-#else
-#define BYTE_ORDER BIG_ENDIAN
-#endif
-#endif
-
-#if !defined(BYTE_ORDER) || \
-    (BYTE_ORDER != BIG_ENDIAN && BYTE_ORDER != LITTLE_ENDIAN && \
-    BYTE_ORDER != PDP_ENDIAN)
-	/* you must determine what the correct bit order is for
-	 * your compiler - the next line is an intentional error
-	 * which will force your compiles to bomb until you fix
-	 * the above macros.
-	 */
-#error "Undefined or invalid BYTE_ORDER"
-#endif
 
 #define rol(value, bits) (((value) << (bits)) | ((value) >> (32 - (bits))))
 
+#if (defined(LANPLAY_LITTLE_ENDIAN) + defined(LANPLAY_BIG_ENDIAN)) != 1
+#error Unknown byte order or too many byte orders
+#endif
+
 /* blk0() and blk() perform the initial expand. */
 /* I got the idea of expanding during the round function from SSLeay */
-#if BYTE_ORDER == LITTLE_ENDIAN
+#if defined(LANPLAY_LITTLE_ENDIAN)
 #define blk0(i) (block->l[i] = (rol(block->l[i],24)&0xFF00FF00) \
     |(rol(block->l[i],8)&0x00FF00FF))
-#elif BYTE_ORDER == BIG_ENDIAN
+#elif defined(LANPLAY_BIG_ENDIAN)
 #define blk0(i) block->l[i]
 #else
 #error "Endianness not defined!"
@@ -101,12 +52,12 @@ A million repetitions of "a"
 
 /* Hash a single 512-bit block. This is the core of the algorithm. */
 
-void SHA1Transform(u_int32_t state[5], const unsigned char buffer[64])
+void SHA1Transform(uint32_t state[5], const unsigned char buffer[64])
 {
-u_int32_t a, b, c, d, e;
+uint32_t a, b, c, d, e;
 typedef union {
     unsigned char c[64];
-    u_int32_t l[16];
+    uint32_t l[16];
 } CHAR64LONG16;
 #ifdef SHA1HANDSOFF
 CHAR64LONG16 block[1];  /* use array to appear as a pointer */
@@ -176,10 +127,10 @@ void SHA1Init(SHA1_CTX* context)
 
 /* Run your data through this. */
 
-void SHA1Update(SHA1_CTX* context, const unsigned char* data, u_int32_t len)
+void SHA1Update(SHA1_CTX* context, const unsigned char* data, uint32_t len)
 {
-u_int32_t i;
-u_int32_t j;
+uint32_t i;
+uint32_t j;
 
     j = context->count[0];
     if ((context->count[0] += len << 3) < j)
@@ -217,7 +168,7 @@ unsigned char c;
 
     for (i = 0; i < 2; i++)
     {
-	u_int32_t t = context->count[i];
+	uint32_t t = context->count[i];
 	int j;
 
 	for (j = 0; j < 4; t >>= 8, j++)
