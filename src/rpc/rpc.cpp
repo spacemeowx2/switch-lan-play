@@ -16,7 +16,7 @@ int rpc_main(const char *bind_addr, const char *token, const char *protocol)
         return -1;
     }
 
-    auto server = std::make_shared<RPCServer>();
+    auto server = std::make_shared<slp::rpc::RPCServer>();
     if (protocol == nullptr || strcmp(protocol, "tcp") == 0) {
         slp::rpc::RPCTCPServer tcpServer(server, addr_str, port, token);
         LLOG(LLOG_INFO, "rpc server(tcp) listening at %s", bind_addr);

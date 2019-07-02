@@ -25,6 +25,7 @@ set(src
     ipv4/icmp.c
     rpc/rpc.cpp
     rpc/lan-play.cpp
+    rpc/rpc-server.cpp
     rpc/rpc-ws-server.cpp
     rpc/sha1.c
 )

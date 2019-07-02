@@ -15,6 +15,7 @@ class BaseTCPConnection {
         virtual void onData(uvw::DataEvent &e) {
             rl.feed(e.data.get(), e.length);
         };
+        virtual void onSend(std::string &result, std::shared_ptr<uvw::TCPHandle> &client) = 0;
     public:
         BaseTCPConnection(
             std::shared_ptr<uvw::TCPHandle> tcp,
@@ -43,12 +44,30 @@ class BaseTCPConnection {
         };
         ~BaseTCPConnection() {
         };
+        bool send(std::string result) {
+            auto client = weak_tcp.lock();
+            if (client) {
+                onSend(result, client);
+                return true;
+            } else {
+                LLOG(LLOG_WARNING, "client or rl weak_ptr lost");
+                return false;
+            }
+        }
 };
 
 class TCPConnection : public BaseTCPConnection {
     protected:
         bool authed;
         std::string token;
+        virtual void onSend(std::string &result, std::shared_ptr<uvw::TCPHandle> &client) {
+            auto length = result.length();
+            if (length > 0) {
+                auto data = new char[length];
+                memcpy(data, result.c_str(), length);
+                client->write(data, length);
+            }
+        }
     public:
         TCPConnection(
             std::shared_ptr<uvw::TCPHandle> tcp,
@@ -93,13 +112,22 @@ class BaseRPCTCPServer {
             });
             server->on<uvw::ListenEvent>([this](const uvw::ListenEvent &, uvw::TCPHandle &srv) {
                 auto client = srv.loop().resource<uvw::TCPHandle>();
+                auto session = rpcServer->createSession();
                 auto wsConn = std::make_shared<T>(
                     client,
-                    [this] (std::string line, uvw::TCPHandle &tcp) {
-                        return this->dataCallback(line, tcp);
+                    [this, session] (std::string line, uvw::TCPHandle &tcp) -> std::string {
+                        return session->onMessage(line);
                     },
                     this->token
                 );
+                session->sendBack = [conn = std::weak_ptr<T>(wsConn)] (std::string str) -> bool {
+                    auto c = conn.lock();
+                    if (c) {
+                        c->send(str);
+                        return true;
+                    }
+                    return false;
+                };
 
                 client->on<uvw::ErrorEvent>([](const uvw::ErrorEvent &e, uvw::TCPHandle &tcp) {
                     tcp.close();
@@ -115,9 +143,6 @@ class BaseRPCTCPServer {
             });
 
             server->listen();
-        }
-        std::string dataCallback(std::string line, uvw::TCPHandle &tcp) {
-            return rpcServer->onMessage(line);
         }
     public:
         BaseRPCTCPServer(

@@ -41,77 +41,86 @@ void WSConnection::onData(uvw::DataEvent &e) {
     }
 
     bl.add(std::move(e.data), e.length);
-    if (wsState == WSCState::WAIT_DECODE_HEADER) {
-        if (bl.size() >= 2) {
-            frame.clear();
+    do {
+        if (wsState == WSCState::WAIT_DECODE_HEADER) {
+            if (bl.size() >= 2) {
+                frame.clear();
 
-            auto firstByte = bl[0];
-            auto secondByte = bl[1];
+                auto firstByte = bl[0];
+                auto secondByte = bl[1];
 
-            frame.fin = !!(firstByte & 0x80);
-            frame.rsv1 = !!(firstByte & 0x40);
-            frame.rsv2 = !!(firstByte & 0x20);
-            frame.rsv3 = !!(firstByte & 0x10);
-            frame.mask = !!(secondByte & 0x80);
+                frame.fin = !!(firstByte & 0x80);
+                frame.rsv1 = !!(firstByte & 0x40);
+                frame.rsv2 = !!(firstByte & 0x20);
+                frame.rsv3 = !!(firstByte & 0x10);
+                frame.mask = !!(secondByte & 0x80);
 
-            frame.opcode = firstByte & 0x0F;
-            frame.length = secondByte & 0x7F;
+                frame.opcode = firstByte & 0x0F;
+                frame.length = secondByte & 0x7F;
 
-            if (frame.length == 126) {
-                wsState = WSCState::WAITING_FOR_16_BIT_LENGTH;
-            } else if (frame.length == 127) {
-                wsState = WSCState::WAITING_FOR_64_BIT_LENGTH;
+                if (frame.length == 126) {
+                    wsState = WSCState::WAITING_FOR_16_BIT_LENGTH;
+                } else if (frame.length == 127) {
+                    wsState = WSCState::WAITING_FOR_64_BIT_LENGTH;
+                } else {
+                    wsState = WSCState::WAITING_FOR_MASK_KEY;
+                    frame.data = std::make_unique<char[]>(frame.length);
+                }
+
+                bl.advance(2);
             } else {
-                wsState = WSCState::WAITING_FOR_MASK_KEY;
+                break;
+            }
+        }
+        if (wsState == WSCState::WAITING_FOR_16_BIT_LENGTH) {
+            if (bl.size() >= 2) {
+                frame.length = ((unsigned char)bl[0] << 8) | (unsigned char)bl[1];
                 frame.data = std::make_unique<char[]>(frame.length);
+                bl.advance(2);
+                wsState = WSCState::WAITING_FOR_MASK_KEY;
             }
-
-            bl.advance(2);
         }
-    }
-    if (wsState == WSCState::WAITING_FOR_16_BIT_LENGTH) {
-        if (bl.size() >= 2) {
-            frame.length = ((unsigned char)bl[0] << 8) | (unsigned char)bl[1];
-            frame.data = std::make_unique<char[]>(frame.length);
-            bl.advance(2);
-            wsState = WSCState::WAITING_FOR_MASK_KEY;
-        }
-    }
-    if (wsState == WSCState::WAITING_FOR_64_BIT_LENGTH) {
-        if (bl.size() >= 8) {
-            frame.length = 0;
-            for (int i = 0; i < 8; i++) {
-                frame.length |= ((unsigned char)bl[i]) << (64 - 8 * i - 8);
+        if (wsState == WSCState::WAITING_FOR_64_BIT_LENGTH) {
+            if (bl.size() >= 8) {
+                frame.length = 0;
+                for (int i = 0; i < 8; i++) {
+                    frame.length |= ((unsigned char)bl[i]) << (64 - 8 * i - 8);
+                }
+                frame.data = std::make_unique<char[]>(frame.length);
+                bl.advance(8);
+                wsState = WSCState::WAITING_FOR_MASK_KEY;
             }
-            frame.data = std::make_unique<char[]>(frame.length);
-            bl.advance(8);
-            wsState = WSCState::WAITING_FOR_MASK_KEY;
         }
-    }
-    if (wsState == WSCState::WAITING_FOR_MASK_KEY) {
-        if (frame.mask) {
-            if (bl.size() >= 4) {
-                bl.copyTo(0, frame.maskBytes, 4);
-                bl.advance(4);
+        if (wsState == WSCState::WAITING_FOR_MASK_KEY) {
+            if (frame.mask) {
+                if (bl.size() >= 4) {
+                    bl.copyTo(0, frame.maskBytes, 4);
+                    bl.advance(4);
+                    wsState = WSCState::WAITING_FOR_PAYLOAD;
+                }
+            } else {
                 wsState = WSCState::WAITING_FOR_PAYLOAD;
             }
-        } else {
-            wsState = WSCState::WAITING_FOR_PAYLOAD;
         }
-    }
-    if (wsState == WSCState::WAITING_FOR_PAYLOAD) {
-        if (bl.size() >= frame.length) {
-            bl.copyTo(0, frame.data.get(), frame.length);
-            bl.advance(frame.length);
-            if (frame.mask) {
-                for (unsigned int i = 0; i < frame.length; i++) {
-                    frame.data[i] ^= frame.maskBytes[i % 4];
+        if (wsState == WSCState::WAITING_FOR_PAYLOAD) {
+            if (bl.size() >= frame.length) {
+                bl.copyTo(0, frame.data.get(), frame.length);
+                bl.advance(frame.length);
+                if (frame.mask) {
+                    for (unsigned int i = 0; i < frame.length; i++) {
+                        frame.data[i] ^= frame.maskBytes[i % 4];
+                    }
                 }
+                wsState = WSCState::WAIT_DECODE_HEADER;
+                onFrame();
             }
-            wsState = WSCState::WAIT_DECODE_HEADER;
-            onFrame();
         }
-    }
+    } while(wsState == WSCState::WAIT_DECODE_HEADER);
+}
+
+
+void WSConnection::onSend(std::string &result, std::shared_ptr<uvw::TCPHandle> &client) {
+    sendText(client, result);
 }
 
 void WSConnection::onFrame() {
@@ -137,14 +146,14 @@ void WSConnection::onFrame() {
         }
         auto length = result.length();
         if (length > 0) {
-            this->sendText(*client, result);
+            this->sendText(client, result);
         }
     } else {
         LLOG(LLOG_WARNING, "client or rl weak_ptr lost");
     }
 }
 
-void WSConnection::sendText(uvw::TCPHandle &client, std::string &str) {
+void WSConnection::sendText(std::shared_ptr<uvw::TCPHandle> &client, std::string &str) {
     char header[14];
     int headerSize = 0;
     auto length = str.length();
@@ -166,11 +175,11 @@ void WSConnection::sendText(uvw::TCPHandle &client, std::string &str) {
         headerSize = 10;
     }
 
-    client.write(header, headerSize);
+    client->write(header, headerSize);
 
     auto data = new char[length];
     memcpy(data, str.c_str(), length);
-    client.write(data, length);
+    client->write(data, length);
 }
 
 WSConnection::WSConnection(

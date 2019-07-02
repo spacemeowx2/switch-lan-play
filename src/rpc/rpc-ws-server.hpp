@@ -45,8 +45,9 @@ class WSConnection : public BaseTCPConnection {
         WSFrame frame;
 
         virtual void onData(uvw::DataEvent &e);
+        virtual void onSend(std::string &result, std::shared_ptr<uvw::TCPHandle> &client);
         void onFrame();
-        void sendText(uvw::TCPHandle &tcp, std::string &str);
+        void sendText(std::shared_ptr<uvw::TCPHandle> &tcp, std::string &str);
     public:
         WSConnection(
             std::shared_ptr<uvw::TCPHandle> tcp,
