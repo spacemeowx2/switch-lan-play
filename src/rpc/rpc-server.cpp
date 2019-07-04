@@ -20,6 +20,9 @@ std::string escape(std::string value) {
 std::string kv(std::string key, std::string value) {
     return key + "=" + escape(value) + "\n";
 }
+std::string kv(std::string key, const char *value) {
+    return key + "=" + escape(value) + "\n";
+}
 std::string kv(std::string key, int value) {
     return key + "=" + std::to_string(value) + "\n";
 }
@@ -30,16 +33,13 @@ std::string kv(std::string key, bool value) {
         return key + "=false\n";
     }
 }
-std::string success(std::string value = "") {
-    return kv("success", value);
-}
 std::string error(std::string value) {
     return kv("error", value);
 }
-std::string getConfig(const LanPlayConfig &config) {
+std::string getConfig(std::string prefix, const LanPlayConfig &config) {
     std::string out;
 
-    out += "[config]\n";
+    out += "[" + prefix + "]\n";
     out += kv("netif", config.netif);
     out += kv("relayServer", config.relayServer);
     out += kv("socks5Server", config.socks5Server);
@@ -48,6 +48,9 @@ std::string getConfig(const LanPlayConfig &config) {
     out += kv("broadcast", config.broadcast);
 
     return out;
+}
+std::string getConfig(const LanPlayConfig &config) {
+    return getConfig("config", config);
 }
 
 RPCServer::RPCServer(std::shared_ptr<uvw::Loop> loop):
@@ -79,14 +82,13 @@ std::string RPCServerSession::onMessage(std::string message) {
         if (key == "status") {
             auto status = lanPlay.getStatus();
             if (status == LanPlayStatus::None) {
-                out = success("None");
+                out = kv("status", "None");
             } else if (status == LanPlayStatus::Running) {
-                out = success("Running");
+                out = kv("status", "Running");
             }
         } else if (key == "listIf") {
             std::vector<NetInterface> list;
             if (lanPlay.getNetInterfaces(list) == 0) {
-                out = success();
                 for (auto netif : list) {
                     out += "[[interfaces]]\n";
                     out += kv("name", netif.name);
@@ -101,47 +103,32 @@ std::string RPCServerSession::onMessage(std::string message) {
                 out = error(lanPlay.getLastError());
             }
         } else if (key == "version") {
-            out = success(lanPlay.getVersion());
+            out = kv("version", lanPlay.getVersion());
         } else if (key == "start") {
             if (lanPlay.start() == 0) {
-                out = success();
+                out = kv("status", "Running");
             } else {
                 out = error(lanPlay.getLastError());
             }
         } else if (key == "stop") {
             if (lanPlay.stop() == 0) {
-                out = success();
+                out = kv("status", "None");
             } else {
                 out = error(lanPlay.getLastError());
             }
         } else if (key == "config") {
-            out = success();
-            out += getConfig(lanPlay.config);
+            out = getConfig(lanPlay.config);
         } else if (key == "lastConfig") {
-            out = success();
-            out += getConfig(lanPlay.getLastConfig());
+            out = getConfig("lastConfig", lanPlay.getLastConfig());
         } else if (key == "netif") {
             lanPlay.config.netif = value;
-            out = success();
-            out += getConfig(lanPlay.config);
+            out = getConfig(lanPlay.config);
         } else if (key == "relayServer") {
             lanPlay.config.relayServer = value;
-            out = success();
-            out += getConfig(lanPlay.config);
+            out = getConfig(lanPlay.config);
         } else if (key == "socks5Server") {
             lanPlay.config.socks5Server = value;
-            out = success();
-            out += getConfig(lanPlay.config);
-        } else if (key == "stdout") {
-            out = "";
-            auto timer = server->loop->resource<uvw::TimerHandle>();
-            timer->on<uvw::TimerEvent>([this] (uvw::TimerEvent &e, uvw::TimerHandle &timer) {
-                 if (!this->sendBack("timer")) {
-                     LLOG(LLOG_DEBUG, "timer stop");
-                     timer.close();
-                 }
-            });
-            timer->start(uvw::TimerHandle::Time{0}, uvw::TimerHandle::Time{1000});
+            out = getConfig(lanPlay.config);
         } else {
             out = error("command not found: " + key);
         }
