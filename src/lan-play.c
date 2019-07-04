@@ -20,17 +20,6 @@ void set_filter(pcap_t *dev)
     pcap_setfilter(dev, &bpf);
 }
 
-void get_mac(void *mac, pcap_if_t *d, pcap_t *p)
-{
-    if (get_mac_address(d, p, mac) != 0) {
-        eprintf("Error when getting the MAC address\n");
-        exit(1);
-    }
-    eprintf("Get MAC: ");
-    PRINT_MAC(mac);
-    eprintf("\n");
-}
-
 int init_pcap(struct lan_play *lan_play, void *mac)
 {
     pcap_t *dev;
@@ -61,7 +50,14 @@ int init_pcap(struct lan_play *lan_play, void *mac)
         RETURN_ERR(lan_play, "Error: pcap_open_live(): %s", err_buf);
     }
     set_filter(dev);
-    get_mac(mac, d, dev);
+
+    if (get_mac_address(d, dev, mac) != 0) {
+        RETURN_ERR(lan_play, "Error when getting the MAC address of interface: %s", d->name);
+    }
+    eprintf("Get MAC: ");
+    PRINT_MAC(mac);
+    eprintf("\n");
+
     if (set_immediate_mode(dev) == -1) {
         RETURN_ERR(lan_play, "Error: set_immediate_mode failed %s", strerror(errno));
     }
