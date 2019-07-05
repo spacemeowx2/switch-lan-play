@@ -44,13 +44,23 @@ class BaseTCPConnection {
         };
         ~BaseTCPConnection() {
         };
+        bool close() {
+            auto client = weak_tcp.lock();
+            if (client) {
+                client->close();
+                return true;
+            } else {
+                LLOG(LLOG_WARNING, "close: client or rl weak_ptr lost");
+                return false;
+            }
+        }
         bool send(std::string result) {
             auto client = weak_tcp.lock();
             if (client) {
                 onSend(result, client);
                 return true;
             } else {
-                LLOG(LLOG_WARNING, "client or rl weak_ptr lost");
+                LLOG(LLOG_WARNING, "send: client or rl weak_ptr lost");
                 return false;
             }
         }

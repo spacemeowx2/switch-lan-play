@@ -124,8 +124,13 @@ void WSConnection::onSend(std::string &result, std::shared_ptr<uvw::TCPHandle> &
 }
 
 void WSConnection::onFrame() {
+    if (frame.opcode == 8) {
+        this->close();
+        return;
+    }
     if (frame.opcode != 1) {
         LLOG(LLOG_DEBUG, "ignore frame opcode %d len %d", frame.opcode, frame.length);
+        return;
     }
 
     std::string line(frame.data.get(), frame.length);
