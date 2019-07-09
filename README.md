@@ -74,16 +74,6 @@ Select the interface which is in the same LAN with your Switch.
 
 3. Launch your game, hold L+R+LStick to enter lan-play mode. Host or join a game, enjoy!
 
-## Server
-
-```
-git clone https://github.com/spacemeowx2/switch-lan-play.git
-cd switch-lan-play/server
-npm install
-npm run build
-npm run server
-```
-
 ## SOCKS5 Proxy
 
 lan-play --socks5-server-addr example.com:1080
