@@ -136,8 +136,12 @@ std::string RPCServerSession::onMessage(std::string message) {
             lanPlay.config.broadcast = value == "true";
             out = getConfig(lanPlay.config);
         } else if (key == "pmtu") {
-            lanPlay.config.pmtu = std::stoi(value, nullptr, 0);
-            out = getConfig(lanPlay.config);
+            try {
+                lanPlay.config.pmtu = std::stoi(value, nullptr, 0);
+                out = getConfig(lanPlay.config);
+            } catch (std::invalid_argument e) {
+                out = error(e.what());
+            }
         } else {
             out = error("command not found: " + key);
         }
