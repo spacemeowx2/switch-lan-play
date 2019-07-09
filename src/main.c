@@ -192,7 +192,7 @@ void print_help(const char *name)
         // "        [--socks5-password <password>]\n"
         // "        [--socks5-password-file <file>]\n"
         "Address format is a.b.c.d:port (IPv4).\n"
-        "RPC protocol could be tcp, ws. Default to tcp.\n",
+        "RPC protocol could be tcp, ws. Default to ws.\n",
         name
     );
 }
