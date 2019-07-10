@@ -111,6 +111,11 @@ int lan_client_init(struct lan_play *lan_play)
         return ret;
     }
 
+    lan_play->upload_byte = 0;
+    lan_play->download_byte = 0;
+    lan_play->upload_packet = 0;
+    lan_play->download_packet = 0;
+
     return ret;
 }
 
@@ -336,6 +341,9 @@ void lan_client_on_recv(uv_udp_t* handle, ssize_t nread, const uv_buf_t* buf, co
     uint16_t recv_len = nread;
     uint8_t *buffer = (uint8_t *)buf->base;
 
+    lan_play->download_packet++;
+    lan_play->download_byte += recv_len;
+
     switch (buffer[0]) { // type
     case LAN_CLIENT_TYPE_KEEPALIVE:
         break;
@@ -385,6 +393,9 @@ static int lan_client_send_raw(struct lan_play *lan_play, uv_buf_t *bufs, int bu
     uv_udp_send_t *udp_req = &req->req;
     udp_req->data = req;
     ret = uv_udp_send(udp_req, &lan_play->client, &buf, 1, server_addr, lan_client_on_sent);
+
+    lan_play->upload_packet++;
+    lan_play->upload_byte += total_len;
 
     return ret;
 }

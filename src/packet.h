@@ -143,6 +143,11 @@ struct packet_ctx {
     uint16_t identification;
     struct arp_item arp_list[ARP_CACHE_LEN];
     time_t arp_ttl;
+
+    uint64_t upload_byte;
+    uint64_t download_byte;
+    uint64_t upload_packet;
+    uint64_t download_packet;
 };
 
 int packet_init(

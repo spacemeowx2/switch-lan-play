@@ -1,9 +1,6 @@
 #include "lan-play.h"
 #include <assert.h>
 
-void *g_debug1 = (void *)0x1234;
-void *g_debug2 = (void *)0x12345;
-
 int send_payloads(
     struct packet_ctx *self,
     const struct payload *payload
@@ -26,6 +23,9 @@ int send_payloads(
 
         part = part->next;
     }
+
+    self->upload_packet++;
+    self->upload_byte += total_len;
 
     // print_hex(self->buffer, total_len);
     // printf("total len %d\n", total_len);
@@ -112,6 +112,11 @@ int packet_init(
     arp_list_init(self->arp_list);
     self->arp_ttl = arp_ttl;
 
+    self->upload_packet = 0;
+    self->upload_byte = 0;
+    self->download_packet = 0;
+    self->download_byte = 0;
+
     return 0;
 }
 
@@ -156,6 +161,8 @@ void get_packet(struct packet_ctx *self, const struct pcap_pkthdr *pkthdr, const
         print_packet(pkthdr, packet);
         return;
     }
+    self->download_packet++;
+    self->download_byte += pkthdr->len;
     if (process_ether(self, packet, pkthdr->len) != 0) {
         print_packet(pkthdr, packet);
     }

@@ -68,6 +68,11 @@ struct lan_play {
 
     struct gateway *gateway;
     char last_err[PCAP_ERRBUF_SIZE];
+
+    uint64_t upload_byte;
+    uint64_t download_byte;
+    uint64_t upload_packet;
+    uint64_t download_packet;
 };
 
 int lan_play_send_packet(struct lan_play *lan_play, void *data, int size);
