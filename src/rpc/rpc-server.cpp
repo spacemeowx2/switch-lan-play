@@ -34,7 +34,7 @@ std::string kv(std::string key, bool value) {
     }
 }
 std::string kv(std::string key, uint64_t value) {
-    return key += std::to_string(value) + "\n";
+    return key + "=" + std::to_string(value) + "\n";
 }
 std::string error(std::string value) {
     return kv("error", value);
