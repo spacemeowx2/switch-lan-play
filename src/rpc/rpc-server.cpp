@@ -33,6 +33,9 @@ std::string kv(std::string key, bool value) {
         return key + "=false\n";
     }
 }
+std::string kv(std::string key, uint64_t value) {
+    return key += std::to_string(value) + "\n";
+}
 std::string error(std::string value) {
     return kv("error", value);
 }
@@ -51,6 +54,20 @@ std::string getConfig(std::string prefix, const LanPlayConfig &config) {
 }
 std::string getConfig(const LanPlayConfig &config) {
     return getConfig("config", config);
+}
+std::string getStats(const LanPlayStats &stats) {
+    std::string out;
+    out += "[stats.client]\n";
+    out += kv("downloadByte", stats.client.downloadByte);
+    out += kv("downloadPacket", stats.client.downloadPacket);
+    out += kv("uploadByte", stats.client.uploadByte);
+    out += kv("uploadPacket", stats.client.uploadPacket);
+    out += "[stats.packet]\n";
+    out += kv("downloadByte", stats.packet.downloadByte);
+    out += kv("downloadPacket", stats.packet.downloadPacket);
+    out += kv("uploadByte", stats.packet.uploadByte);
+    out += kv("uploadPacket", stats.packet.uploadPacket);
+    return out;
 }
 
 RPCServer::RPCServer(std::shared_ptr<uvw::Loop> loop):
@@ -141,6 +158,13 @@ std::string RPCServerSession::onMessage(std::string message) {
                 out = getConfig(lanPlay.config);
             } catch (std::invalid_argument e) {
                 out = error(e.what());
+            }
+        } else if (key == "stats") {
+            LanPlayStats stats;
+            if (lanPlay.getStats(stats) == 0) {
+                out = getStats(stats);
+            } else {
+                out = error(lanPlay.getLastError());
             }
         } else {
             out = error("command not found: " + key);

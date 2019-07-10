@@ -30,6 +30,16 @@ struct LanPlayConfig {
         pmtu(0)
     {}
 };
+struct LanPlayStatsItem {
+    uint64_t uploadByte;
+    uint64_t uploadPacket;
+    uint64_t downloadByte;
+    uint64_t downloadPacket;
+};
+struct LanPlayStats {
+    struct LanPlayStatsItem client;
+    struct LanPlayStatsItem packet;
+};
 
 class LanPlay {
     private:
@@ -49,4 +59,5 @@ class LanPlay {
         int start();
         int stop();
         int getNetInterfaces(std::vector<NetInterface> &list);
+        int getStats(struct LanPlayStats &stats);
 };

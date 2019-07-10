@@ -98,3 +98,22 @@ int LanPlay::getNetInterfaces(std::vector<NetInterface> &list) {
 
     return 0;
 }
+
+int LanPlay::getStats(struct LanPlayStats &stats) {
+    if (status == LanPlayStatus::None) {
+        lastError = "Not running";
+        return -1;
+    }
+
+    stats.client.downloadByte = lan_play->download_byte;
+    stats.client.downloadPacket = lan_play->download_packet;
+    stats.client.uploadByte = lan_play->upload_byte;
+    stats.client.uploadPacket = lan_play->upload_packet;
+
+    stats.packet.downloadByte = lan_play->packet_ctx.download_byte;
+    stats.packet.downloadPacket = lan_play->packet_ctx.download_packet;
+    stats.packet.uploadByte = lan_play->packet_ctx.upload_byte;
+    stats.packet.uploadPacket = lan_play->packet_ctx.upload_packet;
+
+    return 0;
+}
