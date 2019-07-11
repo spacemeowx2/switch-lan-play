@@ -34,7 +34,7 @@ extern "C" {
 #define IS_SUBNET(ip, net, mask) ( ((*(uint32_t*)ip) & (*(uint32_t*)mask)) == *(uint32_t*)net )
 #define IS_BROADCAST(ip, net, mask) ( ((*(uint32_t*)net) | ( ~ *(uint32_t*)mask)) == *(uint32_t*)ip )
 #define PRINT_IP(ip) eprintf("%d.%d.%d.%d", *(uint8_t*)(ip), *(uint8_t*)((uint8_t*)ip + 1), *(uint8_t*)((uint8_t*)ip + 2), *(uint8_t*)((uint8_t*)ip + 3))
-#define PRINT_MAC(mac) eprintf("%x:%x:%x:%x:%x:%x", *(uint8_t*)(mac), *(uint8_t*)((uint8_t*)mac + 1), *(uint8_t*)((uint8_t*)mac + 2), *(uint8_t*)((uint8_t*)mac + 3), *(uint8_t*)((uint8_t*)mac + 4), *(uint8_t*)((uint8_t*)mac + 5))
+#define PRINT_MAC(mac) eprintf("%02x:%02x:%02x:%02x:%02x:%02x", *(uint8_t*)(mac), *(uint8_t*)((uint8_t*)mac + 1), *(uint8_t*)((uint8_t*)mac + 2), *(uint8_t*)((uint8_t*)mac + 3), *(uint8_t*)((uint8_t*)mac + 4), *(uint8_t*)((uint8_t*)mac + 5))
 
 const char *ip2str(void *ip);
 void *str2ip(const char *ip);

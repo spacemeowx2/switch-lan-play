@@ -5,7 +5,7 @@
 struct lan_play real_lan_play;
 uint8_t SEND_BUFFER[BUFFER_SIZE];
 
-void set_filter(pcap_t *dev)
+void set_filter(pcap_t *dev, const uint8_t *mac)
 {
     char filter[100];
     static struct bpf_program bpf;
@@ -14,7 +14,14 @@ void set_filter(pcap_t *dev)
     int num;
     for (num = 0; mask != 0 && num < 32; num++) mask <<= 1;
 
-    snprintf(filter, sizeof(filter), "net %s/%d", SUBNET_NET, num);
+    snprintf(filter, sizeof(filter), "net %s/%d and not ether src %02x:%02x:%02x:%02x:%02x:%02x", SUBNET_NET, num,
+        mac[0],
+        mac[1],
+        mac[2],
+        mac[3],
+        mac[4],
+        mac[5]
+    );
     LLOG(LLOG_DEBUG, "filter: %s", filter);
     pcap_compile(dev, &bpf, filter, 1, 0);
     pcap_setfilter(dev, &bpf);
@@ -49,7 +56,6 @@ int init_pcap(struct lan_play *lan_play, void *mac)
         pcap_freealldevs(alldevs);
         RETURN_ERR(lan_play, "Error: pcap_open_live(): %s", err_buf);
     }
-    set_filter(dev);
 
     if (get_mac_address(d, dev, mac) != 0) {
         RETURN_ERR(lan_play, "Error when getting the MAC address of interface: %s", d->name);
@@ -57,6 +63,8 @@ int init_pcap(struct lan_play *lan_play, void *mac)
     eprintf("Get MAC: ");
     PRINT_MAC(mac);
     eprintf("\n");
+
+    set_filter(dev, mac);
 
     if (set_immediate_mode(dev) == -1) {
         RETURN_ERR(lan_play, "Error: set_immediate_mode failed %s", strerror(errno));
