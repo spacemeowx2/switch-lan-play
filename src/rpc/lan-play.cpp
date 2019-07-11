@@ -1,6 +1,7 @@
 #include <uvw.hpp>
 #include "lan-play.hpp"
 #include "../lan-play.h"
+#include <chrono>
 
 void LanPlay::applyConfig() {
     options.broadcast = config.broadcast;
@@ -114,6 +115,10 @@ int LanPlay::getStats(struct LanPlayStats &stats) {
     stats.packet.downloadPacket = lan_play->packet_ctx.download_packet;
     stats.packet.uploadByte = lan_play->packet_ctx.upload_byte;
     stats.packet.uploadPacket = lan_play->packet_ctx.upload_packet;
+
+    stats.time = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::system_clock::now().time_since_epoch()
+    ).count();
 
     return 0;
 }

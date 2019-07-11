@@ -57,6 +57,8 @@ std::string getConfig(const LanPlayConfig &config) {
 }
 std::string getStats(const LanPlayStats &stats) {
     std::string out;
+    out += "[stats]\n";
+    out += kv("time", stats.time);
     out += "[stats.client]\n";
     out += kv("downloadByte", stats.client.downloadByte);
     out += kv("downloadPacket", stats.client.downloadPacket);

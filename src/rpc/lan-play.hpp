@@ -39,6 +39,7 @@ struct LanPlayStatsItem {
 struct LanPlayStats {
     struct LanPlayStatsItem client;
     struct LanPlayStatsItem packet;
+    uint64_t time;
 };
 
 class LanPlay {
