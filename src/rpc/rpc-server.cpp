@@ -158,7 +158,7 @@ std::string RPCServerSession::onMessage(std::string message) {
             try {
                 lanPlay.config.pmtu = std::stoi(value, nullptr, 0);
                 out = getConfig(lanPlay.config);
-            } catch (std::invalid_argument e) {
+            } catch (std::invalid_argument &e) {
                 out = error(e.what());
             }
         } else if (key == "stats") {
