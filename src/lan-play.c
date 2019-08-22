@@ -25,6 +25,7 @@ void set_filter(pcap_t *dev, const uint8_t *mac)
     LLOG(LLOG_DEBUG, "filter: %s", filter);
     pcap_compile(dev, &bpf, filter, 1, 0);
     pcap_setfilter(dev, &bpf);
+    pcap_freecode(&bpf);
 }
 
 int init_pcap(struct lan_play *lan_play, void *mac)
