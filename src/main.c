@@ -3,7 +3,6 @@
 // command-line options
 struct cli_options options;
 
-OPTIONS_DEF(netif);
 OPTIONS_DEF(socks5_server_addr);
 OPTIONS_DEF(relay_server_addr);
 uv_signal_t signal_int;
@@ -59,7 +58,6 @@ int parse_arguments(int argc, char **argv)
     options.fake_internet = false;
     options.list_if = false;
 
-    options.netif = NULL;
     options.netif_ipaddr = NULL;
     options.netif_netmask = NULL;
 
@@ -108,10 +106,6 @@ int parse_arguments(int argc, char **argv)
         //     CHECK_PARAM();
         //     options.socks5_password_file = argv[i + 1];
         //     i++;
-        } else if (!strcmp(arg, "--netif")) {
-            CHECK_PARAM();
-            options.netif = strdup(argv[i + 1]);
-            i++;
         } else if (!strcmp(arg, "--list-if")) {
             options.list_if = true;
         } else if (!strcmp(arg, "--broadcast")) {
@@ -199,7 +193,10 @@ void print_help(const char *name)
 
 void walk_cb(uv_handle_t* handle, void* arg)
 {
-    LLOG(LLOG_DEBUG, "walk %d %p", handle->type, handle->data);
+    if (!uv_is_closing(handle)) {
+        uv_close(handle, NULL);
+    }
+    // LLOG(LLOG_DEBUG, "walk %d %p", handle->type, handle->data);
 }
 
 void lan_play_signal_cb(uv_signal_t *signal, int signum)
@@ -241,15 +238,6 @@ void prompt_netif(bool list_if_only)
 
     if (list_if_only) {
         list_interfaces(alldevs);
-    } else {
-        if (options.netif == NULL) {
-            int i = list_interfaces(alldevs);
-
-            printf("Enter the interface number (1-%d):", i);
-            scanf("%d", &arg_inum);
-            for (d = alldevs, i = 0; i < arg_inum - 1; d = d->next, i++);
-            options.netif = strdup(d->name);
-        }
     }
 
     pcap_freealldevs(alldevs);
@@ -290,7 +278,7 @@ int old_main()
     RT_ASSERT(uv_signal_start(&signal_int, lan_play_signal_cb, SIGINT) == 0);
     signal_int.data = lan_play;
 
-    printf("Opening %s\n", options.netif);
+    printf("Opening interfaces\n");
     RT_ASSERT(lan_play_init(lan_play) == 0);
 
     ret = uv_run(lan_play->loop, UV_RUN_DEFAULT);

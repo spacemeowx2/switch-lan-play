@@ -4,77 +4,11 @@
 
 struct lan_play real_lan_play;
 uint8_t SEND_BUFFER[BUFFER_SIZE];
-void lan_play_pcap_handler(uv_pcap_t *handle, const struct pcap_pkthdr *pkt_header, const u_char *packet);
+void lan_play_pcap_handler(uv_pcap_t *handle, const struct pcap_pkthdr *pkt_header, const u_char *packet, const uint8_t *mac);
 
-void set_filter(pcap_t *dev, const uint8_t *mac)
+int init_pcap(struct lan_play *lan_play)
 {
-    char filter[100];
-    static struct bpf_program bpf;
-
-    uint32_t mask = READ_NET32(str2ip(SUBNET_MASK), 0);
-    int num;
-    for (num = 0; mask != 0 && num < 32; num++) mask <<= 1;
-
-    snprintf(filter, sizeof(filter), "net %s/%d and not ether src %02x:%02x:%02x:%02x:%02x:%02x", SUBNET_NET, num,
-        mac[0],
-        mac[1],
-        mac[2],
-        mac[3],
-        mac[4],
-        mac[5]
-    );
-    LLOG(LLOG_DEBUG, "filter: %s", filter);
-    pcap_compile(dev, &bpf, filter, 1, 0);
-    pcap_setfilter(dev, &bpf);
-    pcap_freecode(&bpf);
-}
-
-int init_pcap(struct lan_play *lan_play, void *mac)
-{
-    pcap_t *dev;
-    pcap_if_t *alldevs;
-    pcap_if_t *d;
-    char err_buf[PCAP_ERRBUF_SIZE];
-
-    if (pcap_findalldevs(&alldevs, err_buf)) {
-        RETURN_ERR(lan_play, "Error pcap_findalldevs: %s", err_buf);
-    }
-    if (options.netif == NULL) {
-        RETURN_ERR(lan_play, "netif not set");
-    }
-
-    for (d = alldevs; d; d = d->next) {
-        if (!strcmp(d->name, options.netif)) {
-            break;
-        }
-    }
-    if (d == NULL) {
-        RETURN_ERR(lan_play, "failed to find --netif: %s", options.netif);
-    }
-
-    dev = pcap_open_live(d->name, 65535, 1, 500, err_buf);
-
-    if (!dev) {
-        pcap_freealldevs(alldevs);
-        RETURN_ERR(lan_play, "Error: pcap_open_live(): %s", err_buf);
-    }
-
-    if (get_mac_address(d, dev, mac) != 0) {
-        RETURN_ERR(lan_play, "Error when getting the MAC address of interface: %s", d->name);
-    }
-    eprintf("Get MAC: ");
-    PRINT_MAC(mac);
-    eprintf("\n");
-
-    set_filter(dev, mac);
-
-    if (set_immediate_mode(dev) == -1) {
-        RETURN_ERR(lan_play, "Error: set_immediate_mode failed %s", strerror(errno));
-    }
-
-    pcap_freealldevs(alldevs);
-
-    int ret = uv_pcap_init(lan_play->loop, &lan_play->pcap, lan_play_pcap_handler, dev);
+    int ret = uv_pcap_init(lan_play->loop, &lan_play->pcap, lan_play_pcap_handler);
     if (ret != 0) {
         RETURN_ERR(lan_play, "failed at uv_pcap_init");
     };
@@ -95,7 +29,7 @@ int lan_play_close(struct lan_play *lan_play)
 {
     int ret;
 
-    uv_pcap_close(&lan_play->pcap, NULL);
+    uv_pcap_close(&lan_play->pcap);
     ret = packet_close(&lan_play->packet_ctx);
     if (ret != 0) return ret;
 
@@ -110,9 +44,10 @@ int lan_play_close(struct lan_play *lan_play)
     return 0;
 }
 
-void lan_play_pcap_handler(uv_pcap_t *handle, const struct pcap_pkthdr *pkt_header, const u_char *packet)
+void lan_play_pcap_handler(uv_pcap_t *handle, const struct pcap_pkthdr *pkt_header, const u_char *packet, const uint8_t *mac)
 {
     struct lan_play *lan_play = handle->data;
+    packet_set_mac(&lan_play->packet_ctx, mac);
     get_packet(&lan_play->packet_ctx, pkt_header, packet);
 }
 
@@ -122,7 +57,6 @@ int lan_play_init(struct lan_play *lan_play)
     uint8_t ip[4];
     uint8_t subnet_net[4];
     uint8_t subnet_mask[4];
-    uint8_t mac[6];
 
     lan_play->broadcast = options.broadcast;
     lan_play->pmtu = options.pmtu;
@@ -133,7 +67,7 @@ int lan_play_init(struct lan_play *lan_play)
         }
     }
 
-    ret = init_pcap(lan_play, mac);
+    ret = init_pcap(lan_play);
     if (ret != 0) return ret;
 
     CPY_IPV4(ip, str2ip(SERVER_IP));
@@ -148,7 +82,6 @@ int lan_play_init(struct lan_play *lan_play)
         ip,
         subnet_net,
         subnet_mask,
-        mac,
         30
     );
     if (ret != 0) return ret;

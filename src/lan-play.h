@@ -88,7 +88,6 @@ struct cli_options {
     bool fake_internet;
     bool list_if;
 
-    char *netif;
     char *netif_ipaddr;
     char *netif_netmask;
 

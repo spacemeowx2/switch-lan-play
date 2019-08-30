@@ -7,7 +7,6 @@ void LanPlay::applyConfig() {
     options.broadcast = config.broadcast;
     options.fake_internet = config.fakeInternet;
     options.pmtu = config.pmtu;
-    options_netif(config.netif.c_str());
     options_relay_server_addr(config.relayServer.c_str());
     options_socks5_server_addr(config.socks5Server.c_str());
     lastConfig = config;

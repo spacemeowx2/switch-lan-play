@@ -24,7 +24,6 @@ struct LanPlayConfig {
     LanPlayConfig():
         relayServer(""),
         socks5Server(""),
-        netif(""),
         fakeInternet(false),
         broadcast(false),
         pmtu(0)

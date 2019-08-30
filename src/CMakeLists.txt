@@ -11,7 +11,7 @@ endif()
 set(src
     main.c
     lan-play.c
-    pcaploop.c
+    pcaploop.cpp
     packet.c
     arp.c
     helper.c

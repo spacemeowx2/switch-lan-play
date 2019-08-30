@@ -95,7 +95,6 @@ int packet_init(
     void *ip,
     void *subnet_net,
     void *subnet_mask,
-    void *mac,
     time_t arp_ttl)
 {
     self->arg = arg;
@@ -105,8 +104,6 @@ int packet_init(
     CPY_IPV4(self->ip, ip);
     CPY_IPV4(self->subnet_net, subnet_net);
     CPY_IPV4(self->subnet_mask, subnet_mask);
-
-    CPY_MAC(self->mac, mac);
 
     self->identification = 0;
     arp_list_init(self->arp_list);
@@ -153,6 +150,11 @@ int process_ether(struct packet_ctx *arg, const u_char *packet, uint16_t len)
         default:
             return 0; // just ignore them
     }
+}
+
+void packet_set_mac(struct packet_ctx *arg, const uint8_t *mac)
+{
+    arg->mac = mac;
 }
 
 void get_packet(struct packet_ctx *self, const struct pcap_pkthdr *pkthdr, const u_char *packet)
