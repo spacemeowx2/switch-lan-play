@@ -188,6 +188,19 @@ void uv_pcap_close(uv_pcap_t *handle)
     printf("pcap loop stop\n");
 }
 
+static int uv_pcap_interf_sendpacket(uv_pcap_interf_t *handle, const u_char *data, int size)
+{
+    u_char old[6];
+    u_char *d = (u_char *)data;
+    CPY_MAC(old, d + 6);
+    CPY_MAC(d + 6, handle->mac);
+    int ret = pcap_sendpacket(handle->dev, data, size);
+    CPY_MAC(d + 6, old);
+
+    return ret;
+}
+
+
 #if PCAPLOOP_USE_POLL
 
 static void poll_handler(uv_poll_t *handle, int status, int events);
@@ -203,7 +216,7 @@ static int uv_pcap_interf_init(uv_loop_t *loop, uv_pcap_interf_t *handle, uv_pca
     handle->fd = pcap_get_selectable_fd(dev);
     handle->dev = dev;
     handle->callback = cb;
-    memcpy(handle->mac, mac, 6);
+    CPY_MAC(handle->mac, mac);
     ret = uv_poll_init(loop, &handle->poll, handle->fd);
     if (ret) return ret;
     ret = uv_poll_start(&handle->poll, UV_READABLE, poll_handler);
@@ -217,18 +230,6 @@ static void uv_pcap_interf_close(uv_pcap_interf_t *handle, uv_close_cb cb)
     if (ret) {
         LLOG(LLOG_ERROR, "uv_poll_stop %d", ret);
     }
-}
-
-static int uv_pcap_interf_sendpacket(uv_pcap_interf_t *handle, const u_char *data, int size)
-{
-    u_char old[6];
-    u_char *d = (u_char *)data;
-    memcpy(old, d + 6, 6);
-    memcpy(d + 6, handle->mac, 6);
-    int ret = pcap_sendpacket(handle->dev, data, size);
-    memcpy(d + 6, old, 6);
-
-    return ret;
 }
 
 static void poll_callback(u_char *data, const struct pcap_pkthdr *pkt_header, const u_char *packet)
@@ -256,7 +257,7 @@ static void get_packet_async_cb(uv_async_t *async);
 static void libpcap_thread(void *data);
 static void libpcap_handler(u_char *data, const struct pcap_pkthdr *pkt_header, const u_char *packet);
 
-int uv_pcap_interf_init(uv_loop_t *loop, uv_pcap_interf_t *handle, uv_pcap_interf_cb cb, pcap_t *dev)
+int uv_pcap_interf_init(uv_loop_t *loop, uv_pcap_interf_t *handle, uv_pcap_interf_cb cb, pcap_t *dev, uint8_t *mac)
 {
     int ret;
     ret = uv_async_init(loop, &handle->get_packet_async, get_packet_async_cb);
@@ -266,6 +267,7 @@ int uv_pcap_interf_init(uv_loop_t *loop, uv_pcap_interf_t *handle, uv_pcap_inter
     handle->get_packet_async.data = handle;
     handle->callback = cb;
     handle->dev = dev;
+    CPY_MAC(handle->mac, mac);
     ret = uv_thread_create(&handle->libpcap_thread, libpcap_thread, handle);
     if (ret) {
         LLOG(LLOG_ERROR, "uv_thread_create %d", ret);
@@ -274,14 +276,14 @@ int uv_pcap_interf_init(uv_loop_t *loop, uv_pcap_interf_t *handle, uv_pcap_inter
     return 0;
 }
 
-void uv_pcap_interf_close(uv_pcap_interf_t *handle)
+void uv_pcap_interf_close(uv_pcap_interf_t *handle, uv_close_cb cb)
 {
     pcap_breakloop(handle->dev);
     int ret = uv_thread_join(&handle->libpcap_thread);
     if (ret) {
         LLOG(LLOG_ERROR, "uv_thread_join %d", ret);
     }
-    uv_close((uv_handle_t *)&handle->get_packet_async, NULL);
+    uv_close((uv_handle_t *)&handle->get_packet_async, cb);
 }
 
 static void get_packet_async_cb(uv_async_t *async)
@@ -299,7 +301,7 @@ static void libpcap_thread(void *data)
     int ret = 0;
 
     ret = pcap_loop(handle->dev, -1, libpcap_handler, (u_char *)data);
-    if (ret < 0) {
+    if (ret < 0 && ret != PCAP_ERROR_BREAK) {
         LLOG(LLOG_ERROR, "pcap_loop %d", ret);
     }
 
