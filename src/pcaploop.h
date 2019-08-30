@@ -35,5 +35,6 @@ struct uv_pcap_s {
 
 int uv_pcap_init(uv_loop_t *loop, uv_pcap_t *handle, uv_pcap_cb cb, pcap_t *dev);
 void uv_pcap_close(uv_pcap_t *handle, uv_close_cb cb);
+int uv_pcap_sendpacket(uv_pcap_t *handle, const u_char *data, int size);
 
 #endif

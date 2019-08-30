@@ -33,6 +33,11 @@ void uv_pcap_close(uv_pcap_t *handle, uv_close_cb cb)
     printf("pcap loop stop\n");
 }
 
+int uv_pcap_sendpacket(uv_pcap_t *handle, const u_char *data, int size)
+{
+    return pcap_sendpacket(handle->dev, data, size);
+}
+
 static void poll_callback(u_char *data, const struct pcap_pkthdr *pkt_header, const u_char *packet)
 {
     uv_pcap_t *handle = (uv_pcap_t *)data;

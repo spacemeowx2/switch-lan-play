@@ -214,10 +214,10 @@ int lan_client_process(struct lan_play *lan_play, const uint8_t *packet, uint16_
     const uint8_t *dst = packet + IPV4_OFF_DST;
     struct payload part;
 
-    if (lan_play->dev == NULL) {
-        printf("not ready\n");
-        return 1;
-    }
+    // if (lan_play->dev == NULL) {
+    //     printf("not ready\n");
+    //     return 1;
+    // }
 
     if (IS_BROADCAST(dst, lan_play->packet_ctx.subnet_net, lan_play->packet_ctx.subnet_mask)) {
         return lan_client_on_broadcast(lan_play, packet, len);

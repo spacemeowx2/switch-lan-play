@@ -45,8 +45,6 @@ struct lan_client_fragment {
 };
 
 struct lan_play {
-    pcap_t *dev;
-
     struct packet_ctx packet_ctx;
 
     uv_loop_t *loop;

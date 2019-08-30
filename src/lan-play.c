@@ -4,6 +4,7 @@
 
 struct lan_play real_lan_play;
 uint8_t SEND_BUFFER[BUFFER_SIZE];
+void lan_play_pcap_handler(uv_pcap_t *handle, const struct pcap_pkthdr *pkt_header, const u_char *packet);
 
 void set_filter(pcap_t *dev, const uint8_t *mac)
 {
@@ -73,16 +74,19 @@ int init_pcap(struct lan_play *lan_play, void *mac)
 
     pcap_freealldevs(alldevs);
 
-    lan_play->dev = dev;
+    int ret = uv_pcap_init(lan_play->loop, &lan_play->pcap, lan_play_pcap_handler, dev);
+    if (ret != 0) {
+        RETURN_ERR(lan_play, "failed at uv_pcap_init");
+    };
 
     return 0;
 }
 
 int lan_play_send_packet(struct lan_play *lan_play, void *data, int size)
 {
-    int ret = pcap_sendpacket(lan_play->dev, data, size);
+    int ret = uv_pcap_sendpacket(&lan_play->pcap, data, size);
     if (ret != 0) {
-        LLOG(LLOG_ERROR, "lan_play_packet_send %d", ret);
+        LLOG(LLOG_ERROR, "uv_pcap_sendpacket %d", ret);
     }
     return ret;
 }
@@ -120,7 +124,6 @@ int lan_play_init(struct lan_play *lan_play)
     uint8_t subnet_mask[4];
     uint8_t mac[6];
 
-    lan_play->dev = NULL;
     lan_play->broadcast = options.broadcast;
     lan_play->pmtu = options.pmtu;
 
@@ -173,11 +176,6 @@ int lan_play_init(struct lan_play *lan_play)
     );
     if (ret != 0) return ret;
 
-
-    ret = uv_pcap_init(lan_play->loop, &lan_play->pcap, lan_play_pcap_handler, lan_play->dev);
-    if (ret != 0) {
-        RETURN_ERR(lan_play, "failed at uv_pcap_init");
-    };
     lan_play->pcap.data = lan_play;
 
     return ret;
