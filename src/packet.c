@@ -86,6 +86,7 @@ void print_packet(const struct pcap_pkthdr *pkthdr, const u_char *packet)
     eprintf("\n\n");
 }
 
+static u_char AnyMac[6] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
 int packet_init(
     struct packet_ctx *self,
     struct lan_play *arg,
@@ -104,6 +105,8 @@ int packet_init(
     CPY_IPV4(self->ip, ip);
     CPY_IPV4(self->subnet_net, subnet_net);
     CPY_IPV4(self->subnet_mask, subnet_mask);
+
+    self->mac = AnyMac;
 
     self->identification = 0;
     arp_list_init(self->arp_list);
