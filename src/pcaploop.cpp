@@ -30,8 +30,8 @@ struct uv_pcap_interf_s {
     void *data;
 };
 struct uv_pcap_inner {
-    std::unordered_map<uint64_t, uv_pcap_interf_s *> map;
-    uv_pcap_interf_s *interface;
+    std::unordered_map<uint64_t, uv_pcap_interf_t *> map;
+    uv_pcap_interf_t *interface;
     int count;
 };
 
@@ -126,7 +126,7 @@ int uv_pcap_init(uv_loop_t *loop, uv_pcap_t *handle, uv_pcap_cb cb)
         exit(1);
     }
 
-    inner->interface = new uv_pcap_interf_s[i];
+    inner->interface = new uv_pcap_interf_t[i];
     i = 0;
     for (d = alldevs; d; d = d->next) {
         pcap_t *dev;
