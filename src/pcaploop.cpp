@@ -4,6 +4,14 @@
 #include <base/llog.h>
 #include <unordered_map>
 
+#ifndef PCAPLOOP_USE_POLL
+#if defined(_WIN32)
+#define PCAPLOOP_USE_POLL 0
+#else
+#define PCAPLOOP_USE_POLL 1
+#endif
+#endif
+
 typedef struct uv_pcap_interf_s uv_pcap_interf_t;
 typedef void (*uv_pcap_interf_cb)(uv_pcap_interf_t *handle, const struct pcap_pkthdr *pkt_header, const u_char *packet);
 typedef void (*uv_pcap_interf_close_cb)(uv_pcap_interf_t *handle);
@@ -254,7 +262,7 @@ static void poll_handler(uv_poll_t *poll, int status, int events)
 #else
 
 static void get_packet_async_cb(uv_async_t *async);
-static void libpcap_thread(void *data);
+static void libpcap_thread_func(void *data);
 static void libpcap_handler(u_char *data, const struct pcap_pkthdr *pkt_header, const u_char *packet);
 
 int uv_pcap_interf_init(uv_loop_t *loop, uv_pcap_interf_t *handle, uv_pcap_interf_cb cb, pcap_t *dev, uint8_t *mac)
@@ -268,7 +276,7 @@ int uv_pcap_interf_init(uv_loop_t *loop, uv_pcap_interf_t *handle, uv_pcap_inter
     handle->callback = cb;
     handle->dev = dev;
     CPY_MAC(handle->mac, mac);
-    ret = uv_thread_create(&handle->libpcap_thread, libpcap_thread, handle);
+    ret = uv_thread_create(&handle->libpcap_thread, libpcap_thread_func, handle);
     if (ret) {
         LLOG(LLOG_ERROR, "uv_thread_create %d", ret);
         return ret;
@@ -295,7 +303,7 @@ static void get_packet_async_cb(uv_async_t *async)
     uv_sem_post(&handle->get_packet_sem);
 }
 
-static void libpcap_thread(void *data)
+static void libpcap_thread_func(void *data)
 {
     uv_pcap_interf_t *handle = (uv_pcap_interf_t *)data;
     int ret = 0;

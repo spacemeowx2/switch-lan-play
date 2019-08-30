@@ -8,14 +8,6 @@ extern "C" {
 #include <uv.h>
 #include <pcap.h>
 
-#ifndef PCAPLOOP_USE_POLL
-#if defined(_WIN32)
-#define PCAPLOOP_USE_POLL 0
-#else
-#define PCAPLOOP_USE_POLL 1
-#endif
-#endif
-
 typedef struct uv_pcap_s uv_pcap_t;
 typedef void (*uv_pcap_cb)(uv_pcap_t *handle, const struct pcap_pkthdr *pkt_header, const u_char *packet, const uint8_t *mac);
 
