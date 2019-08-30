@@ -39,7 +39,7 @@ struct uv_pcap_interf_s {
 };
 struct uv_pcap_inner {
     std::unordered_map<uint64_t, uv_pcap_interf_t *> map;
-    uv_pcap_interf_t *interface;
+    uv_pcap_interf_t *interfaces;
     int count;
 };
 
@@ -101,7 +101,7 @@ int uv_pcap_sendpacket(uv_pcap_t *handle, const u_char *data, int size)
         }
     } else {
         for (int i = 0; i < inner->count; i++) {
-            int ret = uv_pcap_interf_sendpacket(&inner->interface[i], data, size);
+            int ret = uv_pcap_interf_sendpacket(&inner->interfaces[i], data, size);
             if (ret != 0) {
                 LLOG(LLOG_DEBUG, "uv_pcap_interf_sendpacket failed %d", ret);
             }
@@ -134,7 +134,7 @@ int uv_pcap_init(uv_loop_t *loop, uv_pcap_t *handle, uv_pcap_cb cb)
         exit(1);
     }
 
-    inner->interface = new uv_pcap_interf_t[i];
+    inner->interfaces = new uv_pcap_interf_t[i];
     i = 0;
     for (d = alldevs; d; d = d->next) {
         pcap_t *dev;
@@ -169,12 +169,12 @@ int uv_pcap_init(uv_loop_t *loop, uv_pcap_t *handle, uv_pcap_cb cb)
             goto fail_next;
         }
 
-        ret = uv_pcap_interf_init(loop, &inner->interface[i], uv_pcap_callback, dev, mac);
+        ret = uv_pcap_interf_init(loop, &inner->interfaces[i], uv_pcap_callback, dev, mac);
         if (ret) {
             LLOG(LLOG_DEBUG, "open %s fail: pcap init", d->name);
             goto fail_next;
         }
-        inner->interface[i].data = handle;
+        inner->interfaces[i].data = handle;
         i++;
         LLOG(LLOG_DEBUG, "open %s ok", d->name);
         continue;
@@ -191,7 +191,7 @@ void uv_pcap_close(uv_pcap_t *handle)
     auto inner = handle->inner;
     inner->map.clear();
     for (int i = 0; i < inner->count; i++) {
-        uv_pcap_interf_close(&inner->interface[i], NULL);
+        uv_pcap_interf_close(&inner->interfaces[i], NULL);
     }
     printf("pcap loop stop\n");
 }
