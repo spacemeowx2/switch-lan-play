@@ -43,7 +43,6 @@ std::string getConfig(std::string prefix, const LanPlayConfig &config) {
     std::string out;
 
     out += "[" + prefix + "]\n";
-    out += kv("netif", config.netif);
     out += kv("relayServer", config.relayServer);
     out += kv("socks5Server", config.socks5Server);
     out += kv("pmtu", config.pmtu);
@@ -139,9 +138,6 @@ std::string RPCServerSession::onMessage(std::string message) {
             out = getConfig(lanPlay.config);
         } else if (key == "lastConfig") {
             out = getConfig("lastConfig", lanPlay.getLastConfig());
-        } else if (key == "netif") {
-            lanPlay.config.netif = value;
-            out = getConfig(lanPlay.config);
         } else if (key == "relayServer") {
             lanPlay.config.relayServer = value;
             out = getConfig(lanPlay.config);

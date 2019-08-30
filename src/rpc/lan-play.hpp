@@ -17,7 +17,6 @@ enum class LanPlayStatus {
 struct LanPlayConfig {
     std::string relayServer;
     std::string socks5Server;
-    std::string netif;
     bool fakeInternet;
     bool broadcast;
     int pmtu;
