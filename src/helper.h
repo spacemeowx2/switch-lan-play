@@ -16,7 +16,7 @@ extern "C" {
 #include <netdb.h>
 #include <unistd.h>
 #endif
-#include <pcap.h>
+#include "pcap.h"
 #include <string.h>
 // #define HTONS(a) ( (((a) & 0xff) << 8) | (((a) >> 8) & 0xff) )
 #define LMIN(a, b) ((a) < (b) ? (a) : (b))

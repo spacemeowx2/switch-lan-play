@@ -6,7 +6,7 @@ extern "C" {
 #endif
 
 #include <uv.h>
-#include <pcap.h>
+#include "pcap.h"
 
 typedef struct uv_pcap_s uv_pcap_t;
 typedef void (*uv_pcap_cb)(uv_pcap_t *handle, const struct pcap_pkthdr *pkt_header, const u_char *packet, const uint8_t *mac);

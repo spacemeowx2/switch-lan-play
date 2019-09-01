@@ -46,7 +46,7 @@ endif()
 
 set_target_properties(lan-play PROPERTIES CXX_STANDARD 17)
 
-if(NOT CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+if(NOT ((CMAKE_SYSTEM_NAME STREQUAL "Darwin") OR MSVC))
     target_link_libraries(lan-play atomic)
 endif()
 target_link_libraries(lan-play base)
