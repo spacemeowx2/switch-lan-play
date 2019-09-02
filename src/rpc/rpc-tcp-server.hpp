@@ -16,6 +16,19 @@ class BaseTCPConnection {
             rl.feed(e.data.get(), e.length);
         };
         virtual void onSend(std::string &result, std::shared_ptr<uvw::TCPHandle> &client) = 0;
+        void sendStr(std::string str) {
+            auto client = weak_tcp.lock();
+            if (client) {
+            auto length = str.length();
+            if (length > 0) {
+                auto data = new char[length];
+                memcpy(data, str.c_str(), length);
+                client->write(data, length);
+            }
+            } else {
+                LLOG(LLOG_WARNING, "client or rl weak_ptr lost");
+            }
+        }
     public:
         BaseTCPConnection(
             std::shared_ptr<uvw::TCPHandle> tcp,
@@ -28,12 +41,7 @@ class BaseTCPConnection {
                 auto client = weak_tcp.lock();
                 if (client) {
                     result = callback(line, *client);
-                    auto length = result.length();
-                    if (length > 0) {
-                        auto data = new char[length];
-                        memcpy(data, result.c_str(), length);
-                        client->write(data, length);
-                    }
+                    sendStr(result);
                 } else {
                     LLOG(LLOG_WARNING, "client or rl weak_ptr lost");
                 }

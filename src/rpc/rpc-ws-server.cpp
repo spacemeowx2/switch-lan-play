@@ -8,8 +8,13 @@ namespace rpc {
 
 const char HTTP_RESP_400[] = "HTTP/1.1 400 Bad Request\r\n"
     "Content-Length: 0\r\n"
-    "Content-Type: text/plain\r\n"
     "Connection: Close\r\n" "\r\n";
+const char HTTP_RESP_404[] = "HTTP/1.1 404 Not Found\r\n"
+    "Content-Length: 0\r\n"
+    "Connection: Close\r\n" "\r\n";
+const char HTTP_RESP_200[] = "HTTP/1.1 200 OK\r\n"
+    "Connection: Close\r\n"
+    "Content-Length: ";
 const char HTTP_RESP_101_PART[] = "HTTP/1.1 101 Switching Protocols\r\n"
     "Upgrade: websocket\r\n"
     "Connection: Upgrade\r\n"
@@ -27,10 +32,77 @@ enum class WSCState {
     DEAD
 };
 
+std::string getPath(const std::string str) {
+    std::string line = str;
+    auto ePos = line.find(' ');
+    if (ePos == std::string::npos) {
+        return "";
+    }
+    std::string method = line.substr(0, ePos);
+    line = line.substr(ePos + 1);
+    ePos = line.find(' ');
+    if (ePos == std::string::npos) {
+        return "";
+    }
+    std::string path = line.substr(0, ePos);
+    line = line.substr(ePos + 1);
+    if (line != "HTTP/1.1") {
+        return "";
+    }
+    return path;
+}
+
 std::string tolower(const std::string str) {
     std::string data = str;
     std::transform(data.begin(), data.end(), data.begin(), ::tolower);
     return data;
+}
+
+std::string WSConnection::sendFile(const std::string path) {
+    std::string filename = path;
+    if (filename.find("..") != std::string::npos) {
+        return HTTP_RESP_400;
+    }
+    if (filename.length() == 0) {
+        filename = "index.html";
+    }
+    const int ReadSize = 65536;
+    auto loop = uvw::Loop::getDefault();
+    auto file = loop->resource<uvw::FileReq>();
+    pos = 0;
+    file->on<uvw::ErrorEvent>([=](const auto &event, auto &) {
+        if (event.code() == UV_ENOENT) {
+            sendStr(HTTP_RESP_404);
+        } else {
+            sendStr(HTTP_RESP_400);
+        }
+        LLOG(LLOG_ERROR, "%s: %d %s: %s \n", this->path.c_str(), event.code(), event.name(), event.what());
+    });
+    file->on<uvw::FsEvent<uvw::FileReq::Type::FSTAT>>([=](const auto &e, auto &req) {
+        sendStr(HTTP_RESP_200);
+        sendStr(std::to_string(e.stat.st_size) + "\r\n\r\n");
+        req.read(0, ReadSize);
+    });
+    file->on<uvw::FsEvent<uvw::FileReq::Type::OPEN>>([=](const auto &, auto &req) {
+        req.stat();
+    });
+    file->on<uvw::FsEvent<uvw::FileReq::Type::READ>>([=](auto &event, auto &req) {
+        if (event.size == 0) {
+            req.close();
+            return;
+        }
+        auto client = weak_tcp.lock();
+        if (client) {
+            char *data = (char *)event.data.release();
+            client->write(std::move(std::unique_ptr<char[]>(data)), event.size);
+        } else {
+            LLOG(LLOG_WARNING, "client or rl weak_ptr lost");
+        }
+        pos += event.size;
+        req.read(pos, ReadSize);
+    });
+    file->open("http_root/" + filename, uvw::FileReq::FileOpen::RDONLY, 0644);
+    return "";
 }
 
 void WSConnection::onData(uvw::DataEvent &e) {
@@ -194,7 +266,8 @@ WSConnection::WSConnection(
 ):
     BaseTCPConnection(tcp, [this](std::string line, uvw::TCPHandle &tcp) -> std::string {
         if (wsState == WSCState::DO_HEADER) {
-            if (line != "GET / HTTP/1.1") {
+            path = getPath(line);
+            if (path.length() == 0) {
                 wsState = WSCState::DEAD;
                 return HTTP_RESP_400;
             }
@@ -216,7 +289,8 @@ WSConnection::WSConnection(
                 headers[key] = value;
             } else {
                 if (
-                    headers["upgrade"] == "websocket"
+                    path == "/"
+                    && headers["upgrade"] == "websocket"
                     && headers["connection"] == "Upgrade"
                     && headers["sec-websocket-version"] == "13"
                     && headers["sec-websocket-protocol"] == "switch-lan-play-rpc"
@@ -234,7 +308,7 @@ WSConnection::WSConnection(
                     return result + accept + "\r\n\r\n";
                 } else {
                     wsState = WSCState::DEAD;
-                    return HTTP_RESP_400;
+                    return sendFile(path.substr(1));;
                 }
             }
         }

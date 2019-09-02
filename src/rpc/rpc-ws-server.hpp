@@ -37,7 +37,9 @@ class WSConnection : public BaseTCPConnection {
     protected:
         WSCState wsState;
         bool authed;
+        std::size_t pos;
         std::string token;
+        std::string path;
         std::unordered_map<std::string, std::string> headers;
         bool handshaked;
         std::function<std::string(std::string line, uvw::TCPHandle &tcp)> callback;
@@ -48,6 +50,7 @@ class WSConnection : public BaseTCPConnection {
         virtual void onSend(std::string &result, std::shared_ptr<uvw::TCPHandle> &client);
         void onFrame();
         void sendText(std::shared_ptr<uvw::TCPHandle> &tcp, std::string &str);
+        std::string sendFile(const std::string path);
     public:
         WSConnection(
             std::shared_ptr<uvw::TCPHandle> tcp,
