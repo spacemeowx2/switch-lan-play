@@ -16,6 +16,9 @@ class BaseTCPConnection {
             rl.feed(e.data.get(), e.length);
         };
         virtual void onSend(std::string &result, std::shared_ptr<uvw::TCPHandle> &client) = 0;
+        void sendStr(const char *str) {
+            sendStr(std::string(str));
+        }
         void sendStr(std::string str) {
             auto client = weak_tcp.lock();
             if (client) {
