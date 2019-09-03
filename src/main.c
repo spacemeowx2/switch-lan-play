@@ -19,21 +19,27 @@ int list_interfaces(pcap_if_t *alldevs)
             printf(" (No description available)");
         }
         if (d->addresses) {
-            printf("\n\tIP: [");
             struct pcap_addr *taddr;
             struct sockaddr_in *sin;
             char  revIP[100];
+            bool  first = true;
             for (taddr = d->addresses; taddr; taddr = taddr->next)
             {
                 sin = (struct sockaddr_in *)taddr->addr;
                 if (sin->sin_family == AF_INET) {
                     strncpy(revIP, inet_ntoa(sin->sin_addr), sizeof(revIP));
-                    printf("%s", revIP);
-                    if (taddr->next)
+                    if (first) {
+                        printf("\n\tIP: [");
+                        first = false;
+                    } else {
                         putchar(',');
+                    }
+                    printf("%s", revIP);
                 }
             }
-            putchar(']');
+            if (!first) {
+                putchar(']');
+            }
         }
         putchar('\n');
     }
@@ -224,21 +230,17 @@ void print_version()
     printf("switch-lan-play " LANPLAY_VERSION "\n");
 }
 
-void prompt_netif(bool list_if_only)
+void list_netif()
 {
     pcap_if_t *alldevs;
-    pcap_if_t *d;
     char err_buf[PCAP_ERRBUF_SIZE];
-    int arg_inum;
 
     if (pcap_findalldevs(&alldevs, err_buf)) {
         fprintf(stderr, "Error pcap_findalldevs: %s\n", err_buf);
         exit(1);
     }
 
-    if (list_if_only) {
-        list_interfaces(alldevs);
-    }
+    list_interfaces(alldevs);
 
     pcap_freealldevs(alldevs);
 }
@@ -257,7 +259,7 @@ int old_main()
     }
 
     if (options.list_if) {
-        prompt_netif(true);
+        list_netif();
         return 0;
     }
 
@@ -271,8 +273,6 @@ int old_main()
         LLOG(LLOG_ERROR, "Failed to parse and get ip address. --relay-server-addr: %s", options.relay_server_addr);
         return -1;
     }
-
-    prompt_netif(false);
 
     RT_ASSERT(uv_signal_init(lan_play->loop, &signal_int) == 0);
     RT_ASSERT(uv_signal_start(&signal_int, lan_play_signal_cb, SIGINT) == 0);
