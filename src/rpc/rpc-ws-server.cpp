@@ -76,7 +76,7 @@ std::string WSConnection::sendFile(const std::string path) {
         } else {
             sendStr(HTTP_RESP_400);
         }
-        LLOG(LLOG_ERROR, "%s: %d %s: %s \n", this->path.c_str(), event.code(), event.name(), event.what());
+        LLOG(LLOG_ERROR, "%s: %d %s: %s", this->path.c_str(), event.code(), event.name(), event.what());
     });
     file->on<uvw::FsEvent<uvw::FileReq::Type::FSTAT>>([=](const auto &e, auto &req) {
         sendStr(HTTP_RESP_200);
