@@ -34,7 +34,7 @@ export class ServerMonitor {
   }
 
   private async handleGetInfo(ctx: IRouterContext) {
-    const size = this.server.getClients().size
+    const size = this.server.getClientSize()
 
     ctx.type = 'application/json'
     ctx.body = {
