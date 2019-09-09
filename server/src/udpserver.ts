@@ -72,13 +72,16 @@ class PeerManager {
   get (rinfo: AddressInfo): Peer {
     const key = addr2str(rinfo)
     const map = this.map
+    const expireAt = Date.now() + Timeout
     let i = map.get(key)
     if (i === undefined) {
       i = {
-        expireAt: Date.now() + Timeout,
+        expireAt,
         peer: new Peer(rinfo)
       }
       map.set(key, i)
+    } else {
+      i.expireAt = expireAt
     }
     return i.peer
   }
