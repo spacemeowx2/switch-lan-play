@@ -72,15 +72,15 @@ std::string WSConnection::sendFile(const std::string path) {
     pos = 0;
     file->on<uvw::ErrorEvent>([=](const auto &event, auto &) {
         if (event.code() == UV_ENOENT) {
-            sendStr(HTTP_RESP_404);
+            this->sendStr(HTTP_RESP_404);
         } else {
-            sendStr(HTTP_RESP_400);
+            this->sendStr(HTTP_RESP_400);
         }
         LLOG(LLOG_ERROR, "%s: %d %s: %s", this->path.c_str(), event.code(), event.name(), event.what());
     });
     file->on<uvw::FsEvent<uvw::FileReq::Type::FSTAT>>([=](const auto &e, auto &req) {
-        sendStr(HTTP_RESP_200);
-        sendStr(std::to_string(e.stat.st_size) + "\r\n\r\n");
+        this->sendStr(HTTP_RESP_200);
+        this->sendStr(std::to_string(e.stat.st_size) + "\r\n\r\n");
         req.read(0, ReadSize);
     });
     file->on<uvw::FsEvent<uvw::FileReq::Type::OPEN>>([=](const auto &, auto &req) {
