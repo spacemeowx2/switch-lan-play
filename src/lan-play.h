@@ -91,8 +91,11 @@ struct cli_options {
     char *netif_ipaddr;
     char *netif_netmask;
 
-    char *socks5_server_addr;
     char *relay_server_addr;
+    char *relay_username;
+    char *relay_password;
+    char *relay_password_file;
+    char *socks5_server_addr;
     char *socks5_username;
     char *socks5_password;
     char *socks5_password_file;

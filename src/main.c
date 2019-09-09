@@ -67,8 +67,12 @@ int parse_arguments(int argc, char **argv)
     options.netif_ipaddr = NULL;
     options.netif_netmask = NULL;
 
-    options.socks5_server_addr = NULL;
     options.relay_server_addr = NULL;
+    options.relay_username = NULL;
+    options.relay_password = NULL;
+    options.relay_password_file = NULL;
+
+    options.socks5_server_addr = NULL;
     options.socks5_username = NULL;
     options.socks5_password = NULL;
     options.socks5_password_file = NULL;
@@ -95,6 +99,18 @@ int parse_arguments(int argc, char **argv)
         } else if (!strcmp(arg, "--relay-server-addr")) {
             CHECK_PARAM();
             options.relay_server_addr = argv[i + 1];
+            i++;
+        } else if (!strcmp(arg, "--username")) {
+            CHECK_PARAM();
+            options.relay_username = argv[i + 1];
+            i++;
+        } else if (!strcmp(arg, "--password")) {
+            CHECK_PARAM();
+            options.relay_password = argv[i + 1];
+            i++;
+        } else if (!strcmp(arg, "--password-file")) {
+            CHECK_PARAM();
+            options.relay_password_file = argv[i + 1];
             i++;
         } else if (!strcmp(arg, "--socks5-server-addr")) {
             CHECK_PARAM();
@@ -165,6 +181,17 @@ int parse_arguments(int argc, char **argv)
             return -1;
         }
     }
+    if (options.relay_username) {
+        if (!options.relay_password && !options.relay_password_file) {
+            eprintf("username given but password not given\n");
+            return -1;
+        }
+
+        if (options.relay_password && options.relay_password_file) {
+            eprintf("--password and --password-file cannot both be given\n");
+            return -1;
+        }
+    }
 
     return 0;
 }
@@ -181,6 +208,9 @@ void print_help(const char *name)
         // "        [--netif-ipaddr <ipaddr>] default: 10.13.37.1\n"
         // "        [--netif-netmask <ipnetmask>] default: 255.255.0.0\n"
         "        [--relay-server-addr <addr>]\n"
+        "        [--username <username>]\n"
+        "        [--password <password>]\n"
+        "        [--password-file <password-file>]\n"
         "        [--netif <netif>]\n"
         "        [--list-if]\n"
         "        [--pmtu <pmtu>]\n"
