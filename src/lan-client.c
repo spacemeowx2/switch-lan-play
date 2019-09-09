@@ -1,4 +1,5 @@
 #include "lan-play.h"
+#include "sha1.h"
 
 struct lan_client_fragment_header {
     uint8_t src[4];
@@ -22,7 +23,9 @@ enum lan_client_type {
     LAN_CLIENT_TYPE_KEEPALIVE = 0x00,
     LAN_CLIENT_TYPE_IPV4 = 0x01,
     LAN_CLIENT_TYPE_PING = 0x02,
-    LAN_CLIENT_TYPE_IPV4_FRAG = 0x03
+    LAN_CLIENT_TYPE_IPV4_FRAG = 0x03,
+    LAN_CLIENT_TYPE_AUTH_ME = 0x04,
+    LAN_CLIENT_TYPE_INFO = 0x10,
 };
 struct ipv4_req {
     uv_udp_send_t req;
@@ -35,6 +38,7 @@ void lan_client_keepalive_timer(uv_timer_t *handle);
 void lan_client_real_broadcast_timer(uv_timer_t *handle);
 int lan_client_send_keepalive(struct lan_play *lan_play);
 int lan_client_send_ipv4(struct lan_play *lan_play, void *dst_ip, const void *packet, uint16_t len);
+int lan_client_send_auth_me(struct lan_play *lan_play, const void *packet, uint16_t len);
 
 static void lan_client_alloc_cb(uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf)
 {
@@ -329,6 +333,39 @@ void lan_client_keepalive_timer(uv_timer_t *handle)
     lan_client_send_keepalive(lan_play);
 }
 
+/*
+    Auth Type = 0:
+    Server send 64bytes random bytes
+    Client send 20bytes hash + username in plaintext.
+    hash = sha1(sha1(password) + challenge)
+    client only keep sha1(password)
+*/
+void lan_client_process_auth_me(struct lan_play *lan_play, const uint8_t *packet, uint16_t len)
+{
+    if (lan_play->username) {
+        uint8_t auth_type = packet[0];
+        if (auth_type == 0) {
+            const uint8_t *challenge = packet + 1;
+            uint16_t challenge_len = len - 1;
+            uint16_t username_len = strlen(lan_play->username);
+            uint16_t response_len = 20 + username_len;
+            uint8_t *response = malloc(response_len);
+            SHA1_CTX hashctx;
+            SHA1Init(&hashctx);
+            SHA1Update(&hashctx, (const unsigned char *)lan_play->key, 20);
+            SHA1Update(&hashctx, challenge, challenge_len);
+            SHA1Final(response, &hashctx);
+            memcpy(response + 20, lan_play->username, username_len);
+            lan_client_send_auth_me(lan_play, response, response_len);
+            free(response);
+        } else {
+            LLOG(LLOG_WARNING, "unknown auth type %d", auth_type);
+        }
+    } else {
+        printf("The server ask us to login. Please re-run client with username and password\n");
+    }
+}
+
 void lan_client_on_recv(uv_udp_t* handle, ssize_t nread, const uv_buf_t* buf, const struct sockaddr* addr, unsigned flags)
 {
     if (nread <= 0) {
@@ -340,11 +377,13 @@ void lan_client_on_recv(uv_udp_t* handle, ssize_t nread, const uv_buf_t* buf, co
     struct lan_play *lan_play = (struct lan_play *)handle->data;
     uint16_t recv_len = nread;
     uint8_t *buffer = (uint8_t *)buf->base;
+    uint8_t type = buffer[0] & 0x7f;
+    // bool is_encrypted = (buffer[0] & 0x80) != 0;
 
     lan_play->download_packet++;
     lan_play->download_byte += recv_len;
 
-    switch (buffer[0]) { // type
+    switch (type) {
     case LAN_CLIENT_TYPE_KEEPALIVE:
         break;
     case LAN_CLIENT_TYPE_IPV4:
@@ -352,6 +391,12 @@ void lan_client_on_recv(uv_udp_t* handle, ssize_t nread, const uv_buf_t* buf, co
         break;
     case LAN_CLIENT_TYPE_IPV4_FRAG:
         lan_client_process_frag(lan_play, buffer + 1, recv_len - 1);
+        break;
+    case LAN_CLIENT_TYPE_AUTH_ME:
+        lan_client_process_auth_me(lan_play, buffer + 1, recv_len - 1);
+        break;
+    case LAN_CLIENT_TYPE_INFO:
+        printf("[Server]: %.*s\n", recv_len - 1, buffer + 1);
         break;
     }
 }
@@ -378,6 +423,9 @@ static int lan_client_send_raw(struct lan_play *lan_play, uv_buf_t *bufs, int bu
     total_len = 0;
     for (i = 0; i < bufs_len; i++) {
         total_len += bufs[i].len;
+    }
+    if (total_len == 0) {
+        return 0;
     }
 
     req->packet = malloc(total_len);
@@ -455,4 +503,9 @@ int lan_client_send_keepalive(struct lan_play *lan_play)
 int lan_client_send_ipv4(struct lan_play *lan_play, void *dst_ip, const void *packet, uint16_t len)
 {
     return lan_client_send(lan_play, LAN_CLIENT_TYPE_IPV4, packet, len);
+}
+
+int lan_client_send_auth_me(struct lan_play *lan_play, const void *packet, uint16_t len)
+{
+    return lan_client_send(lan_play, LAN_CLIENT_TYPE_AUTH_ME, packet, len);
 }

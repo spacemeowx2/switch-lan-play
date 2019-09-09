@@ -1,4 +1,5 @@
 #include "lan-play.h"
+#include "sha1.h"
 
 #define RETURN_ERR(lan_play, ...) snprintf(lan_play->last_err, sizeof(lan_play->last_err), __VA_ARGS__); return -1
 
@@ -65,6 +66,13 @@ int lan_play_init(struct lan_play *lan_play)
         if (parse_addr(options.relay_server_addr, &lan_play->server_addr) != 0) {
             RETURN_ERR(lan_play, "Failed to parse and get ip address. --relay-server-addr: %s", options.relay_server_addr);
         }
+    }
+    lan_play->username = options.relay_username;
+    if (options.relay_password) {
+        SHA1_CTX hashctx;
+        SHA1Init(&hashctx);
+        SHA1Update(&hashctx, (const unsigned char *)options.relay_password, strlen(options.relay_password));
+        SHA1Final(lan_play->key, &hashctx);
     }
 
     ret = init_pcap(lan_play);

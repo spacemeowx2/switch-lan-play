@@ -1,5 +1,12 @@
 import { createSocket, Socket, AddressInfo } from 'dgram'
 import { AuthProvider } from './auth'
+import { randomFill as randomFillAsync } from 'crypto'
+const randomFill = (buf: Buffer, offset: number) => new Promise((res, rej) => randomFillAsync(buf, offset, (err, buf) => {
+  if (err) {
+    return rej(err)
+  }
+  res(buf)
+}))
 const Timeout = 30 * 1000
 const IPV4_OFF_SRC = 12
 const IPV4_OFF_DST = 16
@@ -10,11 +17,21 @@ enum ForwarderType {
   Ipv4 = 1,
   Ping = 2,
   Ipv4Frag = 3,
+  AuthMe = 4,
+  Info = 0x10,
+}
+const ForwarderTypeMap: Record<ForwarderType, Buffer> = {
+  [ForwarderType.Keepalive]: Buffer.from([ForwarderType.Keepalive]),
+  [ForwarderType.Ipv4]: Buffer.from([ForwarderType.Ipv4]),
+  [ForwarderType.Ping]: Buffer.from([ForwarderType.Ping]),
+  [ForwarderType.Ipv4Frag]: Buffer.from([ForwarderType.Ipv4Frag]),
+  [ForwarderType.AuthMe]: Buffer.from([ForwarderType.AuthMe]),
+  [ForwarderType.Info]: Buffer.from([ForwarderType.Info]),
 }
 
 interface CacheItem {
   expireAt: number
-  rinfo: AddressInfo
+  peer: Peer
 }
 function clearCacheItem<T, U extends { expireAt: number }> (map: Map<T, U>) {
   const now = Date.now()
@@ -33,7 +50,14 @@ function lookup (hostname: string, options: any, callback: (err: Error | null, a
   callback(null, hostname, 4)
 }
 
+class User {
+  key?: string
+  constructor (public username: string) {}
+}
+
 class Peer {
+  user?: User
+  challenge?: Buffer
   constructor(public rinfo: AddressInfo){}
 }
 
@@ -63,6 +87,15 @@ class PeerManager {
   }
   get size () {
     return this.map.size
+  }
+  getLogin() {
+    let count = 0
+    for (const i of this.map.values()) {
+      if (i.peer.user) {
+        count += 1
+      }
+    }
+    return count
   }
   *all (except: AddressInfo) {
     const exceptStr = addr2str(except)
@@ -106,7 +139,7 @@ export class SLPServer {
   }
   protected parseHead (msg: Buffer): {
     type: ForwarderType,
-    isEncrypted: boolean
+    isEncrypted: boolean,
   } {
     const firstByte = msg.readUInt8(0)
     return {
@@ -114,7 +147,7 @@ export class SLPServer {
       isEncrypted: (firstByte & 0x80) !== 0,
     }
   }
-  onMessage (msg: Buffer, rinfo: AddressInfo) {
+  async onMessage (msg: Buffer, rinfo: AddressInfo): Promise<void> {
     if (msg.byteLength === 0) {
       return
     }
@@ -124,54 +157,100 @@ export class SLPServer {
     if (type === ForwarderType.Ping && !isEncrypted) {
       return this.onPing(rinfo, msg)
     }
+
+    const peer = this.manager.get(rinfo)
     let payload = msg.slice(1)
 
-    if (isEncrypted) {
-    } else {
-      if (this.authProvider) {
-        // ignore unencrypted packet when auth is enabled
-        return
+    if (this.authProvider) {
+      const { user } = peer
+      if (user === undefined) {
+        // need to send AuthMe to client
+        return this.onNeedAuth(peer, type, payload)
       }
     }
-    const peer = this.manager.get(rinfo)
-    this.onPacket(rinfo, type, payload)
+    this.onPacket(peer, type, payload)
   }
-  onPacket (rinfo: AddressInfo, type: ForwarderType, payload: Buffer) {
+  onPacket (peer: Peer, type: ForwarderType, payload: Buffer) {
     switch (type) {
       case ForwarderType.Keepalive:
         break
       case ForwarderType.Ipv4:
-        this.onIpv4(rinfo, payload)
+        this.onIpv4(peer, payload)
         break
       case ForwarderType.Ping:
         console.error('never reach here')
         break
       case ForwarderType.Ipv4Frag:
-        this.onIpv4Frag(rinfo, payload)
+        this.onIpv4Frag(peer, payload)
         break
     }
   }
-  onIpv4Frag (fromAddr: AddressInfo, payload: Buffer) {
+  protected sendInfo (peer: Peer, info: string) {
+    this.sendTo(peer, ForwarderType.Info, Buffer.from(info))
+  }
+  protected async onNeedAuth (peer: Peer, type: ForwarderType, payload: Buffer) {
+    if (type === ForwarderType.AuthMe) {
+      if (this.authProvider && peer.challenge) {
+        if (payload.byteLength <= 20) {
+          // no place for username
+          return
+        }
+        const response = payload.slice(0, 20)
+        const username = payload.slice(20).toString()
+        let err = ''
+        try {
+          if (await this.authProvider.verify(username, peer.challenge.slice(1), response)) {
+            peer.user = new User(username)
+          } else {
+            err = 'Error when login: Wrong password'
+            this.sendInfo(peer, 'Error when login: Wrong password')
+          }
+        } catch (e) {
+          err = `Error when login: ${e.message}`
+        }
+        if (err.length > 0) {
+          console.log(`${err} user: ${username}`)
+          this.sendInfo(peer, err)
+        }
+      }
+    } else {
+      if (peer.challenge === undefined) {
+        const buf = Buffer.alloc(1 + 64)
+        peer.challenge = buf
+        buf.writeUInt8(0xFF, 0)
+        await randomFill(buf, 1)
+        buf.writeUInt8(0, 0)
+      } else {
+        if (peer.challenge.readUInt8(0) === 0xFF) {
+          // still filling random bytes
+          return
+        }
+      }
+
+      this.sendTo(peer, ForwarderType.AuthMe, peer.challenge)
+    }
+  }
+  onIpv4Frag (peer: Peer, payload: Buffer) {
     if (payload.length <= 20) { // packet too short, ignore
       return
     }
     const src = payload.readInt32BE(0)
     const dst = payload.readInt32BE(4)
     this.ipCache.set(src, {
-      rinfo: fromAddr,
+      peer,
       expireAt: Date.now() + Timeout
     })
     if (this.ipCache.has(dst)) {
-      const { rinfo } = this.ipCache.get(dst)!
-      this.sendTo(rinfo, ForwarderType.Ipv4Frag, payload)
+      const { peer } = this.ipCache.get(dst)!
+      this.sendTo(peer, ForwarderType.Ipv4Frag, payload)
     } else {
-      this.sendBroadcast(fromAddr, ForwarderType.Ipv4Frag, payload)
+      this.sendBroadcast(peer, ForwarderType.Ipv4Frag, payload)
     }
   }
   onPing (rinfo: AddressInfo, msg: Buffer) {
-    this.sendToRaw(rinfo, msg)
+    this.sendToRaw(rinfo, msg.slice(0, 4))
   }
-  onIpv4 (fromAddr: AddressInfo, payload: Buffer) {
+  onIpv4 (peer: Peer, payload: Buffer) {
     if (payload.length <= 20) { // packet too short, ignore
       return
     }
@@ -179,14 +258,14 @@ export class SLPServer {
     const dst = payload.readInt32BE(IPV4_OFF_DST)
 
     this.ipCache.set(src, {
-      rinfo: fromAddr,
+      peer,
       expireAt: Date.now() + Timeout
     })
     if (this.ipCache.has(dst)) {
-      const { rinfo } = this.ipCache.get(dst)!
-      this.sendTo(rinfo, ForwarderType.Ipv4, payload)
+      const { peer } = this.ipCache.get(dst)!
+      this.sendTo(peer, ForwarderType.Ipv4, payload)
     } else {
-      this.sendBroadcast(fromAddr, ForwarderType.Ipv4, payload)
+      this.sendBroadcast(peer, ForwarderType.Ipv4, payload)
     }
   }
   onError (err: Error) {
@@ -199,11 +278,11 @@ export class SLPServer {
   onClose () {
     console.log(`server closed`)
   }
-  sendTo (addr: AddressInfo, type: ForwarderType, payload: Buffer) {
+  sendTo ({ rinfo }: Peer, type: ForwarderType, payload: Buffer) {
     if (OutputEncrypt) {
       console.warn('not implement')
     }
-    this.sendToRaw(addr, Buffer.concat([Buffer.from([type]), payload]))
+    this.sendToRaw(rinfo, Buffer.concat([ForwarderTypeMap[type], payload], payload.byteLength + 1))
   }
   sendToRaw (addr: AddressInfo, msg: Buffer) {
     const {address, port} = addr
@@ -214,9 +293,9 @@ export class SLPServer {
       }
     })
   }
-  sendBroadcast (except: AddressInfo, type: ForwarderType, payload: Buffer) {
-    for (let peer of this.manager.all(except)) {
-      this.sendTo(peer.rinfo, type, payload)
+  sendBroadcast (except: Peer, type: ForwarderType, payload: Buffer) {
+    for (let peer of this.manager.all(except.rinfo)) {
+      this.sendTo(peer, type, payload)
     }
   }
   clearExpire () {

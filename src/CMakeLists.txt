@@ -19,6 +19,7 @@ set(src
     gateway.cpp
     proxy_direct.cpp
     proxy_socks5.cpp
+    sha1.c
     ipv4/ipv4.c
     ipv4/tcp.c
     ipv4/udp.c
@@ -27,7 +28,6 @@ set(src
     rpc/lan-play.cpp
     rpc/rpc-server.cpp
     rpc/rpc-ws-server.cpp
-    rpc/sha1.c
 )
 
 add_executable(lan-play ${src})
