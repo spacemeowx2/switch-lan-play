@@ -33,6 +33,7 @@ struct lan_play;
 #define LANPLAY_VERSION "unset"
 #endif
 #define CLIENT_RECV_BUF_LEN 4096
+#define LP_KEY_LEN 20
 
 struct lan_client_fragment {
     uint16_t local_id;
@@ -63,6 +64,8 @@ struct lan_play {
     int local_id;
     struct sockaddr_in server_addr;
     struct lan_client_fragment frags[LC_FRAG_COUNT];
+    char *username;
+    unsigned char key[LP_KEY_LEN];
 
     struct gateway *gateway;
     char last_err[PCAP_ERRBUF_SIZE];

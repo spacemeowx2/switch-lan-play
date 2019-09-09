@@ -1,5 +1,5 @@
 #include "rpc-ws-server.hpp"
-#include "sha1.h"
+#include "../sha1.h"
 #include "base64.hpp"
 #include <algorithm>
 
