@@ -46,8 +46,11 @@ function addr2str (rinfo: AddressInfo) {
   return `${rinfo.address}:${rinfo.port}`
 }
 
-function lookup (hostname: string, options: any, callback: (err: Error | null, address: string, family: number) => any) {
+function lookup4 (hostname: string, options: any, callback: (err: Error | null, address: string, family: number) => any) {
   callback(null, hostname, 4)
+}
+function lookup6 (hostname: string, options: any, callback: (err: Error | null, address: string, family: number) => any) {
+  callback(null, hostname, 6)
 }
 
 class User {
@@ -119,8 +122,8 @@ export class SLPServer {
   }
   constructor (port: number, protected authProvider?: AuthProvider) {
     const server = createSocket({
-      type: 'udp4',
-      lookup
+      type: 'udp6',
+      lookup: lookup6
     })
     server.on('error', (err) => this.onError(err))
     server.on('close', () => this.onClose())

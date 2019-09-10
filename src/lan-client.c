@@ -79,6 +79,15 @@ int lan_client_init(struct lan_play *lan_play)
         if (ret != 0) {
             LLOG(LLOG_ERROR, "uv_udp_bind %d", ret);
         }
+    } else {
+        if (lan_play->server_addr.sin_family == AF_INET6) {
+            struct sockaddr_in6 temp;
+            uv_ip6_addr("0.0.0.0", 0, &temp);
+            ret = uv_udp_bind(client, (struct sockaddr *)&temp, 0);
+            if (ret != 0) {
+                LLOG(LLOG_ERROR, "uv_udp_bind v6 %d", ret);
+            }
+        }
     }
 
     ret = uv_timer_init(loop, client_keepalive_timer);
@@ -439,8 +448,6 @@ static int lan_client_send_raw(struct lan_play *lan_play, uv_buf_t *bufs, int bu
 
     uv_udp_send_t *udp_req = &req->req;
     udp_req->data = req;
-    print_hex(&lan_play->server_addr, sizeof(lan_play->server_addr));
-    print_hex(&lan_play->server_addr.u.addr, sizeof(lan_play->server_addr.u.ipv6));
     ret = uv_udp_send(udp_req, &lan_play->client, &buf, 1, &lan_play->server_addr.u.addr, lan_client_on_sent);
 
     lan_play->upload_packet++;
