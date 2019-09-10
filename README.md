@@ -29,23 +29,19 @@ Your PC and Switch **must** be connected to the same router.
 
 2. Download the latest `lan-play.exe` from https://github.com/spacemeowx2/switch-lan-play/releases
 
-3. Run lan-play.exe with paramter `--relay-server-addr`. For example:
+3. Run lan-play.exe 
 
-```sh
-lan-play.exe --relay-server-addr example.com:11451
-```
-
-After that, you may see the list like below:
+After that, you will prompted to enter a server as shown below:
 
 ```
-1. \Device\NPF_{538AED4A-7BC9-47D9-A1DD-3F8E0AD2D2B0} (Microsoft Corporation)
-        IP: [10.0.75.1]
-2. \Device\NPF_{A885EB2A-D362-4846-8554-E6F59A044EB9} (Intel(R) Ethernet Connection (2) I219-V)
-        IP: [192.168.233.153]
-Enter the interface number (1-2):
+--relay-server-addr is required
+Input the relay server address [ domain/ip:port ]:
 ```
+You can find a list with public servers here:
+https://www.lan-play.com/
 
-Select the interface which is in the same LAN with your Switch.
+Optionally you can go to the Switch Lan Play Discord to find people to match make:
+https://discord.gg/zEMCu5n
 
 ## 2. Switch
 
