@@ -339,9 +339,11 @@ int parse_addr(const char *str, struct slp_addr_in *addr)
     if (addrs->ai_addr->sa_family == AF_INET) {
         addr->sin_len = sizeof(addr->u.ipv4);
         memcpy(&addr->u.ipv4, addrs->ai_addr, sizeof(addr->u.ipv4));
+        addr->u.ipv4.sin_port = htons(port);
     } else if (addrs->ai_addr->sa_family == AF_INET6) {
         addr->sin_len = sizeof(addr->u.ipv6);
         memcpy(&addr->u.ipv6, addrs->ai_addr, sizeof(addr->u.ipv6));
+        addr->u.ipv6.sin6_port = htons(port);
     } else {
         freeaddrinfo(addrs);
         return -1;
