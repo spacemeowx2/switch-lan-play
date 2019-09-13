@@ -46,6 +46,13 @@ function addr2str (rinfo: AddressInfo) {
   return `${rinfo.address}:${rinfo.port}`
 }
 
+function withTimeout<T> (promise: Promise<T>, ms: number) {
+  return new Promise<T>((res, rej) => {
+    promise.then(res, rej)
+    setTimeout(() => rej(new Error('Timeout')), ms)
+  })
+}
+
 function lookup4 (hostname: string, options: any, callback: (err: Error | null, address: string, family: number) => any) {
   callback(null, hostname, 4)
 }
@@ -205,7 +212,7 @@ export class SLPServer {
         const username = payload.slice(20).toString()
         let err = ''
         try {
-          if (await this.authProvider.verify(username, peer.challenge.slice(1), response)) {
+          if (await withTimeout(this.authProvider.verify(username, peer.challenge.slice(1), response), 5000)) {
             peer.user = new User(username)
           } else {
             err = 'Error when login: Wrong password'
