@@ -80,7 +80,7 @@ int lan_client_init(struct lan_play *lan_play)
             LLOG(LLOG_ERROR, "uv_udp_bind %d", ret);
         }
     } else {
-        if (lan_play->server_addr.sin_family == AF_INET6) {
+        if (lan_play->server_addr.u.addr.sa_family == AF_INET6) {
             struct sockaddr_in6 temp;
             uv_ip6_addr("0.0.0.0", 0, &temp);
             ret = uv_udp_bind(client, (struct sockaddr *)&temp, 0);

@@ -18,14 +18,11 @@
 
 const char *ip2str(struct slp_addr_in *addr)
 {
-    if (addr->sin_family != addr->u.addr.sa_family) {
-        return "Error: family mismatch";
-    }
-    if (addr->sin_family == AF_INET) {
+    if (addr->u.addr.sa_family == AF_INET) {
         static char str4[IP_STR_LEN];
         uv_ip4_name(&addr->u.ipv4, str4, sizeof(str4));
         return str4;
-    } else if (addr->sin_family == AF_INET6) {
+    } else if (addr->u.addr.sa_family == AF_INET6) {
         static char str6[IP6_STR_LEN];
         uv_ip6_name(&addr->u.ipv6, str6, sizeof(str6));
         return str6;
@@ -335,7 +332,6 @@ int parse_addr(const char *str, struct slp_addr_in *addr)
         return -1;
     }
 
-    addr->sin_family = addrs->ai_addr->sa_family;
     if (addrs->ai_addr->sa_family == AF_INET) {
         addr->sin_len = sizeof(addr->u.ipv4);
         memcpy(&addr->u.ipv4, addrs->ai_addr, sizeof(addr->u.ipv4));
