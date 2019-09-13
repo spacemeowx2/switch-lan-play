@@ -4,6 +4,7 @@
 #include <stdint.h>
 #ifdef __WIN32
 #include <ws2tcpip.h>
+typedef u_short sa_family_t
 #else
 #include <netinet/in.h>
 #endif
