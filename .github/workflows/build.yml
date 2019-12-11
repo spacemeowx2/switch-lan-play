@@ -43,7 +43,7 @@ jobs:
       uses: actions/upload-artifact@v1
       with:
         name: lan-play-windows
-        path: build/src/Debug/lan-play
+        path: build/src/Debug/lan-play.exe
   build-macos:
     runs-on: macos-latest
 
