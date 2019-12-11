@@ -11,7 +11,7 @@ jobs:
       with:
         submodules: true
     - name: install dependencies
-      run: sudo apt install libpcap-dev
+      run: sudo apt install -y libpcap-dev
     - name: make
       run: |
         mkdir build

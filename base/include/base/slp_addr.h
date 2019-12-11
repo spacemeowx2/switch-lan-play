@@ -2,7 +2,9 @@
 #define SLP_ADDR_H
 
 #include <stdint.h>
+#if !defined(_WIN32)
 #include <netinet/in.h>
+#endif
 
 struct slp_addr_in {
 	int8_t sin_len;
