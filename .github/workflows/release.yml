@@ -1,0 +1,100 @@
+name: Release
+
+on:
+  push:
+    tags:
+    - 'v*'
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v1
+      with:
+        submodules: true
+    - name: install dependencies
+      run: sudo apt install -y libpcap-dev
+    - name: make
+      run: |
+        mkdir build
+        cd build
+        cmake -DCMAKE_BUILD_TYPE=Release ..
+        make
+    - name: upload built files
+      uses: actions/upload-artifact@v1
+      with:
+        name: lan-play-linux
+        path: build/src/lan-play
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+    - uses: actions/checkout@v1
+      with:
+        submodules: true
+    - name: Setup MSBuild.exe
+      uses: warrenbuckley/Setup-MSBuild@v1
+    - name: make
+      run: |
+        mkdir build
+        cd build
+        cmake -DCMAKE_BUILD_TYPE=Release ..
+        MSBuild SwitchLanPlay.sln
+
+    - name: upload built files
+      uses: actions/upload-artifact@v1
+      with:
+        name: lan-play-windows
+        path: build/src/Debug/lan-play.exe
+  build-macos:
+    runs-on: macos-latest
+
+    steps:
+    - uses: actions/checkout@v1
+      with:
+        submodules: true
+    - name: make
+      run: |
+        mkdir build
+        cd build
+        cmake -DCMAKE_BUILD_TYPE=Release ..
+        make
+
+    - name: upload built files
+      uses: actions/upload-artifact@v1
+      with:
+        name: lan-play-macos
+        path: build/src/lan-play
+  release:
+    runs-on: ubuntu-latest
+    needs: [build-linux, build-windows, build-macos]
+
+    steps:
+    - name: Set env
+      run: echo ::set-env name=RELEASE_VERSION::$(echo ${GITHUB_REF:10})
+################################################################################
+    - uses: actions/download-artifact@v1
+      with:
+        name: lan-play-linux
+        path: lan-play-linux
+    - uses: actions/download-artifact@v1
+      with:
+        name: lan-play-windows
+        path: lan-play-windows
+    - uses: actions/download-artifact@v1
+      with:
+        name: lan-play-macos
+        path: lan-play-macos
+################################################################################
+    - name: rename
+      run: |
+        mv ./lan-play-windows/lan-play.exe ./lan-play-windows/lan-play-win64.exe
+        mv ./lan-play-linux/lan-play ./lan-play-linux/lan-play-linux
+        mv ./lan-play-macos/lan-play ./lan-play-macos/lan-play-macos
+    - name: Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: "**/lan-play-*"
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
