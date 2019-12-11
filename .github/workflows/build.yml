@@ -1,0 +1,55 @@
+name: Build
+
+on: [push]
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v1
+      with:
+        submodules: true
+    - name: make
+      run: |
+        mkdir build
+        cd build
+        cmake ..
+        make
+    - name: upload built files
+      uses: actions/upload-artifact@v1
+      with:
+        name: sdcard
+        path: build/src/lan-play
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+    - uses: actions/checkout@v1
+      with:
+        submodules: true
+    - name: make
+      run: |
+        mkdir build
+        cd build
+        cmake ..
+        MSBuild SwitchLanPlay.sln
+  build-macos:
+    runs-on: macos-latest
+
+    steps:
+    - uses: actions/checkout@v1
+      with:
+        submodules: true
+    - name: make
+      run: |
+        mkdir build
+        cd build
+        cmake ..
+        make
+
+    - name: upload built files
+      uses: actions/upload-artifact@v1
+      with:
+        name: sdcard
+        path: build/src/lan-play
