@@ -2,13 +2,16 @@
 #define SLP_ADDR_H
 
 #include <stdint.h>
-#if !defined(_WIN32)
+#if defined(_WIN32)
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#else
 #include <netinet/in.h>
 #endif
 
 struct slp_addr_in {
 	int8_t sin_len;
-    sa_family_t sin_family;
+    uint16_t sin_family;
     union {
         struct sockaddr addr;
         struct sockaddr_in6 ipv6;
