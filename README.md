@@ -1,5 +1,5 @@
 # switch-lan-play
-[![Build status](https://drone.imspace.cn:444/api/badges/spacemeowx2/switch-lan-play/status.svg)](https://drone.imspace.cn:444/spacemeowx2/switch-lan-play)
+[![Build status](https://github.com/spacemeowx2/switch-lan-play/workflows/Build/badge.svg)](https://github.com/spacemeowx2/switch-lan-play/actions?query=workflow%3ABuild)
 [![Chat on discord](https://img.shields.io/badge/chat-on%20discord-7289da.svg)](https://discord.gg/zEMCu5n)
 
 Make you and your friends play games like in a LAN.
@@ -29,7 +29,7 @@ Your PC and Switch **must** be connected to the same router.
 
 2. Download the latest `lan-play.exe` from https://github.com/spacemeowx2/switch-lan-play/releases
 
-3. Run lan-play.exe 
+3. Run lan-play.exe
 
 After that, you will prompted to enter a server as shown below:
 
