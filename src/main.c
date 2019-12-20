@@ -211,7 +211,6 @@ void print_help(const char *name)
         "        [--username <username>]\n"
         "        [--password <password>]\n"
         "        [--password-file <password-file>]\n"
-        "        [--netif <netif>]\n"
         "        [--list-if]\n"
         "        [--pmtu <pmtu>]\n"
         "        [--socks5-server-addr <addr>]\n"
