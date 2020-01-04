@@ -91,7 +91,7 @@ int parse_arguments(int argc, char **argv)
             options.version = 1;
         } else if (!strcmp(arg, "--netif")) {
             CHECK_PARAM();
-            options.netif = argv[i + 1];
+            options.netif = strdup(argv[i + 1]);
             i++;
         // } else if (!strcmp(arg, "--netif-netmask")) {
         //     CHECK_PARAM();
@@ -309,9 +309,9 @@ int old_main()
     signal_int.data = lan_play;
 
     if (options.netif == NULL) {
-        printf("Interface not specified, opening all\n");
+        printf("Interface not specified, opening all interfaces\n");
     } else {
-        printf("Opening single interface");
+        printf("Opening single interface\n");
     }
     RT_ASSERT(lan_play_init(lan_play) == 0);
 
