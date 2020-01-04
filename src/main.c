@@ -64,6 +64,7 @@ int parse_arguments(int argc, char **argv)
     options.fake_internet = false;
     options.list_if = false;
 
+    options.netif = NULL;
     options.netif_ipaddr = NULL;
     options.netif_netmask = NULL;
 
@@ -88,10 +89,10 @@ int parse_arguments(int argc, char **argv)
             options.help = 1;
         } else if (!strcmp(arg, "--version")) {
             options.version = 1;
-        // } else if (!strcmp(arg, "--netif-ipaddr")) {
-        //     CHECK_PARAM();
-        //     options.netif_ipaddr = argv[i + 1];
-        //     i++;
+        } else if (!strcmp(arg, "--netif")) {
+            CHECK_PARAM();
+            options.netif = argv[i + 1];
+            i++;
         // } else if (!strcmp(arg, "--netif-netmask")) {
         //     CHECK_PARAM();
         //     options.netif_netmask = argv[i + 1];
@@ -205,7 +206,7 @@ void print_help(const char *name)
         "        [--version]\n"
         "        [--broadcast]\n"
         "        [--fake-internet]\n"
-        // "        [--netif-ipaddr <ipaddr>] default: 10.13.37.1\n"
+        "        [--netif <interface>] default: all\n"
         // "        [--netif-netmask <ipnetmask>] default: 255.255.0.0\n"
         "        [--relay-server-addr <addr>]\n"
         "        [--username <username>]\n"
@@ -307,7 +308,11 @@ int old_main()
     RT_ASSERT(uv_signal_start(&signal_int, lan_play_signal_cb, SIGINT) == 0);
     signal_int.data = lan_play;
 
-    printf("Opening interfaces\n");
+    if (options.netif == NULL) {
+        printf("Interface not specified, opening all\n");
+    } else {
+        printf("Opening single interface");
+    }
     RT_ASSERT(lan_play_init(lan_play) == 0);
 
     ret = uv_run(lan_play->loop, UV_RUN_DEFAULT);
