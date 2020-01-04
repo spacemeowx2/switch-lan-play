@@ -128,6 +128,12 @@ int uv_pcap_init(uv_loop_t *loop, uv_pcap_t *handle, uv_pcap_cb cb, char *netif)
 
     for (d = alldevs; d; d = d->next) {
         i++;
+        if (netif != NULL) {
+            int netif_index = atoi(netif);
+            if (i == netif_index) {
+                netif = strdup(d->name);
+            }
+        }
     }
     if (i == 0) {
         fprintf(stderr, "Error pcap_findalldevs 0 item\n");
@@ -135,16 +141,10 @@ int uv_pcap_init(uv_loop_t *loop, uv_pcap_t *handle, uv_pcap_cb cb, char *netif)
     }
     inner->interfaces = new uv_pcap_interf_t[i];
     i = 0;
-    if (netif != NULL) {
-        int sum = atoi(netif);
-        for (d = alldevs, i = 0; i < sum - 1; d = d->next, i++);
-        netif = strdup(d->name);
-    }
     for (d = alldevs; d; d = d->next) {
         pcap_t *dev;
         int ret;
         if (netif != NULL) {
-            printf("%s\n", netif);
             if (!strcmp(d->name, netif)) {
                 printf("found interface: %s\n", d->name);
                 // found requested interface
