@@ -93,6 +93,7 @@ struct cli_options {
     bool list_if;
 
     char *netif_ipaddr;
+    char *netif;
     char *netif_netmask;
 
     char *relay_server_addr;

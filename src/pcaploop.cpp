@@ -112,12 +112,11 @@ int uv_pcap_sendpacket(uv_pcap_t *handle, const u_char *data, int size)
     return 0;
 }
 
-int uv_pcap_init(uv_loop_t *loop, uv_pcap_t *handle, uv_pcap_cb cb)
+int uv_pcap_init(uv_loop_t *loop, uv_pcap_t *handle, uv_pcap_cb cb, char *netif)
 {
     handle->cb = cb;
     handle->inner = new uv_pcap_inner;
     auto inner = handle->inner;
-
     pcap_if_t *alldevs;
     char err_buf[PCAP_ERRBUF_SIZE];
     if (pcap_findalldevs(&alldevs, err_buf)) {
@@ -126,19 +125,73 @@ int uv_pcap_init(uv_loop_t *loop, uv_pcap_t *handle, uv_pcap_cb cb)
     }
     int i = 0;
     pcap_if_t *d;
+
     for (d = alldevs; d; d = d->next) {
         i++;
+        if (netif != NULL) {
+            int netif_index = atoi(netif);
+            if (i == netif_index) {
+                netif = strdup(d->name);
+            }
+        }
     }
     if (i == 0) {
         fprintf(stderr, "Error pcap_findalldevs 0 item\n");
         exit(1);
     }
-
     inner->interfaces = new uv_pcap_interf_t[i];
     i = 0;
     for (d = alldevs; d; d = d->next) {
         pcap_t *dev;
         int ret;
+        if (netif != NULL) {
+            if (!strcmp(d->name, netif)) {
+                printf("found interface: %s\n", d->name);
+                // found requested interface
+                dev = pcap_open_live(d->name, 65535, 1, 500, err_buf);
+                if (!dev) {
+                    LLOG(LLOG_DEBUG, "open %s fail", d->name);
+                    goto fail_single;
+                }
+
+                auto datalink = pcap_datalink(dev);
+                if (datalink != DLT_EN10MB) {
+                    LLOG(LLOG_DEBUG, "open specified interface: %s fail: datalink(%d)", d->name, datalink);
+                    goto fail_single;
+                }
+
+                uint8_t mac[6];
+                if (get_mac_address(d, dev, mac) != 0) {
+                    LLOG(LLOG_DEBUG, "open specified interface: %s fail: get mac", d->name);
+                    goto fail_single;
+                }
+                if (memcmp(EmptyMac, mac, 6) == 0) {
+                    LLOG(LLOG_DEBUG, "open specified interface: %s fail: get all zero mac", d->name);
+                    goto fail_single;
+                }
+
+                set_filter(dev, mac);
+
+                if (set_immediate_mode(dev) == -1) {
+                    LLOG(LLOG_DEBUG, "open specified interface: %s fail: set_immediate_mode %s", d->name, strerror(errno));
+                    goto fail_single;
+                }
+
+                ret = uv_pcap_interf_init(loop, &inner->interfaces[i], uv_pcap_callback, dev, mac);
+                if (ret) {
+                    LLOG(LLOG_DEBUG, "open specified interface: %s fail: pcap init", d->name);
+                    goto fail_single;
+                }
+                inner->interfaces[i].data = handle;
+                i++;
+                LLOG(LLOG_DEBUG, "open specified interface: %s ok", d->name);
+                break;
+            }
+            continue;
+            fail_single:
+                pcap_close(dev);
+                break;
+        }
 
         dev = pcap_open_live(d->name, 65535, 1, 500, err_buf);
         if (!dev) {

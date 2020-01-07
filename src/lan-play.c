@@ -7,9 +7,9 @@ struct lan_play real_lan_play;
 uint8_t SEND_BUFFER[BUFFER_SIZE];
 void lan_play_pcap_handler(uv_pcap_t *handle, const struct pcap_pkthdr *pkt_header, const u_char *packet, const uint8_t *mac);
 
-int init_pcap(struct lan_play *lan_play)
+int init_pcap(struct lan_play *lan_play, char *netif)
 {
-    int ret = uv_pcap_init(lan_play->loop, &lan_play->pcap, lan_play_pcap_handler);
+    int ret = uv_pcap_init(lan_play->loop, &lan_play->pcap, lan_play_pcap_handler, netif);
     if (ret != 0) {
         RETURN_ERR(lan_play, "failed at uv_pcap_init");
     };
@@ -75,7 +75,7 @@ int lan_play_init(struct lan_play *lan_play)
         SHA1Final(lan_play->key, &hashctx);
     }
 
-    ret = init_pcap(lan_play);
+    ret = init_pcap(lan_play, options.netif);
     if (ret != 0) return ret;
 
     CPY_IPV4(ip, str2ip(SERVER_IP));
