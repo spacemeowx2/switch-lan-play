@@ -100,8 +100,10 @@ int lan_play_init(struct lan_play *lan_play)
     }
 
     struct slp_addr_in proxy_server;
+    struct slp_addr_in *proxy_server_ptr = NULL;
     if (options.socks5_server_addr) {
-        if (parse_addr(options.socks5_server_addr, &proxy_server) != 0) {
+        proxy_server_ptr = &proxy_server;
+        if (parse_addr(options.socks5_server_addr, proxy_server_ptr) != 0) {
             RETURN_ERR(lan_play, "Failed to parse and get ip address. --socks5-server-addr: %s", options.socks5_server_addr);
         }
     }
@@ -109,7 +111,7 @@ int lan_play_init(struct lan_play *lan_play)
         &lan_play->gateway,
         &lan_play->packet_ctx,
         options.fake_internet,
-        &proxy_server,
+        proxy_server_ptr,
         options.socks5_username,
         options.socks5_password
     );
