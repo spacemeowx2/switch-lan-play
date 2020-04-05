@@ -262,7 +262,7 @@ int lan_client_process_frag(struct lan_play *lan_play, const uint8_t *packet, ui
     header.len = READ_NET16(packet, LC_FRAG_LEN);
     header.pmtu = READ_NET16(packet, LC_FRAG_PMTU);
 
-    LLOG(LLOG_DEBUG, "lan_client_process_frag %d:%d/%d", header.id, header.part, header.total_part);
+    // LLOG(LLOG_DEBUG, "lan_client_process_frag %d:%d/%d", header.id, header.part, header.total_part);
     struct lan_client_fragment *frag = NULL;
     int i;
     for (i = 0; i < LC_FRAG_COUNT; i++) {
@@ -318,7 +318,7 @@ int lan_client_process_frag(struct lan_play *lan_play, const uint8_t *packet, ui
             frag->total_len = (header.total_part - 1) * header.pmtu + header.len;
         }
         if (~(~0 << header.total_part) == frag->part) {
-            LLOG(LLOG_DEBUG, "fragment finish %d, origin len %d", frag->id, frag->total_len);
+            // LLOG(LLOG_DEBUG, "fragment finish %d, origin len %d", frag->id, frag->total_len);
             // finish
             frag->used = 0;
             return lan_client_process(lan_play, frag->buffer, frag->total_len);
