@@ -33,7 +33,7 @@ function main(argv: string[]) {
     output: process.stdout
   });
 
-  let port: string | undefined = undefined;
+  let port: string | undefined;
   const getPort = () => {
     return new Promise((resolve, reject) => {
       rl.question('Please input the server port(default is 11451 or your first parameter) :', (answer: string) => {
@@ -43,7 +43,7 @@ function main(argv: string[]) {
     })
   }
 
-  let username: string | undefined = undefined;
+  let username: string | undefined;
   const getUsername = () => {
     return new Promise((resolve, reject) => {
       rl.question('Please input the auth username(default is empty) :', (answer: string) => {
@@ -53,7 +53,7 @@ function main(argv: string[]) {
     })
   }
 
-  let password: string | undefined = undefined;
+  let password: string | undefined;
   const getPassword = () => {
     return new Promise((resolve, reject) => {
       rl.question('Please input the auth password(default is empty) :', (answer: string) => {
