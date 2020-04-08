@@ -154,7 +154,8 @@ npm run build # build ts to js. run it again when code changed.
 npm start
 ```
 
-The server will listen to port `11451/udp`.
+The server will ask you the server port and auth info. You can skip it and press enter directly.
+The server will listen to port `11451/udp` as default.
 
 Meanwhile the monitor service will be started on port `11451/tcp` by default, you can get online client count via HTTP request:
 
