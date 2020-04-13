@@ -154,7 +154,20 @@ npm run build # build ts to js. run it again when code changed.
 npm start
 ```
 
-The server will listen to port `11451/udp`.
+Use `--port` pass the port parameter, or else it will use  `11451/udp` as default.
+
+Use `--simpleAuth` pass the auth via username and password, or else there's no authentication.
+
+Use `--httpAuth` pass the auth via http url, or else there's no authentication.
+
+Use `--jsonAuth` pass the auth via json file, or else there's no authentication.
+
+Example:
+
+```sh
+npm run build
+npm start -- --port 10086 --simpleAuth username:password
+```
 
 Meanwhile the monitor service will be started on port `11451/tcp` by default, you can get online client count via HTTP request:
 
