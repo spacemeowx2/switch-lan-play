@@ -25,11 +25,13 @@ Your PC and Switch **must** be connected to the same router.
 
 ## 1. Windows Client
 
-1. Download and install WinPcap from https://www.winpcap.org/install/default.htm
+1. Download and run latest [Npcap](https://nmap.org/npcap/#download) installer.
 
-2. Download the latest `lan-play.exe` from https://github.com/spacemeowx2/switch-lan-play/releases
+2. Must check **Installed in WinPcap API-compatible mode.** in Npcap installation wizard.
 
-3. Run lan-play.exe
+3. Download the latest `lan-play.exe` from [releases](https://github.com/spacemeowx2/switch-lan-play/releases)
+
+4. Run `lan-play.exe`
 
 After that, you will prompted to enter a server as shown below:
 
