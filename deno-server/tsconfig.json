@@ -1,0 +1,20 @@
+{
+  "compilerOptions": {
+    "module": "commonjs",
+    "noImplicitAny": true,
+    "removeComments": true,
+    "preserveConstEnums": true,
+    "sourceMap": true,
+    "esModuleInterop": true,
+    // "baseUrl": "src",
+    "outDir": "dist",
+    "lib": [
+      "es2015"
+    ],
+    "target": "es6",
+    "strict": true
+  },
+  "include": [
+    "./src/**/*.ts"
+  ]
+}
