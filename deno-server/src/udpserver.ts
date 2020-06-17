@@ -262,7 +262,7 @@ export class SLPServer {
     }
   }
   onPing (rinfo: Deno.NetAddr, msg: Uint8Array) {
-    this.sendToRaw(rinfo, msg.slice(0, 4))
+    this.sendToRaw(rinfo, msg.slice(0, 5))
   }
   onIpv4 (peer: Peer, payload: Uint8Array) {
     if (payload.length <= 20) { // packet too short, ignore

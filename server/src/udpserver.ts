@@ -261,7 +261,7 @@ export class SLPServer {
     }
   }
   onPing (rinfo: AddressInfo, msg: Buffer) {
-    this.sendToRaw(rinfo, msg.slice(0, 4))
+    this.sendToRaw(rinfo, msg.slice(0, 5))
   }
   onIpv4 (peer: Peer, payload: Buffer) {
     if (payload.length <= 20) { // packet too short, ignore
