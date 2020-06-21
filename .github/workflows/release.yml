@@ -40,13 +40,13 @@ jobs:
         mkdir build
         cd build
         cmake -DCMAKE_BUILD_TYPE=Release ..
-        MSBuild SwitchLanPlay.sln
+        MSBuild SwitchLanPlay.sln /t:Build /p:Configuration=Release
 
     - name: upload built files
       uses: actions/upload-artifact@v1
       with:
         name: lan-play-windows
-        path: build/src/Debug/lan-play.exe
+        path: build/src/Release/lan-play.exe
   build-macos:
     runs-on: macos-latest
 
