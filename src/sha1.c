@@ -134,7 +134,7 @@ uint32_t j;
 
     j = context->count[0];
     if ((context->count[0] += len << 3) < j)
-	context->count[1]++;
+    context->count[1]++;
     context->count[1] += (len>>29);
     j = (j >> 3) & 63;
     if ((j + len) > 63) {
@@ -158,7 +158,8 @@ unsigned i;
 unsigned char finalcount[8];
 unsigned char c;
 
-#if 0	/* untested "improvement" by DHR */
+#if 0
+    /* untested "improvement" by DHR */
     /* Convert context->count to a sequence of bytes
      * in finalcount.  Second element first, but
      * big-endian order within element.
@@ -168,11 +169,11 @@ unsigned char c;
 
     for (i = 0; i < 2; i++)
     {
-	uint32_t t = context->count[i];
-	int j;
+        uint32_t t = context->count[i];
+        int j;
 
-	for (j = 0; j < 4; t >>= 8, j++)
-	    *--fcp = (unsigned char) t
+        for (j = 0; j < 4; t >>= 8, j++)
+            *--fcp = (unsigned char) t
     }
 #else
     for (i = 0; i < 8; i++) {
@@ -183,7 +184,7 @@ unsigned char c;
     c = 0200;
     SHA1Update(context, &c, 1);
     while ((context->count[0] & 504) != 448) {
-	c = 0000;
+        c = 0000;
         SHA1Update(context, &c, 1);
     }
     SHA1Update(context, finalcount, 8);  /* Should cause a SHA1Transform() */
