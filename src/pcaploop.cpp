@@ -121,11 +121,54 @@ int uv_pcap_open_live(
     int ret;
     int datalink;
     pcap_t *dev;
-    dev = pcap_open_live(d->name, 65535, 1, 500, err_buf);
+    int rc;
+
+    dev = pcap_create(d->name, err_buf);
     if (!dev) {
-        LLOG(LLOG_DEBUG, "open %s fail", d->name);
+        LLOG(LLOG_DEBUG, "open %s fail: pcap_create", d->name);
         return -1;
     }
+	if (pcap_set_timeout(dev, 500)) {
+        LLOG(LLOG_DEBUG, "open %s fail: pcap_set_timeout", d->name);
+		goto fail;
+	}
+	if (pcap_set_immediate_mode(dev, 1)) {
+        LLOG(LLOG_DEBUG, "open %s fail: pcap_set_immediate_mode", d->name);
+		goto fail;
+	}
+	if (pcap_set_snaplen(dev, 65535)) {
+        LLOG(LLOG_DEBUG, "open %s fail: pcap_set_snaplen", d->name);
+		goto fail;
+	}
+	// if (pcap_set_buffer_size(dev, 100000)) {
+    //     LLOG(LLOG_DEBUG, "open %s fail: pcap_set_buffer_size", d->name);
+	// 	goto fail;
+	// }
+	if (pcap_set_promisc(dev, 1)) {
+        LLOG(LLOG_DEBUG, "open %s fail: pcap_set_promisc", d->name);
+		goto fail;
+	}
+
+    rc = pcap_activate(dev);
+	if (rc > 0) {		// pcap warning
+		switch (rc) {
+		case PCAP_WARNING_PROMISC_NOTSUP:
+            LLOG(LLOG_DEBUG, "open %s fail: PCAP_WARNING_PROMISC_NOTSUP", d->name);
+            goto fail;
+		case PCAP_WARNING_TSTAMP_TYPE_NOTSUP:
+            LLOG(LLOG_DEBUG, "open %s fail: PCAP_WARNING_TSTAMP_TYPE_NOTSUP", d->name);
+			break;
+		case PCAP_WARNING:
+            LLOG(LLOG_DEBUG, "open %s fail: PCAP_WARNING: %s", d->name, pcap_geterr(dev));
+			break;
+		default:
+ 			LLOG(LLOG_DEBUG, "open %s fail: pcap_activate unknown warning");
+            goto fail;
+		}
+	} else if (rc < 0) {	// pcap error
+        LLOG(LLOG_DEBUG, "open %s fail: pcap_activate error %d: %s", d->name, rc, pcap_geterr(dev));
+		goto fail;
+	}
 
     datalink = pcap_datalink(dev);
     if (datalink != DLT_EN10MB) {
