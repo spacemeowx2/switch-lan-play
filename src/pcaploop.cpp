@@ -132,10 +132,10 @@ int uv_pcap_open_live(
         LLOG(LLOG_DEBUG, "open %s fail: pcap_set_timeout", d->name);
         goto fail;
     }
-    if (pcap_set_immediate_mode(dev, 1)) {
-        LLOG(LLOG_DEBUG, "open %s fail: pcap_set_immediate_mode", d->name);
-        goto fail;
-    }
+    // if (pcap_set_immediate_mode(dev, 1)) {
+    //     LLOG(LLOG_DEBUG, "open %s fail: pcap_set_immediate_mode", d->name);
+    //     goto fail;
+    // }
     if (pcap_set_snaplen(dev, 65535)) {
         LLOG(LLOG_DEBUG, "open %s fail: pcap_set_snaplen", d->name);
         goto fail;
@@ -155,9 +155,9 @@ int uv_pcap_open_live(
         case PCAP_WARNING_PROMISC_NOTSUP:
             LLOG(LLOG_DEBUG, "open %s fail: PCAP_WARNING_PROMISC_NOTSUP", d->name);
             goto fail;
-        case PCAP_WARNING_TSTAMP_TYPE_NOTSUP:
-            LLOG(LLOG_DEBUG, "open %s fail: PCAP_WARNING_TSTAMP_TYPE_NOTSUP", d->name);
-            break;
+        // case PCAP_WARNING_TSTAMP_TYPE_NOTSUP:
+        //     LLOG(LLOG_DEBUG, "open %s fail: PCAP_WARNING_TSTAMP_TYPE_NOTSUP", d->name);
+        //     break;
         case PCAP_WARNING:
             LLOG(LLOG_DEBUG, "open %s fail: PCAP_WARNING: %s", d->name, pcap_geterr(dev));
             break;

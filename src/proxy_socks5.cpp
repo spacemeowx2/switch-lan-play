@@ -124,7 +124,7 @@ class Socks5Protocol {
             UnexpectLength
         };
         using ReadyCallback = std::function<void(std::shared_ptr<uvw::TCPHandle> tcp)>;
-        using UDPReadyCallback = std::function<void(struct sockaddr addr)>;
+        using UDPReadyCallback = std::function<void(struct sockaddr_in addr)>;
         using ErrorCallback = std::function<void(ErrCode)>;
     protected:
         bool Assert(bool expression, ErrCode errCode) {
@@ -183,7 +183,8 @@ class Socks5Protocol {
                     RASSERT(e.length == 10, ErrCode::UnexpectLength);
                     ProtocolPacker unpacker{std::move(e.data), e.length};
                     uint8_t ver, rep, rsv, atyp;
-                    struct sockaddr_in addr;
+                    struct sockaddr_in addr = {0};
+                    addr.sin_family = AF_INET;
                     unpacker.readUint8(ver);
                     unpacker.readUint8(rep);
                     unpacker.readUint8(rsv);
@@ -193,7 +194,7 @@ class Socks5Protocol {
                     RASSERT(ver == 5, ErrCode::VersionMismatch);
                     RASSERT(rep == 0, ErrCode::UnexpectResponse);
                     RASSERT(atyp == 1, ErrCode::UnexpectAddressType);
-                    this->udpReadyCallback(*reinterpret_cast<sockaddr*>(&addr));
+                    this->udpReadyCallback(addr);
                 });
             });
         }
@@ -278,12 +279,13 @@ class Socks5ProxyUdp {
             protocol.onError([](Socks5Protocol::ErrCode code) {
                 LLOG(LLOG_DEBUG, "socks5 udp protocol error: %d", static_cast<int>(code));
             });
-            protocol.onUDPReady([this](struct sockaddr addr) {
+            protocol.onUDPReady([this](struct sockaddr_in addr) {
+                this->cfg.server.u.ipv4 = addr;
                 this->isReady = true;
                 this->udp->recv();
                 this->visit();
                 if (waitingData) {
-                    this->udp->send(cfg.server.u.addr, std::move(waitingData), waitingLength);
+                    this->udp->send(this->cfg.server.u.addr, std::move(waitingData), waitingLength);
                 }
             });
             struct sockaddr addr = {0};
@@ -346,7 +348,7 @@ class Socks5ProxyUdp {
             packer.writeRaw(dat, len);
 
             if (isReady) {
-                udp->send(cfg.server.u.addr, packer.ptr(), packer.length);
+                udp->send(this->cfg.server.u.addr, packer.ptr(), packer.length);
             } else {
                 this->waitingData = packer.ptr();
                 this->waitingLength = packer.length;
