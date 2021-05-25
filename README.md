@@ -2,6 +2,8 @@
 [![Build status](https://github.com/spacemeowx2/switch-lan-play/workflows/Build/badge.svg)](https://github.com/spacemeowx2/switch-lan-play/actions?query=workflow%3ABuild)
 [![Chat on discord](https://img.shields.io/badge/chat-on%20discord-7289da.svg)](https://discord.gg/zEMCu5n)
 
+English | [中文](README_zh.md)
+
 Make you and your friends play games like in a LAN.
 
 ```
