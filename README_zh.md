@@ -2,6 +2,8 @@
 [![Build status](https://github.com/spacemeowx2/switch-lan-play/workflows/Build/badge.svg)](https://github.com/spacemeowx2/switch-lan-play/actions?query=workflow%3ABuild)
 [![Chat on discord](https://img.shields.io/badge/chat-on%20discord-7289da.svg)](https://discord.gg/zEMCu5n)
 
+[English](README.md) | 中文
+
 Switch 虚拟局域网联机工具，能让你和远方的朋友像在局域网里一样联机。
 
 ```
