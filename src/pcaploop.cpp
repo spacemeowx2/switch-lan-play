@@ -128,7 +128,7 @@ int uv_pcap_open_live(
         LLOG(LLOG_DEBUG, "open %s fail: pcap_create", d->name);
         return -1;
     }
-    if (pcap_set_timeout(dev, 500)) {
+    if (pcap_set_timeout(dev, 0)) {
         LLOG(LLOG_DEBUG, "open %s fail: pcap_set_timeout", d->name);
         goto fail;
     }
