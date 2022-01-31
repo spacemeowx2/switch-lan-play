@@ -30,7 +30,7 @@ jobs:
     - uses: actions/checkout@v1
       with:
         submodules: true
-    - name: Setup MSBuild.exe
+    - name: Setup msbuild.exe
       uses: microsoft/setup-msbuild@v1.1
     - name: make
       run: |
