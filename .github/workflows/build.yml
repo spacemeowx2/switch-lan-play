@@ -30,14 +30,14 @@ jobs:
     - uses: actions/checkout@v1
       with:
         submodules: true
-    - name: Setup MSBuild.exe
-      uses: warrenbuckley/Setup-MSBuild@v1
+    - name: Setup msbuild.exe
+      uses: microsoft/setup-msbuild@v1.1
     - name: make
       run: |
         mkdir build
         cd build
         cmake ..
-        MSBuild SwitchLanPlay.sln
+        msbuild SwitchLanPlay.sln
 
     - name: upload built files
       uses: actions/upload-artifact@v1
