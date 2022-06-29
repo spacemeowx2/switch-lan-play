@@ -25,54 +25,7 @@ To play with your friends, you and your friends should run lan-play client conne
 
 Your PC and Switch **must** be connected to the same router.
 
-## 1. Windows Client
-
-1. Download and run latest [Npcap](https://nmap.org/npcap/#download) installer.
-
-2. Must check **Installed in WinPcap API-compatible mode.** in Npcap installation wizard.
-
-3. Download the latest `lan-play.exe` from [releases](https://github.com/spacemeowx2/switch-lan-play/releases)
-
-4. Run `lan-play.exe`
-
-After that, you will prompted to enter a server as shown below:
-
-```
---relay-server-addr is required
-Input the relay server address [ domain/ip:port ]:
-```
-You can find a list with public servers here:
-https://www.lan-play.com/
-
-Optionally you can go to the Switch Lan Play Discord to find people to match make:
-https://discord.gg/zEMCu5n
-
-## 2. Switch
-
-0. Make sure lan-play client is running.
-
-1. Go to your Switch settings page, set the IP address to static. The IP address can be any from `10.13.0.1` to `10.13.255.254`, excepting `10.13.37.1`. But don't use the same IP address with your friend.
-
-    <table>
-        <tbody>
-            <tr>
-                <td>IP Address</td>
-                <td>10.13.?.?</td>
-            </tr>
-            <tr>
-                <td>Subnet Mask</td>
-                <td>255.255.0.0</td>
-            </tr>
-            <tr>
-                <td>Gateway</td>
-                <td>10.13.37.1</td>
-            </tr>
-        </tbody>
-    </table>
-
-2. Click save. Your Switch now can access the Internet via your PC.
-
-3. Launch your game, hold L+R+LStick to enter lan-play mode. Host or join a game, enjoy!
+Visit [https://www.lan-play.com/](http://lan-play.com/install-switch) for steps on how to set this up. See below for build instructions.
 
 ## SOCKS5 Proxy
 
