@@ -1,7 +1,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_RELEASE:=1
-PKG_VERSION:=0.0.7
+PKG_VERSION:=0.2.3
 PKG_NAME:=switch-lan-play
 PKG_BUILD_DIR:=$(BUILD_DIR)/$(PKG_NAME)-$(PKG_VERSION)
 
@@ -14,7 +14,7 @@ define Package/$(PKG_NAME)
 	SECTION:=net
 	CATEGORY:=Network
 	SUBMENU:=Lan-play
-	DEPENDS:=+libpcap +libpthread
+	DEPENDS:=+libstdcpp +libatomic +libpcap +libpthread
 	TITLE:=Switch Lan Play Client
 endef
 

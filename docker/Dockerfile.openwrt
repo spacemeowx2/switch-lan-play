@@ -1,12 +1,12 @@
 # docker build -t test -f Dockerfile.openwrt ..
 
-FROM alpine:3.8
+FROM alpine:3.17
 
-ARG NAME=openwrt-sdk-18.06.1-ramips-mt7621_gcc-7.3.0_musl.Linux-x86_64
-ARG SDK_URL=http://openwrt.proxy.ustclug.org/releases/18.06.1/targets/ramips/mt7621/${NAME}.tar.xz
+ARG NAME=openwrt-imagebuilder-22.03.3-ramips-mt7621.Linux-x86_64
+ARG SDK_URL=https://mirrors.cloud.tencent.com/openwrt/releases/22.03.3/targets/ramips/mt7621/${NAME}.tar.xz
 ARG SDK_PATH=/sdk/${NAME}
 
-RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.ustc.edu.cn/g' /etc/apk/repositories
+RUN sed -i 's|dl-cdn.alpinelinux.org|mirrors.cloud.tencent.com/alpine|g' /etc/apk/repositories
 
 RUN apk add --no-cache curl
 RUN mkdir /sdk
