@@ -1,0 +1,82 @@
+name: OpenWRT
+
+on:
+  push:
+    tags:
+    - 'v*'
+
+jobs:
+  release:
+    name: Build and Release for ${{ matrix.arch }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: aarch64_cortex-a53
+            sdk_url_path: https://downloads.openwrt.org/releases/24.10.0/targets/bcm27xx/bcm2710
+            sdk_name: -sdk-24.10.0-bcm27xx-bcm2710_
+          - arch: aarch64_cortex-a72
+            sdk_url_path: https://downloads.openwrt.org/releases/24.10.0/targets/mvebu/cortexa72
+            sdk_name: -sdk-24.10.0-mvebu-cortexa72_
+          - arch: arm_cortex-a7_neon-vfpv4
+            sdk_url_path: https://downloads.openwrt.org/releases/24.10.0/targets/bcm27xx/bcm2709
+            sdk_name: -sdk-24.10.0-bcm27xx-bcm2709_
+          - arch: mipsel_24kc
+            sdk_url_path: https://downloads.openwrt.org/releases/24.10.0/targets/ramips/mt7621
+            sdk_name: -sdk-24.10.0-ramips-mt7621_
+          - arch: x86_64
+            sdk_url_path: https://downloads.openwrt.org/releases/24.10.0/targets/x86/64
+            sdk_name: -sdk-24.10.0-x86-64_
+
+    env:
+      PACKAGE_NAME: switch-lan-play
+      SDK_URL_PATH: ${{ matrix.sdk_url_path }}
+      SDK_NAME: ${{ matrix.sdk_name }}
+      ARCH: ${{ matrix.arch }}
+      CACHE_DIR: ~/cache
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -yq gettext libncurses5-dev rsync xsltproc
+      - name: Create Directories
+        run: |
+          echo "SDK_HOME=$(mktemp -d)" >> $GITHUB_ENV
+          echo "SDK_DL_DIR=$(mktemp -d)" >> $GITHUB_ENV
+      - name: Prepare Build Environment
+        run: |
+          cd "$SDK_DL_DIR"
+          if ! ( wget -q -O - "$SDK_URL_PATH/sha256sums" | grep -- "$SDK_NAME" > sha256sums.small 2>/dev/null ) ; then
+            echo "Can not find ${SDK_NAME} file in sha256sums."
+            exit 1
+          fi
+          SDK_FILE="$(cat sha256sums.small | cut -d' ' -f2 | sed 's/*//g')"
+          wget -q -O "$SDK_FILE" "$SDK_URL_PATH/$SDK_FILE"
+          if ! sha256sum -c ./sha256sums.small >/dev/null 2>&1 ; then
+            echo "SDK can not be verified!"
+            exit 1
+          fi
+          tar -I zstd -xf "$SDK_DL_DIR/$SDK_FILE" -C "$SDK_HOME" --strip=1
+      - name: Build Packages
+        run: |
+          cd "$SDK_HOME"
+          ./scripts/feeds update base > /dev/null 2>&1
+          ./scripts/feeds install libpcap > /dev/null 2>&1
+          mkdir package/${PACKAGE_NAME}
+          cp -f ${{ github.workspace }}/docker/Makefile.openwrt package/${PACKAGE_NAME}/Makefile
+          ln -s ${{ github.workspace }} package/${PACKAGE_NAME}/switch-lan-play
+          make defconfig > /dev/null 2>&1
+          make package/${PACKAGE_NAME}/compile V=s > /dev/null
+          IPK_PATH=$(find "$SDK_HOME/bin" -type f -name "${PACKAGE_NAME}_*.ipk")
+          cp -f $IPK_PATH ${{ github.workspace }}
+      - name: Release and Upload Assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: "*.ipk"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
