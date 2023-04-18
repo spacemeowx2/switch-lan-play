@@ -7,7 +7,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v1
+    - uses: actions/checkout@v4
       with:
         submodules: true
     - name: install dependencies
@@ -19,7 +19,7 @@ jobs:
         cmake ..
         make
     - name: upload built files
-      uses: actions/upload-artifact@v1
+      uses: actions/upload-artifact@v4
       with:
         name: lan-play-linux
         path: build/src/lan-play
@@ -27,7 +27,7 @@ jobs:
     runs-on: windows-latest
 
     steps:
-    - uses: actions/checkout@v1
+    - uses: actions/checkout@v4
       with:
         submodules: true
     - name: Setup msbuild.exe
@@ -40,7 +40,7 @@ jobs:
         msbuild SwitchLanPlay.sln
 
     - name: upload built files
-      uses: actions/upload-artifact@v1
+      uses: actions/upload-artifact@v4
       with:
         name: lan-play-windows
         path: build/src/Debug/lan-play.exe
@@ -48,7 +48,7 @@ jobs:
     runs-on: macos-latest
 
     steps:
-    - uses: actions/checkout@v1
+    - uses: actions/checkout@v4
       with:
         submodules: true
     - name: make
@@ -59,7 +59,7 @@ jobs:
         make
 
     - name: upload built files
-      uses: actions/upload-artifact@v1
+      uses: actions/upload-artifact@v4
       with:
         name: lan-play-macos
         path: build/src/lan-play
