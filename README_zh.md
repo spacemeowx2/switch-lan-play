@@ -1,4 +1,5 @@
 # switch-lan-play
+
 [![Build status](https://github.com/spacemeowx2/switch-lan-play/workflows/Build/badge.svg)](https://github.com/spacemeowx2/switch-lan-play/actions?query=workflow%3ABuild)
 [![Chat on discord](https://img.shields.io/badge/chat-on%20discord-7289da.svg)](https://discord.gg/zEMCu5n)
 
@@ -29,7 +30,7 @@ Switch <-------->  PC(本工具)  <-------------------> 服务器
 
 1. 下载并安装最新的 [Npcap](https://nmap.org/npcap/#download)
 
-2. 安装 Npcap 的时候记得选择 **Installed in WinPcap API-compatible mode** (以 WinPcap API 兼容模式安装) 
+2. 安装 Npcap 的时候记得选择 **Installed in WinPcap API-compatible mode** (以 WinPcap API 兼容模式安装)
 
 3. 从 [releases](https://github.com/spacemeowx2/switch-lan-play/releases) 下载最新版 `lan-play.exe` 客户端
 
@@ -41,7 +42,7 @@ Switch <-------->  PC(本工具)  <-------------------> 服务器
 --relay-server-addr is required (必须输入 --relay-server-addr 参数)
 Input the relay server address [ domain/ip:port ]: (输入中继服务器地址)
 ```
-你可以从这个网站里提供的公共中继服务器列表中选择一个
+你可以从这个网站提供的公共中继服务器列表中选择一个
 https://www.lan-play.com/
 
 也可以到本项目的 Discord 群组里找人匹配
@@ -70,7 +71,7 @@ https://discord.gg/zEMCu5n
         </tbody>
     </table>
 
-2. 点击保存，这时候 Switch 会开始通过你的电脑上网。
+2. 点击保存，这时 Switch 会开始通过你的电脑上网。
 
 3. 启动游戏，然后按 L+R+LStick 进入局域网联机模式。
 

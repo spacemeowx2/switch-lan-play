@@ -1,10 +1,11 @@
 # switch-lan-play
+
 [![Build status](https://github.com/spacemeowx2/switch-lan-play/workflows/Build/badge.svg)](https://github.com/spacemeowx2/switch-lan-play/actions?query=workflow%3ABuild)
 [![Chat on discord](https://img.shields.io/badge/chat-on%20discord-7289da.svg)](https://discord.gg/zEMCu5n)
 
 English | [中文](README_zh.md)
 
-Make you and your friends play games like in a LAN.
+Enjoy playing games with your friends as if you were in a LAN.
 
 ```
                      Internet
@@ -21,7 +22,7 @@ Switch <-------->  PC(lan-play)  <-------------> Server
 
 # Usage
 
-To play with your friends, you and your friends should run lan-play client connecting to the **same** Server on your PC, and set static IP on your Switch.
+To play with your friends, you and your friends should run the lan-play client, connecting to the **same** server on your PC, and set a static IP on your Switch.
 
 Your PC and Switch **must** be connected to the same router.
 
@@ -42,7 +43,7 @@ Data sent to the relay server does not pass through the proxy.
 
 ## Ubuntu / Debian
 
-This project depends on libpcap, you can install libpcap0.8-dev on Ubuntu or Debian:
+This project depends on libpcap. You can install libpcap0.8-dev on Ubuntu or Debian:
 
 `sudo apt install libpcap0.8-dev git gcc g++ cmake`
 
@@ -111,13 +112,13 @@ npm run build # build ts to js. run it again when code changed.
 npm start
 ```
 
-Use `--port` pass the port parameter, or else it will use  `11451/udp` as default.
+Use `--port` pass the port parameter, otherwise it will use  `11451/udp` as default.
 
-Use `--simpleAuth` pass the auth via username and password, or else there's no authentication.
+Use `--simpleAuth` pass the auth via username and password, otherwise there's no authentication.
 
-Use `--httpAuth` pass the auth via http url, or else there's no authentication.
+Use `--httpAuth` pass the auth via http url, otherwise there's no authentication.
 
-Use `--jsonAuth` pass the auth via json file, or else there's no authentication.
+Use `--jsonAuth` pass the auth via json file, otherwise there's no authentication.
 
 Example:
 

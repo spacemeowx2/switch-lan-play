@@ -19,7 +19,7 @@ define Package/$(PKG_NAME)
 endef
 
 define Package/$(PKG_NAME)/description
-  Make you and your friends play games like in a LAN.
+  Enjoy playing games with your friends as if you were in a LAN.
 endef
 
 define Build/Prepare
