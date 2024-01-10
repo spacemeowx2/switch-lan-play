@@ -4,7 +4,7 @@
 
 English | [中文](README_zh.md)
 
-Make you and your friends play games like in a LAN.
+Enjoy games with your friends as if you were on a LAN.
 
 ```
                      Internet
@@ -16,16 +16,13 @@ Switch <-------->  PC(lan-play)  <-------------> Server
                                        UDP
 ```
 
-**NOTE:**
-* This project is in an early stage. The protocol may change frequently.
-
 # Usage
 
-To play with your friends, you and your friends should run lan-play client connecting to the **same** Server on your PC, and set static IP on your Switch.
+To play with your friends, both you and your friends need to run the lan-play client connecting to the **same** Server on your PCs, and set static IP on your Switch.
 
 Your PC and Switch **must** be connected to the same router.
 
-Visit [https://www.lan-play.com/](http://lan-play.com/install-switch) for steps on how to set this up. See below for build instructions.
+Visit [https://www.lan-play.com/](http://lan-play.com/install-switch) for instructions on how to set this up. See below for build instructions.
 
 ## SOCKS5 Proxy
 
@@ -46,7 +43,7 @@ This project depends on libpcap, you can install libpcap0.8-dev on Ubuntu or Deb
 
 `sudo apt install libpcap0.8-dev git gcc g++ cmake`
 
-Prepare a cmake, gcc, and run like this:
+Prepare cmake and gcc, then run the following:
 
 ```sh
 mkdir build
@@ -66,7 +63,7 @@ pacman -S make \
     mingw-w64-x86_64-gcc
 ```
 
-To compile 32bit program:
+To compile a 32-bit program:
 
 ```sh
 pacman -S mingw-w64-i686-cmake \
@@ -107,17 +104,17 @@ make
 git clone https://github.com/spacemeowx2/switch-lan-play
 cd switch-lan-play/server
 npm install
-npm run build # build ts to js. run it again when code changed.
+npm run build # build ts to js. run it again when code changes.
 npm start
 ```
 
-Use `--port` pass the port parameter, or else it will use  `11451/udp` as default.
+Use `--port` to pass the port parameter, or it will use `11451/udp` as the default.
 
-Use `--simpleAuth` pass the auth via username and password, or else there's no authentication.
+Use `--simpleAuth` to pass authentication via username and password, or there will be no authentication.
 
-Use `--httpAuth` pass the auth via http url, or else there's no authentication.
+Use `--httpAuth` to pass authentication via HTTP URL, or there will be no authentication.
 
-Use `--jsonAuth` pass the auth via json file, or else there's no authentication.
+Use `--jsonAuth` to pass authentication via JSON file, or there will be no authentication.
 
 Example:
 
@@ -126,7 +123,7 @@ npm run build
 npm start -- --port 10086 --simpleAuth username:password
 ```
 
-Meanwhile the monitor service will be started on port `11451/tcp` by default, you can get online client count via HTTP request:
+Meanwhile, the monitor service will start on port `11451/tcp` by default. You can get the online client count via an HTTP request:
 
 Request: `GET http://{YOUR_SERVER_IP}:11451/info`
 
@@ -135,7 +132,7 @@ Response: `{ "online": 42 }`
 
 # Protocol
 
-The protocol is very simple now, but I'm going to add some fileds to calculate network quality(packet loss, ping), like timestamp, seq_id, etc.
+The protocol is quite simple at the moment, but additional fields may be added to calculate network quality (packet loss, ping), such as timestamp, seq_id, etc.
 
 ```c
 struct packet {
@@ -153,4 +150,4 @@ enum type {
 };
 ```
 
-The server can read IP addresses from payload and save source IP -> LAN IP to a cache table. If target ip address shown in payload doesn't hit the cache, broadcast this packet to the entire room(now a server is a room).
+The server can read IP addresses from the payload and save the source IP -> LAN IP to a cache table. If the target IP address shown in the payload doesn't match the cache, the packet is broadcast to the entire room.

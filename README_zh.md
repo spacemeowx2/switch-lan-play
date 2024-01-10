@@ -16,9 +16,6 @@ Switch <-------->  PC(本工具)  <-------------------> 服务器
                                      UDP协议
 ```
 
-**注意:**
-* 这个项目正处于早期开发阶段，通信协议可能会频繁变化。
-
 # 用法
 
 本工具分为服务端和客户端，你和朋友要在**各自的电脑**上运行 lan-play 客户端，并连接到**同一个**服务器，最后给 Switch 设置静态 IP 上网。
@@ -29,7 +26,7 @@ Switch <-------->  PC(本工具)  <-------------------> 服务器
 
 1. 下载并安装最新的 [Npcap](https://nmap.org/npcap/#download)
 
-2. 安装 Npcap 的时候记得选择 **Installed in WinPcap API-compatible mode** (以 WinPcap API 兼容模式安装) 
+2. 安装 Npcap 的时候记得选择 **Installed in WinPcap API-compatible mode** (以 WinPcap API 兼容模式安装)
 
 3. 从 [releases](https://github.com/spacemeowx2/switch-lan-play/releases) 下载最新版 `lan-play.exe` 客户端
 
@@ -41,7 +38,7 @@ Switch <-------->  PC(本工具)  <-------------------> 服务器
 --relay-server-addr is required (必须输入 --relay-server-addr 参数)
 Input the relay server address [ domain/ip:port ]: (输入中继服务器地址)
 ```
-你可以从这个网站里提供的公共中继服务器列表中选择一个
+你可以从这个网站提供的公共中继服务器列表中选择一个
 https://www.lan-play.com/
 
 也可以到本项目的 Discord 群组里找人匹配
@@ -70,7 +67,7 @@ https://discord.gg/zEMCu5n
         </tbody>
     </table>
 
-2. 点击保存，这时候 Switch 会开始通过你的电脑上网。
+2. 点击保存，这时 Switch 会开始通过你的电脑上网。
 
 3. 启动游戏，然后按 L+R+LStick 进入局域网联机模式。
 
